@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
   connectEvents,
+  fetchHealth,
   fetchMetrics,
   fetchScene,
   fetchTwin,
@@ -34,10 +35,19 @@ export default function App() {
   const [connected, setConnected] = useState(false)
   const [busy, setBusy] = useState<'spike' | 'reconcile' | null>(null)
   const [flash, setFlash] = useState<string | null>(null)
+  const [version, setVersion] = useState<string | null>(null)
 
   useEffect(() => {
     let ws: WebSocket | null = null
     let closed = false
+
+    fetchHealth()
+      .then((data) => {
+        if (!closed) setVersion(data.version)
+      })
+      .catch(() => {
+        /* version optional while API boots */
+      })
 
     const refreshScene = () => {
       fetchScene()
@@ -195,7 +205,10 @@ export default function App() {
     <div className="page">
       <header className="hero">
         <div>
-          <p className="brand">TwinOps</p>
+          <p className="brand">
+            TwinOps
+            {version ? <span className="brand-ver"> v{version}</span> : null}
+          </p>
           <h1>Live digital twin control plane</h1>
           <p className="lede">
             Desired · Rendered · Observed — streaming reconciliation for industrial OpenUSD twins.
