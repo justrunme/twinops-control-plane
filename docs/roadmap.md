@@ -125,12 +125,12 @@ twinopsctl drift \
 
 ## Next focus (0.5.x → 0.6)
 
-Done in 0.5.x: apply `--verify`, MQTT ACL, Kit `--ws`, Helm umbrella + live stub,
+Done in 0.5.x: GHCR publish workflow, apply `--verify`, MQTT ACL, Kit `--ws`, Helm umbrella + live stub,
 lab MQTT TLS compose, Secret-mounted live API token, `liveAPITokenSecretRef`,
 `Chart.lock` / `make helm-deps`, `make demo-gitops`.
 
 1. Real Kit App Streaming session + browser WebRTC (still mock today)
-2. Published GHCR image tags for operator/live (local Docker tags already exist)
+2. Confirm GHCR package visibility after first `v*` publish (`docs/images.md`)
 3. Recorded 5–7 minute demo using `docs/demo-script.md` / `make demo-gitops`
 4. Live API mTLS / SSO (token + SecretRef remain the demo auth path)
 

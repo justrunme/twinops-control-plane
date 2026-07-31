@@ -25,4 +25,7 @@ Still experimental — mock PLM, mock Kit stream, anonymous MQTT for local demos
 EOF
 ```
 
-6. Optionally refresh the portfolio blurb on `justrunme-site` if the public story changed.
+6. Tag push triggers [publish-images.yml](.github/workflows/publish-images.yml) →
+   `ghcr.io/justrunme/twinops-live:X.Y.Z` and `twinops-operator:X.Y.Z`
+   (see [docs/images.md](docs/images.md); set package visibility if pulls should be public).
+7. Optionally refresh the portfolio blurb on `justrunme-site` if the public story changed.
