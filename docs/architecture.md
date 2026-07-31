@@ -14,7 +14,7 @@ reconcile against rendered stage and observed telemetry
 optionally serve an Omniverse runtime session
 ```
 
-## Current scope (Milestone 0–1)
+## Current scope (Milestone 0–2)
 
 ```text
 DigitalTwin YAML
@@ -26,14 +26,15 @@ DigitalTwin YAML
 └─────────┬───────────┘
           │
           ▼
-┌─────────────────────┐
-│ generated/          │
-│  root.usda          │
-│  plm-overlay.usda   │
-│  telemetry-overlay  │
-│  variant-overlay    │
-│  report.json        │
-└─────────────────────┘
+┌─────────────────────┐     ┌──────────────────────┐
+│ composed stage      │────▶│ twinopsctl drift     │
+│ root + overlays     │     │ desired/rendered/obs │
+└─────────────────────┘     └──────────┬───────────┘
+                                       │
+                          ┌────────────┼────────────┐
+                          ▼            ▼            ▼
+                     table/JSON   HTML report   reconcile
+                                                overlay+PR
 ```
 
 No Kubernetes, GPU, or Omniverse runtime is required for this path.

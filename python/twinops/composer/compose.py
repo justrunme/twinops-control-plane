@@ -9,6 +9,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from twinops import __version__
 from twinops.composer import usda
 from twinops.schema.manifest import DigitalTwinManifest
 from twinops.validate.report import ValidationIssue, validate_build
@@ -140,7 +141,7 @@ def compose_digital_twin(
             "name": manifest.name,
             "generatedAt": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
             "generator": "twinopsctl",
-            "generatorVersion": "0.1.0",
+            "generatorVersion": __version__,
         },
         "spec": {
             "variant": {

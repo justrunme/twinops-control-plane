@@ -69,21 +69,37 @@ make install
 make demo
 ```
 
-Or directly:
+`make demo` runs the self-healing scenario:
+
+1. Compose the assembly-line OpenUSD stage  
+2. Inject a stale PLM revision into the rendered scene  
+3. Compare desired / rendered / observed telemetry  
+4. Emit drift table, HTML dashboard, and a GitOps reconciliation proposal  
+
+Manual commands:
 
 ```bash
 twinopsctl build examples/assembly-line/twin.yaml --out examples/assembly-line/generated
+
+twinopsctl drift \
+  --desired examples/assembly-line/desired.yaml \
+  --stage examples/assembly-line/demo-run/stage/root.usda \
+  --observed examples/assembly-line/telemetry.json \
+  --manifest examples/assembly-line/twin.yaml \
+  --out examples/assembly-line/demo-run/drift \
+  --propose examples/assembly-line/demo-run/proposal
 ```
 
-Output:
+Artifacts:
 
 ```text
-examples/assembly-line/generated/
-├── root.usda
-├── plm-overlay.usda
-├── telemetry-overlay.usda
-├── variant-overlay.usda
-└── reconciliation-report.json
+examples/assembly-line/demo-run/
+├── stage/                     # composed USDA layers
+├── drift/drift-report.html    # color-coded dashboard
+└── proposal/
+    ├── reconcile-overlay.usda
+    ├── reconciliation-proposal.json
+    └── PULL_REQUEST.md
 ```
 
 Run tests:
@@ -137,8 +153,9 @@ The compiler turns this into OpenUSD overlay layers with `twinops:*` custom attr
 
 ```text
 twinops-control-plane/
-├── python/twinops/          # OpenUSD Digital Twin Compiler (Milestone 1)
+├── python/twinops/          # Compiler + drift engine + CLI
 ├── examples/assembly-line/  # Demo factory line + sample USDA
+├── scripts/                 # End-to-end demo scripts
 ├── docs/                    # Architecture, USD model, ADRs, roadmap
 ├── api/                     # Future Kubernetes CRD types (Go)
 ├── controllers/             # Future operator controllers
@@ -164,7 +181,7 @@ Robot → Conveyor → Scanner → Packaging
 4. Scene metadata highlights revision or telemetry drift  
 5. A reconciliation proposal restores the desired composition  
 
-Current milestone delivers steps 1–2 with a validation report. Drift CLI and operator come next.
+Milestones 1–2 deliver composition, drift detection, HTML report, and a reconciliation proposal. Kubernetes operator comes next.
 
 ---
 
@@ -174,7 +191,7 @@ Current milestone delivers steps 1–2 with a validation report. Drift CLI and o
 | --------- | ------------------------------------------ | ----------- |
 | 0         | Repository foundation, docs, sample scene  | **done**    |
 | 1         | OpenUSD Digital Twin Compiler + CLI        | **done**    |
-| 2         | Drift engine (desired / rendered / observed) | planned   |
+| 2         | Drift engine + reconcile proposal + demo   | **done**    |
 | 3         | Kubernetes operator + DigitalTwin CRD      | planned     |
 | 4         | Live MQTT telemetry adapter                | planned     |
 | 5         | Omniverse Kit extension (highlight + panel)| planned     |

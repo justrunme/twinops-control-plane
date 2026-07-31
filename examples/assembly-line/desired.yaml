@@ -1,4 +1,4 @@
-# Desired state snapshot used by the future drift engine (Milestone 2).
+# Desired state snapshot for three-way drift detection.
 apiVersion: twinops.io/v1alpha1
 kind: TwinDesiredState
 metadata:

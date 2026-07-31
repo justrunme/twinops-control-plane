@@ -16,18 +16,23 @@
 - Validation + reconciliation report
 - Unit tests + GitHub Actions CI
 
-## Milestone 2 — Drift engine
+## Milestone 2 — Drift engine ✅
 
 ```bash
 twinopsctl drift \
   --desired examples/assembly-line/desired.yaml \
   --stage examples/assembly-line/generated/root.usda \
-  --observed examples/assembly-line/telemetry.json
+  --observed examples/assembly-line/telemetry.json \
+  --manifest examples/assembly-line/twin.yaml \
+  --out examples/assembly-line/generated/drift \
+  --propose examples/assembly-line/generated/proposal
 ```
 
 - Desired / rendered / observed model
-- Policy thresholds
-- JSON + table output
+- Policy thresholds (warning / critical)
+- ASCII table + JSON + HTML dashboard
+- Reconciliation proposal (USD overlay + PR draft)
+- Self-healing demo script (`make demo`)
 - Tests
 
 ## Milestone 3 — Kubernetes operator
