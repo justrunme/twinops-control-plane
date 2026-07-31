@@ -310,6 +310,8 @@ export default function App() {
           {' · '}
           <a href="/openapi.json" target="_blank" rel="noreferrer">OpenAPI</a>
           {' · '}
+          <a href="/api/ready" target="_blank" rel="noreferrer">ready</a>
+          {' · '}
           <a href="/api/mqtt/topics" target="_blank" rel="noreferrer">MQTT</a>
         </span>
       </section>

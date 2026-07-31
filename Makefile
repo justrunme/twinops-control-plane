@@ -3,7 +3,7 @@ PIP ?= $(PYTHON) -m pip
 VENV ?= .venv
 BIN := $(VENV)/bin
 
-.PHONY: help venv install test lint build demo live-demo live-demo-smoke mqtt-up mqtt-down mqtt-smoke mqtt-topics mqtt-topics-sync drift serve web web-dev operator-build operator-run operator-demo operator-demo-watch operator-demo-cleanup scene scene-highlight plm-demo verify-all doctor health ready wait-ready timeline proposal metrics live-spike live-reconcile openapi version docker-live docker-operator docker-live-up docker-live-down go-test clean
+.PHONY: help venv install test lint build demo live-demo live-demo-smoke mqtt-up mqtt-down mqtt-smoke mqtt-topics mqtt-topics-sync mqtt-topics-check drift serve web web-dev operator-build operator-run operator-demo operator-demo-watch operator-demo-cleanup scene scene-highlight plm-demo verify-all doctor health ready wait-ready timeline proposal metrics live-spike live-reconcile openapi version docker-live docker-operator docker-live-up docker-live-down go-test clean
 
 help:
 	@echo "TwinOps targets:"
@@ -18,6 +18,7 @@ help:
 	@echo "  make mqtt-smoke      - Mosquitto bridge smoke (compose + subscribe)"
 	@echo "  make mqtt-topics     - print assembly-line MQTT topic catalog"
 	@echo "  make mqtt-topics-sync - rewrite examples/.../mqtt-topics.json from code"
+	@echo "  make mqtt-topics-check - fail if mqtt-topics.json is out of sync"
 	@echo "  make health          - probe live API /api/health on :8080"
 	@echo "  make ready           - probe live API /api/ready on :8080"
 	@echo "  make wait-ready      - poll /api/ready until twin is loaded"
@@ -90,6 +91,9 @@ mqtt-topics:
 
 mqtt-topics-sync:
 	$(BIN)/python scripts/sync_mqtt_topics.py
+
+mqtt-topics-check:
+	$(BIN)/python scripts/sync_mqtt_topics.py --check
 
 health:
 	$(BIN)/twinopsctl health --base-url http://127.0.0.1:8080
