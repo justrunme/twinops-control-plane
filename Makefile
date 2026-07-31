@@ -106,7 +106,8 @@ scene: drift
 		--observed examples/assembly-line/telemetry.json \
 		--manifest examples/assembly-line/twin.yaml \
 		--out examples/assembly-line/generated/scene.json \
-		--html examples/assembly-line/generated/scene.html
+		--html examples/assembly-line/generated/scene.html \
+		--strict
 
 plm-demo:
 	bash scripts/plm_change_demo.sh
@@ -121,10 +122,10 @@ version:
 	$(BIN)/twinopsctl version
 
 docker-live:
-	docker build -f Dockerfile.live -t twinops-live:0.3.1 .
+	docker build -f Dockerfile.live -t twinops-live:0.3.2 .
 
 docker-operator:
-	docker build -f Dockerfile.operator -t twinops-operator:0.3.1 .
+	docker build -f Dockerfile.operator -t twinops-operator:0.3.2 .
 
 drift:
 	$(BIN)/twinopsctl build examples/assembly-line/twin.yaml --out examples/assembly-line/generated
