@@ -4,6 +4,8 @@ All notable TwinOps changes are listed here. Dates are UTC.
 
 ## Unreleased
 
+- `twinopsctl apply --print-pr` suggests a manual gh pr create command
+
 ## 0.4.2 — 2026-07-31
 
 - `GET /api/proposal/latest/bundle` + `twinopsctl apply --from-url`

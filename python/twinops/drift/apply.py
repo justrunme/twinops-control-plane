@@ -193,3 +193,20 @@ def apply_proposal(
         commit_sha=commit_sha,
         files=files,
     )
+
+
+def render_pr_create_hint(result: ApplyResult) -> str:
+    """Return a suggested `gh pr create` command (never executed)."""
+    pr_md = result.target_dir / "PULL_REQUEST.md"
+    title = "TwinOps reconciliation proposal"
+    if pr_md.is_file():
+        for line in pr_md.read_text(encoding="utf-8").splitlines():
+            if line.startswith("# "):
+                title = line[2:].strip() or title
+                break
+    body_file = str(pr_md) if pr_md.is_file() else ""
+    body_flag = f' --body-file "{body_file}"' if body_file else ""
+    return (
+        f'gh pr create --title "{title}" --base main --head {result.branch}{body_flag}\n'
+        "# Review locally first; TwinOps never pushes or opens the PR for you."
+    )
