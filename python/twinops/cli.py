@@ -389,7 +389,7 @@ _twinopsctl_completions() {{
       ;;
     live)
       if [[ ${{COMP_CWORD}} -eq 2 ]]; then
-        COMPREPLY=( $(compgen -W "spike reconcile" -- "$cur") )
+        COMPREPLY=( $(compgen -W "status spike reconcile" -- "$cur") )
       fi
       ;;
     completion)
@@ -523,6 +523,44 @@ def _cmd_metrics(args: argparse.Namespace) -> int:
     print(f"mqttIngest: {payload.get('mqttIngestReceived')}")
     print(f"timeline: {payload.get('timelineEvents')}")
     return 0 if status == 200 else 1
+
+
+def _cmd_live_status(args: argparse.Namespace) -> int:
+    """Print a compact health/ready/metrics summary from a running live API."""
+    base = args.base_url.rstrip("/")
+    health_status, health_body = _fetch_json(f"{base}/api/health", timeout=args.timeout)
+    ready_status, ready_body = _fetch_json(f"{base}/api/ready", timeout=args.timeout)
+    metrics_status, metrics_body = _fetch_json(f"{base}/api/metrics", timeout=args.timeout)
+    if not health_body or not ready_body or not metrics_body:
+        return 1
+    if args.json:
+        payload = {
+            "health": json.loads(health_body),
+            "ready": json.loads(ready_body),
+            "metrics": json.loads(metrics_body),
+        }
+        print(json.dumps(payload, indent=2))
+        ok = (
+            health_status == 200
+            and ready_status == 200
+            and metrics_status == 200
+            and payload["ready"].get("status") == "ready"
+        )
+        return 0 if ok else 1
+    health = json.loads(health_body)
+    ready = json.loads(ready_body)
+    metrics = json.loads(metrics_body)
+    print(f"health:  {health.get('status')} version={health.get('version')}")
+    print(
+        f"ready:   {ready.get('status')} twin={ready.get('twin')} "
+        f"hasDriftReport={ready.get('hasDriftReport')}"
+    )
+    print(
+        f"metrics: hasDrift={metrics.get('hasDrift')} "
+        f"highlights={metrics.get('highlightedPrims')} "
+        f"timeline={metrics.get('timelineEvents')}"
+    )
+    return 0 if ready.get("status") == "ready" else 1
 
 
 def _cmd_live_spike(args: argparse.Namespace) -> int:
@@ -829,6 +867,11 @@ def build_parser() -> argparse.ArgumentParser:
 
     live = sub.add_parser("live", help="drive a running live API (spike / reconcile)")
     live_sub = live.add_subparsers(dest="live_command", required=True)
+    live_status = live_sub.add_parser("status", help="compact health + ready + metrics")
+    live_status.add_argument("--base-url", default="http://127.0.0.1:8080")
+    live_status.add_argument("--timeout", type=float, default=3.0)
+    live_status.add_argument("--json", action="store_true")
+    live_status.set_defaults(func=_cmd_live_status)
     live_spike = live_sub.add_parser("spike", help="POST /api/simulate/spike")
     live_spike.add_argument("--base-url", default="http://127.0.0.1:8080")
     live_spike.add_argument("--timeout", type=float, default=10.0)
