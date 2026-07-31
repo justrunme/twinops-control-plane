@@ -4,6 +4,8 @@ All notable TwinOps changes are listed here. Dates are UTC.
 
 ## Unreleased
 
+- Drift CSV export (`drift-report.csv`, `--csv`, `GET /api/drift/csv`)
+- `make mqtt-topics`
 - CI Go toolchain 1.26.x (matches go.mod after controller-runtime bump)
 - Dependabot ignores isolated major bumps for k8s.io/* / controller-runtime
 - Live-demo smoke asserts `/api/ready` + `/api/scene/report`
