@@ -25,6 +25,16 @@ Optional bash completion:
 eval "$(twinopsctl completion bash)"
 ```
 
+Optional containerized live stack (unauthenticated; local only):
+
+```bash
+make docker-live-up
+make wait-ready
+make live-spike
+make live-reconcile
+make docker-live-down
+```
+
 ## Suggested PR slices
 
 1. Compiler / drift / tests  
