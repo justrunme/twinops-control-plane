@@ -102,6 +102,9 @@ streaming-sidecar-smoke:
 security-scan:
 	bash scripts/security_scan.sh
 
+cleanroom-check:
+	bash scripts/cleanroom_check.sh
+
 mqtt-up:
 	docker compose -f deploy/demo/docker-compose.mqtt.yml up -d
 
