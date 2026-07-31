@@ -9,16 +9,14 @@ PLM / ERP / IoT data
         ↓
 Digital Twin Manifest (Git)
         ↓
-TwinOps Compiler / Controller
+TwinOps Compiler / Controller  ← control plane (the product)
         ↓
 OpenUSD layers + variants
         ↓
-Omniverse Kit (optional)
-        ↓
-Browser streaming (mock viewport now; Kit App Streaming later)
+Runtime (optional): Omniverse Kit · web UI · lab WebRTC
 ```
 
-> Status: **experimental** (v0.6.0). Mock PLM adapter. Bidirectional MQTT. Optional Omniverse highlight contract. Not production-ready.
+> Status: **experimental** (v0.7.0). TwinOps is a GitOps/Kubernetes control plane for digital twins; Omniverse Kit is an optional runtime. Not production-ready.
 
 [![CI](https://github.com/justrunme/twinops-control-plane/actions/workflows/ci.yml/badge.svg)](https://github.com/justrunme/twinops-control-plane/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/justrunme/twinops-control-plane?display_name=tag)](https://github.com/justrunme/twinops-control-plane/releases/latest)
@@ -35,10 +33,10 @@ Browser streaming (mock viewport now; Kit App Streaming later)
 Most Omniverse demos show a beautiful 3D scene.  
 Most Kubernetes demos show Helm, Terraform, and autoscaling.
 
-TwinOps is **not** “USD files + Grafana dashboards”. Grafana observes metrics;
-TwinOps reconciles **desired PLM / rendered OpenUSD / observed telemetry** into
-GitOps artifacts (overlay, proposal, optional local apply) and a highlight
-contract a Kit client can consume without a GPU.
+TwinOps is **not** “Omniverse in Kubernetes” and **not** “USD files + Grafana”.
+It is a **control plane**: reconcile desired PLM / rendered OpenUSD / observed
+telemetry into GitOps artifacts, then drive optional runtimes (Kit, web UI,
+lab WebRTC) through a stable highlight contract — including on a laptop without a GPU.
 
 TwinOps connects both worlds:
 
