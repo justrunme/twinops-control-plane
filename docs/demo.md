@@ -60,6 +60,7 @@ With `make serve` (or `make live-demo`) already running:
 ```bash
 make live-status
 make live-spike
+make scene-live   # also writes /tmp/twinops-scene.{json,html}
 make timeline
 make live-reconcile
 make proposal
