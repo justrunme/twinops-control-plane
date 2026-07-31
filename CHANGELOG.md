@@ -4,6 +4,7 @@ All notable TwinOps changes are listed here. Dates are UTC.
 
 ## Unreleased
 
+- `RELEASING.md` checklist
 - Live API asserts highlight schema on every `/api/scene` snapshot
 - Live-demo smoke validates `/api/scene` against twinops.highlight.v1
 - `scripts/wait_ready.sh` / `make wait-ready` for compose/demo boots
