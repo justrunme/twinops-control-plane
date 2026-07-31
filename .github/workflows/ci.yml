@@ -33,6 +33,9 @@ jobs:
       - name: Lint
         run: ruff check python tests
 
+      - name: MQTT topic catalog sync
+        run: python scripts/sync_mqtt_topics.py --check
+
       - name: Test
         run: pytest -q
 
