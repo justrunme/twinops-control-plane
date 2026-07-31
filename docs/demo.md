@@ -58,18 +58,17 @@ Produces:
 With `make serve` (or `make live-demo`) already running:
 
 ```bash
-make health
-make metrics
+make live-status
 make live-spike
 make timeline
 make live-reconcile
 make proposal
 ```
 
-Equivalent curl / CLI:
+Equivalent CLI:
 
 ```bash
-twinopsctl health
+twinopsctl live status
 twinopsctl live spike --json
 twinopsctl live reconcile --json
 twinopsctl proposal
