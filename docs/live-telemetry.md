@@ -72,6 +72,14 @@ twinopsctl serve --mqtt-host 127.0.0.1 --mqtt-port 1883
 # twinopsctl serve --mqtt-host 127.0.0.1 --no-mqtt-ingest
 ```
 
+Optional ACL profile (still lab-only, not TLS):
+
+```bash
+mosquitto_passwd -c deploy/demo/mosquitto.passwd twinops_rw
+make mqtt-acl-up
+# then point twinopsctl serve --mqtt-host at the broker with matching credentials
+```
+
 Requires `pip install -e ".[live]"` (included in `make install` via `.[dev]`).
 
 `GET /api/health` reports MQTT bridge status:
