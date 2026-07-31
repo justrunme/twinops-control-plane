@@ -58,12 +58,12 @@ Omniverse Kit is an optional OpenUSD runtime — not the product center.
 - [x] Kit extension starts runtime + applies displayColor/selection
 - [ ] Kit App Streaming sidecar (GPU frames → browser) — follows lab WebRTC
 
-## v0.8 — Incident history / timeline / replay ⏳
+## v0.8 — Incident history / timeline / replay ✅
 
-- Persist twin timeline as incident records
-- `record.json` export of spike → proposal → apply → recover
-- Replay engine to re-run an incident against the twin
-- Richer timeline visualization in the web UI
+- TwinIncident JSON model + export from timeline
+- Replay engine re-runs drift per incident step
+- Sample `incident-heat-spike.json` fixture
+- Richer web timeline visualization — follow-up polish
 
 ## v0.9 — Generic PLM adapters ⏳
 
@@ -98,6 +98,7 @@ When all of the following exist:
 - [ADR-0013](adr/0013-live-mtls-and-sso.md) — Live API mTLS and demo SSO JWT
 - [ADR-0014](adr/0014-lab-webrtc-streaming.md) — Lab WebRTC streaming path
 - [ADR-0015](adr/0015-kit-scene-runtime.md) — Kit scene runtime backends
+- [ADR-0016](adr/0016-incident-replay.md) — Twin incident history and replay
 
 ## Non-goals (for now)
 

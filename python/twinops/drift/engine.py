@@ -86,7 +86,7 @@ def detect_drift(
     *,
     desired: str | Path | DesiredState,
     stage: str | Path | dict[str, dict[str, Any]],
-    observed: str | Path | ObservedState,
+    observed: str | Path | ObservedState | dict[str, Any],
     manifest: str | Path | DigitalTwinManifest | None = None,
 ) -> DriftReport:
     desired_state = (

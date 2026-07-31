@@ -16,7 +16,7 @@ OpenUSD layers + variants
 Runtime (optional): Omniverse Kit · web UI · lab WebRTC
 ```
 
-> Status: **experimental** (v0.7.0). TwinOps is a GitOps/Kubernetes control plane for digital twins; Omniverse Kit is an optional runtime. Not production-ready.
+> Status: **experimental** (v0.8.0). TwinOps is a GitOps/Kubernetes control plane for digital twins; Omniverse Kit is an optional runtime. Not production-ready.
 
 [![CI](https://github.com/justrunme/twinops-control-plane/actions/workflows/ci.yml/badge.svg)](https://github.com/justrunme/twinops-control-plane/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/justrunme/twinops-control-plane?display_name=tag)](https://github.com/justrunme/twinops-control-plane/releases/latest)
@@ -143,6 +143,11 @@ make timeline
 twinopsctl proposal
 twinopsctl live spike
 twinopsctl live reconcile
+twinopsctl incident export --from-url http://127.0.0.1:8080 --out /tmp/incident.json
+twinopsctl incident replay examples/assembly-line/incident-heat-spike.json \
+  --desired examples/assembly-line/desired.usda \
+  --stage examples/assembly-line/generated/root.usda \
+  --observed examples/assembly-line/observed.json --json
 make scene-live
 twinopsctl openapi --out /tmp/twinops-openapi.json
 make verify-all
