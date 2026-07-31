@@ -4,6 +4,9 @@ All notable TwinOps changes are listed here. Dates are UTC.
 
 ## Unreleased
 
+## 0.3.9 — 2026-07-31
+
+- `twinopsctl doctor --json` emits JSON-only stdout
 - `twinopsctl reconcile --json` emits JSON-only stdout
 
 ## 0.3.8 — 2026-07-31
