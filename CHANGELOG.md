@@ -4,6 +4,8 @@ All notable TwinOps changes are listed here. Dates are UTC.
 
 ## Unreleased
 
+- `scripts/wait_ready.sh` / `make wait-ready` for compose/demo boots
+
 ## 0.3.3 — 2026-07-31
 
 - Architecture docs refresh for delivered live API / MQTT / highlight surface

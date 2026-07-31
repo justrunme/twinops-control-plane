@@ -18,6 +18,7 @@ make docker-live
 docker run --rm -p 8080:8080 twinops-live:0.3.3
 # or Mosquitto + live API/UI:
 make docker-live-up
+make wait-ready
 ```
 
 What you will see:
