@@ -72,14 +72,28 @@ Omniverse Kit is an optional OpenUSD runtime — not the product center.
 - Adapter SDK docs (`docs/plm-adapters.md`)
 - **No** proprietary PLM SDK in-tree
 
-## v1.0 — Reference demo complete ⏳
+## v0.10 — Productization (E2E operational twin) ✅
+
+- `make portfolio-demo` one-command lifecycle + CI artifacts
+- SQLite persistence (timeline / proposals / audit)
+- Verified incident replay
+- PLM adapter contract tests
+- Kit session-layer highlight loop (source assets untouched)
+
+## v0.11 — Kit Streaming sidecar ⏳
+
+- Single-session GPU → WebRTC → browser MediaStream
+- Health / readiness / idle timeout / graceful shutdown
+
+## v1.0 — Stable reference architecture ⏳
 
 When all of the following exist:
 
-- Kit scene runtime + optional streaming sidecar
-- Incident replay + history
-- Generic PLM adapters
-- Recorded 5–7 minute walkthrough (owner)
+- Kit scene runtime + streaming sidecar
+- Persisted incident history + verified replay
+- Generic PLM adapters + contract tests
+- Auth / TLS / audit / metrics / reproducible deploy
+- Recorded walkthrough (owner; not a version gate)
 
 ## Architecture decisions
 
@@ -100,6 +114,7 @@ When all of the following exist:
 - [ADR-0015](adr/0015-kit-scene-runtime.md) — Kit scene runtime backends
 - [ADR-0016](adr/0016-incident-replay.md) — Twin incident history and replay
 - [ADR-0017](adr/0017-generic-plm-adapters.md) — Generic File and REST PLM adapters
+- [ADR-0018](adr/0018-productization-e2e.md) — Productization end-to-end scenario
 
 ## Non-goals (for now)
 

@@ -17,7 +17,6 @@ from twinops import __version__
 from twinops.api.auth import authorize_headers, build_http_auth_middleware, resolve_api_token
 from twinops.api.live import LiveDriftRuntime
 from twinops.api.sso import resolve_sso_secret
-from twinops.api.store import TwinStore
 from twinops.api.streaming import build_streaming_session, webrtc_lab_enabled
 from twinops.api.webrtc_signal import SIGNAL_HUB
 
@@ -50,8 +49,11 @@ def create_app(
     api_token: str | None = None,
     sso_secret: str | None = None,
     webrtc: bool | None = None,
+    db_path: str | Path | None = None,
 ) -> FastAPI:
-    store = TwinStore()
+    from twinops.api.persist import create_store
+
+    store = create_store(db_path=db_path)
     runtime = LiveDriftRuntime(
         example_dir=Path(example_dir),
         work_dir=Path(work_dir),
@@ -184,6 +186,12 @@ def create_app(
     @app.get("/api/timeline")
     def timeline(limit: int = 50) -> dict[str, Any]:
         return {"items": store.timeline(limit=limit)}
+
+    @app.get("/api/audit")
+    def audit(limit: int = 100) -> dict[str, Any]:
+        if hasattr(store, "audit_trail"):
+            return {"items": store.audit_trail(limit=limit)}  # type: ignore[attr-defined]
+        return {"items": [], "persistent": False}
 
     @app.post("/api/simulate/spike")
     def simulate_spike() -> dict[str, Any]:
