@@ -4,6 +4,8 @@ All notable TwinOps changes are listed here. Dates are UTC.
 
 ## Unreleased
 
+- `twinopsctl doctor` checks MQTT ACL profile + Helm umbrella presence
+
 ## 0.5.1 — 2026-07-31
 
 - Helm umbrella optional twinops-live Deployment/Service stub
