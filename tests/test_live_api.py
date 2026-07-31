@@ -45,6 +45,12 @@ def test_live_api_health_and_spike(tmp_path: Path) -> None:
         assert body["mqtt"]["requested"] is False
         assert body["mqtt"]["enabled"] is False
 
+        ready = client.get("/api/ready")
+        assert ready.status_code == 200
+        ready_body = ready.json()
+        assert ready_body["status"] == "ready"
+        assert ready_body["hasDriftReport"] is True
+
         twin = client.get("/api/twin")
         assert twin.status_code == 200
         body = twin.json()
