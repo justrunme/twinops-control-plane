@@ -20,6 +20,7 @@ Navigation index for the control plane docs.
 | OpenUSD model | [openusd-model.md](openusd-model.md) |
 | Live telemetry + MQTT | [live-telemetry.md](live-telemetry.md) |
 | Kubernetes operator | [operator.md](operator.md) |
+| Container images (GHCR) | [images.md](images.md) |
 | Omniverse / scene highlights | [omniverse.md](omniverse.md) |
 | Mock PLM adapter | [plm-adapter.md](plm-adapter.md) |
 | Security notes | [security.md](security.md) |
@@ -39,6 +40,7 @@ Navigation index for the control plane docs.
 | [0008](adr/0008-live-api-token-auth.md) | Optional live API token |
 | [0009](adr/0009-mqtt-payload-schema.md) | MQTT payload schema |
 | [0010](adr/0010-apply-verify-loop.md) | Apply verification loop |
+| [0011](adr/0011-lab-mqtt-tls.md) | Lab MQTT TLS stub |
 
 ## Schemas
 

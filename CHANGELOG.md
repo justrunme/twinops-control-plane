@@ -4,6 +4,11 @@ All notable TwinOps changes are listed here. Dates are UTC.
 
 ## Unreleased
 
+## 0.5.6 — 2026-07-31
+
+- GitHub Actions publish workflow for `twinops-live` / `twinops-operator` to GHCR on `v*` tags
+- `docs/images.md` pull/build notes
+
 ## 0.5.5 — 2026-07-31
 
 - Helm umbrella `Chart.lock` + `make helm-deps` / `make helm-template`
