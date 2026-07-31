@@ -106,6 +106,7 @@ type DigitalTwinStatus struct {
 // +kubebuilder:resource:shortName=dtwin
 // +kubebuilder:printcolumn:name="Phase",type=string,JSONPath=`.status.phase`
 // +kubebuilder:printcolumn:name="Drift",type=string,JSONPath=`.status.drift.status`
+// +kubebuilder:printcolumn:name="Live",type=boolean,JSONPath=`.status.live.ready`
 // +kubebuilder:printcolumn:name="Critical",type=integer,JSONPath=`.status.drift.critical`
 // +kubebuilder:printcolumn:name="Findings",type=integer,JSONPath=`.status.drift.findings`
 // +kubebuilder:printcolumn:name="Age",type=date,JSONPath=`.metadata.creationTimestamp`
