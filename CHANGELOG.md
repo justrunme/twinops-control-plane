@@ -4,6 +4,8 @@ All notable TwinOps changes are listed here. Dates are UTC.
 
 ## Unreleased
 
+- Optional MQTT ingest schema gate via `TWINOPS_MQTT_STRICT_SCHEMA`
+
 ## 0.4.3 — 2026-07-31
 
 - `twinopsctl apply --print-pr` suggests a manual gh pr create command

@@ -61,3 +61,30 @@ def test_plain_scalar_mqtt_payload() -> None:
     )
     assert ingest.handle_message("factory/robot-01/status", b"degraded")
     assert ingest.last_value == "degraded"
+
+
+def test_strict_schema_rejects_bad_schema_objects() -> None:
+    ingest = ObservationIngest(
+        [
+            TopicBinding(
+                topic="factory/robot-01/temperature",
+                prim="/World/Factory/LineA/Robot01",
+                attribute="twinops:temperature",
+            )
+        ],
+        strict_schema=True,
+    )
+    assert (
+        ingest.handle_message(
+            "factory/robot-01/temperature",
+            b'{"schema":"nope","topic":"factory/robot-01/temperature","value":1,"timestamp":"t"}',
+        )
+        is False
+    )
+    assert ingest.rejected == 1
+    assert ingest.handle_message(
+        "factory/robot-01/temperature",
+        b'{"schema":"twinops.mqtt.payload.v1","topic":"factory/robot-01/temperature",'
+        b'"value":88.0,"timestamp":"2026-07-31T10:00:00Z","source":"plc"}',
+    )
+    assert ingest.received == 1
