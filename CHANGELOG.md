@@ -4,6 +4,11 @@ All notable TwinOps changes are listed here. Dates are UTC.
 
 ## Unreleased
 
+## 0.8.0 — 2026-07-31
+
+- TwinIncident export/replay (`twinopsctl incident export|replay`) — ADR-0016
+- Sample heat-spike incident fixture for offline narrative replay
+
 ## 0.7.0 — 2026-07-31
 
 - Kit scene runtime: plan / USD overlay / Kit apply backends (ADR-0015)

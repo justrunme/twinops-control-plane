@@ -86,13 +86,16 @@ def load_desired_state(path: str | Path) -> DesiredState:
     return DesiredState(name=name, resources=resources)
 
 
-def load_observed_state(path: str | Path) -> ObservedState:
-    observed_path = Path(path).resolve()
-    if not observed_path.is_file():
-        raise DriftLoadError(f"observed telemetry not found: {observed_path}")
+def load_observed_state(path: str | Path | dict[str, Any]) -> ObservedState:
+    if isinstance(path, dict):
+        raw = path
+    else:
+        observed_path = Path(path).resolve()
+        if not observed_path.is_file():
+            raise DriftLoadError(f"observed telemetry not found: {observed_path}")
 
-    with observed_path.open(encoding="utf-8") as handle:
-        raw = json.load(handle)
+        with observed_path.open(encoding="utf-8") as handle:
+            raw = json.load(handle)
     if not isinstance(raw, dict):
         raise DriftLoadError("observed telemetry root must be an object")
 

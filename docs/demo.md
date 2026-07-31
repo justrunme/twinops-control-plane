@@ -15,7 +15,7 @@ Optional containerized live API (demo only; set `TWINOPS_API_TOKEN` before shari
 
 ```bash
 make docker-live
-docker run --rm -p 8080:8080 twinops-live:0.7.0
+docker run --rm -p 8080:8080 twinops-live:0.8.0
 # or Mosquitto + live API/UI:
 make docker-live-up
 make wait-ready
@@ -56,6 +56,25 @@ Produces:
 - drift HTML report
 - reconciliation proposal (`PULL_REQUEST.md`)
 
+## Incident replay (offline narrative)
+
+Export a live timeline, or use the sample heat-spike fixture:
+
+```bash
+# From a running live API:
+twinopsctl incident export --from-url http://127.0.0.1:8080 \
+  --out /tmp/incident.json --twin assembly-line-a
+
+# Replay against composed stage + observed baseline:
+twinopsctl incident replay examples/assembly-line/incident-heat-spike.json \
+  --desired examples/assembly-line/desired.usda \
+  --stage examples/assembly-line/generated/root.usda \
+  --observed examples/assembly-line/observed.json \
+  --manifest examples/assembly-line/twin.yaml \
+  --json
+```
+
+See [ADR-0016](adr/0016-incident-replay.md).
 ## Expected API storyboard
 
 With `make serve` (or `make live-demo`) already running:

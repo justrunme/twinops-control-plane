@@ -45,6 +45,7 @@ Navigation index for the control plane docs.
 | [0013](adr/0013-live-mtls-and-sso.md) | Live API mTLS and demo SSO JWT |
 | [0014](adr/0014-lab-webrtc-streaming.md) | Lab WebRTC streaming path |
 | [0015](adr/0015-kit-scene-runtime.md) | Kit scene runtime backends |
+| [0016](adr/0016-incident-replay.md) | Twin incident history and replay |
 
 ## Schemas
 
