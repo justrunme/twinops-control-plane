@@ -25,4 +25,13 @@ helm upgrade --install twinops deploy/helm/twinops \
   --set twinops-operator.sampleTwin.liveAPIURL=http://twinops-live.twinops-system.svc:8080
 ```
 
-Live API containers stay on `make docker-live-up` until a full Deployment lands under this umbrella.
+## Optional live Deployment
+
+```bash
+helm upgrade --install twinops deploy/helm/twinops \
+  --namespace twinops-system --create-namespace \
+  --set live.enabled=true \
+  --set live.apiToken=demo-token
+```
+
+Demo default remains `make docker-live-up` when you do not want a cluster-side live API.

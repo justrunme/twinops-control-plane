@@ -4,6 +4,9 @@ All notable TwinOps changes are listed here. Dates are UTC.
 
 ## Unreleased
 
+- Helm umbrella optional twinops-live Deployment/Service stub
+- Demo script documents apply --verify close-out
+
 ## 0.5.0 — 2026-07-31
 
 - `twinopsctl apply --verify` rebuilds stage with overlay and re-runs drift
