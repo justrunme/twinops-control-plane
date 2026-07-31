@@ -93,6 +93,11 @@ def test_live_api_health_and_spike(tmp_path: Path) -> None:
         assert "text/html" in report.headers.get("content-type", "")
         assert "Drift" in report.text or "drift" in report.text
 
+        csv_report = client.get("/api/drift/csv")
+        assert csv_report.status_code == 200
+        assert "text/csv" in csv_report.headers.get("content-type", "")
+        assert "prim,attribute" in csv_report.text
+
         scene_html = client.get("/api/scene/report")
         assert scene_html.status_code == 200
         assert "text/html" in scene_html.headers.get("content-type", "")

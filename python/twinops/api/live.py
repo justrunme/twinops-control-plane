@@ -10,6 +10,7 @@ from typing import Any
 from twinops.api.store import TwinStore
 from twinops.composer import compose_digital_twin
 from twinops.drift.engine import DriftReport, detect_drift
+from twinops.drift.csv_report import render_csv_report
 from twinops.drift.html_report import render_html_report
 from twinops.drift.loaders import load_desired_state
 from twinops.drift.model import ObservedState
@@ -140,6 +141,12 @@ class LiveDriftRuntime:
             self.evaluate_drift(record_telemetry=False)
         assert self._last_report is not None
         return render_html_report(self._last_report)
+
+    def drift_csv(self) -> str:
+        if self._last_report is None:
+            self.evaluate_drift(record_telemetry=False)
+        assert self._last_report is not None
+        return render_csv_report(self._last_report)
 
     def scene_html(self) -> str:
         return render_scene_html(self.scene_snapshot())

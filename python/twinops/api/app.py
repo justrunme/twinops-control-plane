@@ -10,7 +10,7 @@ from typing import Any
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 
 from twinops import __version__
@@ -112,6 +112,15 @@ def create_app(
     def drift_report() -> HTMLResponse:
         """Self-contained HTML drift dashboard from the latest evaluation."""
         return HTMLResponse(runtime.drift_html())
+
+    @app.get("/api/drift/csv")
+    def drift_csv() -> PlainTextResponse:
+        """CSV export of the latest drift findings."""
+        return PlainTextResponse(
+            runtime.drift_csv(),
+            media_type="text/csv; charset=utf-8",
+            headers={"Content-Disposition": 'attachment; filename="drift-report.csv"'},
+        )
 
     @app.get("/api/scene")
     def scene() -> dict[str, Any]:

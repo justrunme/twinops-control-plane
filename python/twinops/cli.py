@@ -10,6 +10,7 @@ from pathlib import Path
 from twinops import __version__
 from twinops.composer import compose_digital_twin
 from twinops.doctor import run_doctor
+from twinops.drift.csv_report import write_csv_report
 from twinops.drift.engine import detect_drift, save_drift_report
 from twinops.drift.html_report import write_html_report
 from twinops.drift.loaders import DriftLoadError
@@ -68,12 +69,18 @@ def _cmd_drift(args: argparse.Namespace) -> int:
         save_drift_report(report, out / "drift-report.json")
         write_html_report(report, out / "drift-report.html")
         write_sarif_report(report, out / "drift-report.sarif")
+        write_csv_report(report, out / "drift-report.csv")
         print(f"\nWrote {out / 'drift-report.json'}")
         print(f"Wrote {out / 'drift-report.html'}")
         print(f"Wrote {out / 'drift-report.sarif'}")
+        print(f"Wrote {out / 'drift-report.csv'}")
 
     if args.sarif:
         path = write_sarif_report(report, args.sarif)
+        print(f"Wrote {path}")
+
+    if getattr(args, "csv", None):
+        path = write_csv_report(report, args.csv)
         print(f"Wrote {path}")
 
     if args.json:
@@ -482,12 +489,17 @@ def build_parser() -> argparse.ArgumentParser:
     drift.add_argument(
         "--out",
         default=None,
-        help="write drift-report.json, .html, and .sarif into this directory",
+        help="write drift-report.json/.html/.sarif/.csv into this directory",
     )
     drift.add_argument(
         "--sarif",
         default=None,
         help="write SARIF 2.1.0 report to this path",
+    )
+    drift.add_argument(
+        "--csv",
+        default=None,
+        help="write CSV findings report to this path",
     )
     drift.add_argument(
         "--propose",
