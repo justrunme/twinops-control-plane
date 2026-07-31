@@ -4,6 +4,7 @@ All notable TwinOps changes are listed here. Dates are UTC.
 
 ## Unreleased
 
+- `twinopsctl ready` / `make ready`
 - Compose live stack (`deploy/demo/docker-compose.live.yml`) + `make live-spike|live-reconcile`
 - `twinopsctl metrics` / `make metrics`
 - Live demo smoke uses `twinopsctl live spike|reconcile`

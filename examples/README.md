@@ -8,6 +8,7 @@ Self-healing factory line demo used by almost every TwinOps path:
 | --- | --- |
 | Offline drift | `make demo` |
 | Live UI | `make live-demo` |
+| Live containers | `make docker-live-up` |
 | MQTT bridge | `make mqtt-smoke` |
 | PLM change | `make plm-demo` |
 | Operator | `make operator-demo` |
