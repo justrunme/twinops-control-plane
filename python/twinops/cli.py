@@ -150,20 +150,24 @@ def _cmd_scene(args: argparse.Namespace) -> int:
             print(f"error: {exc}", file=sys.stderr)
             return 2
     lit = [prim for prim in scene["prims"] if prim["highlight"]["enabled"]]
-    print(f"Scene {scene['twin']} protocol={scene['protocol']['name']} lit={len(lit)}")
-    for prim in lit:
-        print(f"  HIGHLIGHT {prim['prim']} status={prim['status']}")
+    if args.json:
+        # Machine-readable mode: JSON only on stdout (scripts/CI).
+        print(json.dumps(scene, indent=2))
+    else:
+        print(f"Scene {scene['twin']} protocol={scene['protocol']['name']} lit={len(lit)}")
+        for prim in lit:
+            print(f"  HIGHLIGHT {prim['prim']} status={prim['status']}")
     if args.out:
         out = Path(args.out)
         out.parent.mkdir(parents=True, exist_ok=True)
         out.write_text(json.dumps(scene, indent=2) + "\n", encoding="utf-8")
-        print(f"Wrote {out}")
+        if not args.json:
+            print(f"Wrote {out}")
     html_path = getattr(args, "html", None)
     if html_path:
         path = write_scene_html(scene, html_path)
-        print(f"Wrote {path}")
-    if args.json:
-        print(json.dumps(scene, indent=2))
+        if not args.json:
+            print(f"Wrote {path}")
     return 0 if not scene["hasDrift"] else 1
 
 

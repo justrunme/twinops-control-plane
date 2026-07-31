@@ -4,6 +4,7 @@ All notable TwinOps changes are listed here. Dates are UTC.
 
 ## Unreleased
 
+- `twinopsctl scene --json` emits JSON-only stdout for scripts
 - Live-demo smoke tolerates scene CLI drift exit code after spike
 - Live-demo smoke fetches scene via `twinopsctl scene --from-url --strict`
 - Makefile help lists `scene-live`

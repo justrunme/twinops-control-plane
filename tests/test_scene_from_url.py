@@ -43,3 +43,14 @@ def test_scene_from_url_strict(capsys) -> None:
         except SystemExit as exc:
             assert exc.code == 1
     assert "HIGHLIGHT" in capsys.readouterr().out
+
+
+def test_scene_from_url_json_only(capsys) -> None:
+    scene = build_scene_snapshot(twin_name="assembly-line-a", findings=[])
+    with patch("urllib.request.urlopen", return_value=_Resp(scene)):
+        try:
+            main(["scene", "--from-url", "http://127.0.0.1:8080", "--json"])
+        except SystemExit as exc:
+            assert exc.code == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["protocol"]["name"] == "twinops.highlight.v1"
