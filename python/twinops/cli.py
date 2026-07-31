@@ -18,6 +18,7 @@ from twinops.drift.loaders import DriftLoadError
 from twinops.drift.reconcile import propose_reconciliation
 from twinops.drift.sarif import write_sarif_report
 from twinops.drift.table import render_drift_table
+from twinops.drift.verify import verify_apply
 from twinops.plm.mock import load_adapter_for_example
 from twinops.scene import assert_valid_scene_snapshot, build_scene_snapshot, write_scene_html
 from twinops.schema import ManifestError, load_manifest
@@ -252,6 +253,23 @@ def _cmd_apply(args: argparse.Namespace) -> int:
             branch=args.branch,
             commit=not args.no_commit,
         )
+        verify_payload = None
+        if getattr(args, "verify", False):
+            if not (args.manifest and args.desired and args.observed):
+                raise ValueError("--verify requires --manifest --desired --observed")
+            overlay = Path(result.target_dir) / "reconcile-overlay.usda"
+            stage_out = (
+                Path(args.stage_out)
+                if args.stage_out
+                else Path("/tmp/twinops-apply-verify")
+            )
+            verify_payload = verify_apply(
+                manifest=args.manifest,
+                desired=args.desired,
+                observed=args.observed,
+                overlay=overlay,
+                stage_out=stage_out,
+            )
     except (OSError, RuntimeError, FileNotFoundError, ValueError, json.JSONDecodeError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2
@@ -259,7 +277,11 @@ def _cmd_apply(args: argparse.Namespace) -> int:
         payload = result.to_dict()
         if getattr(args, "print_pr", False):
             payload["status"]["prCreateHint"] = render_pr_create_hint(result)
+        if verify_payload is not None:
+            payload["status"]["verify"] = verify_payload.to_dict()
         print(json.dumps(payload, indent=2))
+        if verify_payload is not None and verify_payload.has_drift:
+            return 1
         return 0
     print(f"TwinOps applied proposal from {result.proposal_dir}")
     print(f"  branch:    {result.branch}")
@@ -272,6 +294,13 @@ def _cmd_apply(args: argparse.Namespace) -> int:
     if getattr(args, "print_pr", False):
         print("\n# Suggested (manual) pull request:")
         print(render_pr_create_hint(result))
+    if verify_payload is not None:
+        print(
+            f"  verify:    hasDrift={verify_payload.has_drift} "
+            f"summary={verify_payload.summary}"
+        )
+        if verify_payload.has_drift:
+            return 1
     return 0
 
 
@@ -997,6 +1026,19 @@ def build_parser() -> argparse.ArgumentParser:
         "--print-pr",
         action="store_true",
         help="print a suggested gh pr create command (never executed)",
+    )
+    apply_cmd.add_argument(
+        "--verify",
+        action="store_true",
+        help="rebuild stage with applied overlay and re-run drift",
+    )
+    apply_cmd.add_argument("--manifest", default=None, help="DigitalTwin manifest for --verify")
+    apply_cmd.add_argument("--desired", default=None, help="desired YAML for --verify")
+    apply_cmd.add_argument("--observed", default=None, help="observed JSON for --verify")
+    apply_cmd.add_argument(
+        "--stage-out",
+        default=None,
+        help="compose output dir for --verify (default: /tmp/twinops-apply-verify)",
     )
     apply_cmd.add_argument("--json", action="store_true", help="print apply result JSON")
     apply_cmd.set_defaults(func=_cmd_apply)

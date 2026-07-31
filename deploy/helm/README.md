@@ -4,24 +4,23 @@
 
 | Chart | Path | Purpose |
 | --- | --- | --- |
+| `twinops` | [twinops/](twinops/) | Umbrella (operator + live values stub) |
 | `twinops-operator` | [twinops-operator/](twinops-operator/) | DigitalTwin CRD + controller |
 
-## Umbrella layout (planned)
-
-A future `twinops` umbrella chart will compose:
-
-1. **operator** — reconcile `DigitalTwin` CRs
-2. **live** — `twinopsctl serve` Deployment + Service (optional)
-3. **mqtt** — Mosquitto for demo telemetry (optional, anonymous only for local)
-4. **observability** — ServiceMonitor / Grafana dashboard ConfigMap from `deploy/observability/`
-
-Until the umbrella lands, install pieces separately:
+## Umbrella layout
 
 ```bash
-helm upgrade --install twinops-operator ./deploy/helm/twinops-operator
-# live + mqtt: use docker compose for demos
-make docker-live-up
+helm dependency update ./deploy/helm/twinops
+helm upgrade --install twinops ./deploy/helm/twinops \
+  --namespace twinops-system --create-namespace
 ```
+
+Still compose for demos:
+
+1. **operator** — via umbrella / subchart
+2. **live** — `make docker-live-up` (Deployment stub documented in umbrella values)
+3. **mqtt** — anonymous compose or ACL profile (`docker-compose.mqtt-acl.yml`)
+4. **observability** — `deploy/observability/` Grafana + ServiceMonitor stubs
 
 ## Values guidance
 
