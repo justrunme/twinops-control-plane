@@ -3,7 +3,7 @@ PIP ?= $(PYTHON) -m pip
 VENV ?= .venv
 BIN := $(VENV)/bin
 
-.PHONY: help venv install test lint build demo live-demo live-demo-smoke mqtt-smoke drift serve web web-dev operator-build operator-run operator-demo operator-demo-watch operator-demo-cleanup scene-highlight go-test clean
+.PHONY: help venv install test lint build demo live-demo live-demo-smoke mqtt-smoke drift serve web web-dev operator-build operator-run operator-demo operator-demo-watch operator-demo-cleanup scene-highlight plm-demo go-test clean
 
 help:
 	@echo "TwinOps targets:"
@@ -62,9 +62,7 @@ scene-highlight:
 	$(PYTHON) extensions/twinops_highlight/twinops_highlight/client.py --base-url http://127.0.0.1:8080
 
 plm-demo:
-	$(BIN)/twinopsctl plm show --example examples/assembly-line
-	$(BIN)/twinopsctl plm compare --example examples/assembly-line
-	@echo "(bump is intentionally manual — see docs/plm-adapter.md)"
+	bash scripts/plm_change_demo.sh
 
 drift:
 	$(BIN)/twinopsctl build examples/assembly-line/twin.yaml --out examples/assembly-line/generated
