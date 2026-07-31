@@ -10,6 +10,7 @@ from typing import Any
 from twinops.api.store import TwinStore
 from twinops.composer import compose_digital_twin
 from twinops.drift.engine import DriftReport, detect_drift
+from twinops.drift.html_report import render_html_report
 from twinops.drift.loaders import load_desired_state
 from twinops.drift.model import ObservedState
 from twinops.drift.reconcile import propose_reconciliation
@@ -133,6 +134,12 @@ class LiveDriftRuntime:
             findings=findings,
             generated_at=meta.get("generatedAt"),
         )
+
+    def drift_html(self) -> str:
+        if self._last_report is None:
+            self.evaluate_drift(record_telemetry=False)
+        assert self._last_report is not None
+        return render_html_report(self._last_report)
 
     def metrics(self) -> dict[str, Any]:
         drift = self.store.latest_drift or {}

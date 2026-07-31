@@ -16,6 +16,7 @@ API:
 | `GET /api/health` | liveness |
 | `GET /api/twin` | twin + latest drift + timeline snapshot |
 | `GET /api/drift/latest` | latest drift report |
+| `GET /api/drift/report` | self-contained HTML drift dashboard |
 | `GET /api/scene` | OpenUSD prim highlight snapshot (`twinops.highlight.v1`) |
 | `GET /api/metrics` | compact JSON metrics for demos |
 | `GET /metrics` | Prometheus text exposition |
