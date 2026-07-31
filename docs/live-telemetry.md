@@ -18,6 +18,8 @@ API:
 | `GET /api/drift/latest` | latest drift report |
 | `GET /api/drift/report` | self-contained HTML drift dashboard |
 | `GET /api/scene` | OpenUSD prim highlight snapshot (`twinops.highlight.v1`) |
+| `GET /api/scene/report` | self-contained HTML scene highlight dashboard |
+| `GET /api/mqtt/topics` | demo MQTT topic catalog (+ live ingest status) |
 | `GET /api/metrics` | compact JSON metrics for demos |
 | `GET /metrics` | Prometheus text exposition |
 | `GET /api/timeline` | recent telemetry/drift events |

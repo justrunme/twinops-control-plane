@@ -253,12 +253,17 @@ export default function App() {
           scrape <code>/metrics</code>
         </span>
         <span>
-          report <a href="/api/drift/report" target="_blank" rel="noreferrer">HTML</a>
+          report{' '}
+          <a href="/api/drift/report" target="_blank" rel="noreferrer">drift</a>
+          {' · '}
+          <a href="/api/scene/report" target="_blank" rel="noreferrer">scene</a>
         </span>
         <span>
           api <a href="/docs" target="_blank" rel="noreferrer">Swagger</a>
           {' · '}
           <a href="/openapi.json" target="_blank" rel="noreferrer">OpenAPI</a>
+          {' · '}
+          <a href="/api/mqtt/topics" target="_blank" rel="noreferrer">MQTT</a>
         </span>
       </section>
 
