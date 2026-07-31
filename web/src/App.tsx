@@ -1,6 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
-import { connectEvents, fetchScene, fetchTwin, triggerReconcile, triggerSpike } from './api'
-import type { SceneSnapshot, TwinSnapshot } from './types'
+import {
+  connectEvents,
+  fetchMetrics,
+  fetchScene,
+  fetchTwin,
+  triggerReconcile,
+  triggerSpike,
+} from './api'
+import type { LiveMetrics, SceneSnapshot, TwinSnapshot } from './types'
 
 const STATUS_COLOR: Record<string, string> = {
   SYNCED: '#1f9d55',
@@ -22,6 +29,7 @@ function display(value: unknown): string {
 export default function App() {
   const [snap, setSnap] = useState<TwinSnapshot | null>(null)
   const [scene, setScene] = useState<SceneSnapshot | null>(null)
+  const [metrics, setMetrics] = useState<LiveMetrics | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [connected, setConnected] = useState(false)
   const [busy, setBusy] = useState<'spike' | 'reconcile' | null>(null)
@@ -41,12 +49,24 @@ export default function App() {
         })
     }
 
+    const refreshMetrics = () => {
+      fetchMetrics()
+        .then((data) => {
+          if (!closed) setMetrics(data)
+        })
+        .catch(() => {
+          /* metrics optional while API boots */
+        })
+    }
+
     fetchTwin()
       .then((data) => {
         if (!closed) setSnap(data)
       })
       .catch((err: Error) => setError(err.message))
     refreshScene()
+    refreshMetrics()
+    const metricsTimer = window.setInterval(refreshMetrics, 2000)
 
     ws = connectEvents((message) => {
       const payload = message as {
@@ -63,6 +83,7 @@ export default function App() {
         setConnected(true)
         setError(null)
         if (!payload.scene) refreshScene()
+        refreshMetrics()
         return
       }
       if (payload.event) {
@@ -78,6 +99,7 @@ export default function App() {
         if (!payload.scene && (payload.event?.type === 'drift' || payload.event?.type === 'reconcile')) {
           refreshScene()
         }
+        refreshMetrics()
       }
     })
     ws.onopen = () => setConnected(true)
@@ -86,6 +108,7 @@ export default function App() {
 
     return () => {
       closed = true
+      window.clearInterval(metricsTimer)
       ws?.close()
     }
   }, [])
@@ -215,6 +238,21 @@ export default function App() {
           </span>
         ))}
       </div>
+
+      <section className="metrics-strip" aria-label="Live metrics">
+        <span>
+          highlights <strong>{metrics?.highlightedPrims ?? litPrims.length}</strong>
+        </span>
+        <span>
+          mqtt ingest <strong>{metrics?.mqttIngestReceived ?? 0}</strong>
+        </span>
+        <span>
+          timeline <strong>{metrics?.timelineEvents ?? snap?.timeline.length ?? 0}</strong>
+        </span>
+        <span>
+          scrape <code>/metrics</code>
+        </span>
+      </section>
 
       <div className="scene-layout">
         <section className="panel scene-panel">

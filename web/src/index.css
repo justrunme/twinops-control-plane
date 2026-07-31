@@ -206,7 +206,29 @@ button:disabled {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+  margin-bottom: 12px;
+}
+
+.metrics-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
   margin-bottom: 16px;
+  padding: 10px 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(8, 20, 15, 0.45);
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.metrics-strip strong {
+  color: var(--text);
+  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+}
+
+.metrics-strip code {
+  font-size: 0.8rem;
 }
 
 .chip {
