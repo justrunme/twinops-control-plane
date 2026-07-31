@@ -3,7 +3,7 @@ PIP ?= $(PYTHON) -m pip
 VENV ?= .venv
 BIN := $(VENV)/bin
 
-.PHONY: help venv install test lint build demo live-demo live-demo-smoke mqtt-smoke drift serve web web-dev operator-build operator-run go-test clean
+.PHONY: help venv install test lint build demo live-demo live-demo-smoke mqtt-smoke drift serve web web-dev operator-build operator-run operator-demo operator-demo-watch operator-demo-cleanup go-test clean
 
 help:
 	@echo "TwinOps targets:"
@@ -21,6 +21,9 @@ help:
 	@echo "  make web-dev         - run Vite UI (proxies API on :8080)"
 	@echo "  make operator-build  - build Go operator manager binary"
 	@echo "  make operator-run    - run operator against current kubeconfig"
+	@echo "  make operator-demo   - k3d/kind cluster + DigitalTwin reconcile demo"
+	@echo "  make operator-demo-watch - same demo, keep manager running"
+	@echo "  make operator-demo-cleanup - delete local twinops cluster"
 	@echo "  make go-test         - run Go tests"
 	@echo "  make build           - build sdist/wheel"
 	@echo "  make clean           - remove build artifacts"
@@ -77,6 +80,15 @@ operator-build:
 
 operator-run: operator-build
 	./bin/manager --twinopsctl=$(BIN)/twinopsctl
+
+operator-demo:
+	bash scripts/operator_kind_demo.sh --once
+
+operator-demo-watch:
+	bash scripts/operator_kind_demo.sh
+
+operator-demo-cleanup:
+	bash scripts/operator_kind_demo.sh --cleanup
 
 go-test:
 	go test ./...
