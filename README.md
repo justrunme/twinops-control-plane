@@ -103,9 +103,11 @@ Produces composed USDA layers, a drift HTML report, and a GitOps reconciliation 
 
 ```bash
 make mqtt-smoke
+twinopsctl mqtt topics
 ```
 
 Starts Mosquitto, publishes simulator telemetry, injects an external PLC heat spike, and asserts CRITICAL drift.
+Topic catalog: `examples/assembly-line/mqtt-topics.json` / `GET /api/mqtt/topics`.
 
 ### Mock PLM adapter
 
