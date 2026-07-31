@@ -3,7 +3,7 @@ PIP ?= $(PYTHON) -m pip
 VENV ?= .venv
 BIN := $(VENV)/bin
 
-.PHONY: help venv install test lint build demo live-demo live-demo-smoke mqtt-smoke drift serve web web-dev operator-build operator-run operator-demo operator-demo-watch operator-demo-cleanup scene-highlight plm-demo verify-all doctor go-test clean
+.PHONY: help venv install test lint build demo live-demo live-demo-smoke mqtt-smoke drift serve web web-dev operator-build operator-run operator-demo operator-demo-watch operator-demo-cleanup scene scene-highlight plm-demo verify-all doctor go-test clean
 
 help:
 	@echo "TwinOps targets:"
@@ -15,6 +15,7 @@ help:
 	@echo "  make live-demo-smoke - spike→reconcile smoke (no browser)"
 	@echo "  make mqtt-smoke      - Mosquitto bridge smoke (compose + subscribe)"
 	@echo "  make scene-highlight - poll /api/scene and print Kit highlight plan"
+	@echo "  make scene           - offline highlight snapshot from sample drift"
 	@echo "  make plm-demo        - mock PLM bump → compare → show drift"
 	@echo "  make verify-all      - local gate: test/lint/go/plm/live-smoke"
 	@echo "  make doctor          - check local demo prerequisites"
@@ -62,6 +63,14 @@ mqtt-smoke:
 
 scene-highlight:
 	$(PYTHON) extensions/twinops_highlight/twinops_highlight/client.py --base-url http://127.0.0.1:8080
+
+scene: drift
+	-$(BIN)/twinopsctl scene \
+		--desired examples/assembly-line/desired.yaml \
+		--stage examples/assembly-line/generated/root.usda \
+		--observed examples/assembly-line/telemetry.json \
+		--manifest examples/assembly-line/twin.yaml \
+		--out examples/assembly-line/generated/scene.json
 
 plm-demo:
 	bash scripts/plm_change_demo.sh
