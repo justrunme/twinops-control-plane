@@ -165,4 +165,31 @@ def run_doctor(*, mqtt_host: str = "127.0.0.1", mqtt_port: int = 1883) -> list[C
             )
         )
 
+    acl_conf = Path("deploy/demo/mosquitto.acl.conf")
+    checks.append(
+        Check(
+            name="mqtt-acl-profile",
+            ok=acl_conf.is_file(),
+            detail=(
+                "deploy/demo/mosquitto.acl.conf present (optional ACL demo)"
+                if acl_conf.is_file()
+                else "missing deploy/demo/mosquitto.acl.conf"
+            ),
+            required=False,
+        )
+    )
+    umbrella = Path("deploy/helm/twinops/Chart.yaml")
+    checks.append(
+        Check(
+            name="helm-umbrella",
+            ok=umbrella.is_file(),
+            detail=(
+                "deploy/helm/twinops umbrella chart present"
+                if umbrella.is_file()
+                else "missing deploy/helm/twinops"
+            ),
+            required=False,
+        )
+    )
+
     return checks
