@@ -94,7 +94,7 @@ print(f\"    ready: twin={payload.get('twin')} hasDriftReport={payload.get('hasD
 "
 
 echo "==> Demo flow: spike → scene highlight → reconcile → SYNCED"
-SPIKE_JSON="$(curl -fsS -X POST "$BASE/api/simulate/spike")"
+SPIKE_JSON="$("$TWINOPSCTL" live spike --base-url "$BASE" --json)"
 printf '%s' "$SPIKE_JSON" | "$PYTHON" -c "
 import json, sys
 payload = json.load(sys.stdin)
@@ -125,7 +125,7 @@ if 'Scene' not in html and 'highlight' not in html.lower():
 print('    scene: HTML report OK')
 "
 
-RECON_JSON="$(curl -fsS -X POST "$BASE/api/reconcile")"
+RECON_JSON="$("$TWINOPSCTL" live reconcile --base-url "$BASE" --json)"
 printf '%s' "$RECON_JSON" | "$PYTHON" -c "
 import json, sys
 payload = json.load(sys.stdin)
@@ -152,8 +152,8 @@ TwinOps live demo is ready.
   Scene HTML: ${BASE}/api/scene/report
   MQTT map:   ${BASE}/api/mqtt/topics
   Swagger:    ${BASE}/docs
-  Spike:      curl -X POST ${BASE}/api/simulate/spike
-  Reconcile:  curl -X POST ${BASE}/api/reconcile
+  Spike:      twinopsctl live spike
+  Reconcile:  twinopsctl live reconcile
 
 Demo path in UI:
   1. Trigger heat spike
