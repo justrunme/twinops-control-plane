@@ -27,6 +27,10 @@ coverage.out
 go.work
 go.work.sum
 
+# Web
+web/node_modules/
+web/dist/
+
 # IDE / OS
 .idea/
 .vscode/

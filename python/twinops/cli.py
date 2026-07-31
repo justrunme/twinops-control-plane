@@ -117,6 +117,7 @@ def _cmd_serve(args: argparse.Namespace) -> int:
 
     example_dir = Path(args.example).resolve()
     work_dir = Path(args.work_dir).resolve() if args.work_dir else Path("usd/generated/live")
+    web_dist = Path(args.web_dist).resolve() if args.web_dist else Path("web/dist")
     app = create_app(
         example_dir=example_dir,
         work_dir=work_dir,
@@ -124,6 +125,7 @@ def _cmd_serve(args: argparse.Namespace) -> int:
         mqtt_host=args.mqtt_host,
         mqtt_port=args.mqtt_port,
         autostart=True,
+        web_dist=web_dist if web_dist.is_dir() else None,
     )
     print(f"TwinOps live API on http://{args.host}:{args.port}")
     print(f"  example: {example_dir}")
@@ -241,6 +243,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="optional MQTT broker host (in-process bus always enabled)",
     )
     serve.add_argument("--mqtt-port", type=int, default=1883, help="MQTT broker port")
+    serve.add_argument(
+        "--web-dist",
+        default="web/dist",
+        help="optional built web UI directory to serve at /",
+    )
     serve.set_defaults(func=_cmd_serve)
 
     version = sub.add_parser("version", help="print version")
