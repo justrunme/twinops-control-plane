@@ -4,7 +4,10 @@ All notable TwinOps changes are listed here. Dates are UTC.
 
 ## Unreleased
 
+## 0.4.2 — 2026-07-31
+
 - `GET /api/proposal/latest/bundle` + `twinopsctl apply --from-url`
+- ADR-0009 MQTT payload schema + observability scrape notes
 
 ## 0.4.1 — 2026-07-31
 
