@@ -38,6 +38,7 @@ Navigation index for the control plane docs.
 | [0007](adr/0007-local-gitops-apply.md) | Local GitOps apply |
 | [0008](adr/0008-live-api-token-auth.md) | Optional live API token |
 | [0009](adr/0009-mqtt-payload-schema.md) | MQTT payload schema |
+| [0010](adr/0010-apply-verify-loop.md) | Apply verification loop |
 
 ## Schemas
 
