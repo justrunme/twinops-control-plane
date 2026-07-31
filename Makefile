@@ -3,7 +3,7 @@ PIP ?= $(PYTHON) -m pip
 VENV ?= .venv
 BIN := $(VENV)/bin
 
-.PHONY: help venv install test lint build demo live-demo live-demo-smoke mqtt-up mqtt-down mqtt-smoke drift serve web web-dev operator-build operator-run operator-demo operator-demo-watch operator-demo-cleanup scene scene-highlight plm-demo verify-all doctor health go-test clean
+.PHONY: help venv install test lint build demo live-demo live-demo-smoke mqtt-up mqtt-down mqtt-smoke drift serve web web-dev operator-build operator-run operator-demo operator-demo-watch operator-demo-cleanup scene scene-highlight plm-demo verify-all doctor health openapi go-test clean
 
 help:
 	@echo "TwinOps targets:"
@@ -17,6 +17,7 @@ help:
 	@echo "  make mqtt-down       - stop local Mosquitto"
 	@echo "  make mqtt-smoke      - Mosquitto bridge smoke (compose + subscribe)"
 	@echo "  make health          - probe live API /api/health on :8080"
+	@echo "  make openapi         - dump live API OpenAPI schema to /tmp"
 	@echo "  make scene-highlight - poll /api/scene and print Kit highlight plan"
 	@echo "  make scene           - offline highlight snapshot from sample drift"
 	@echo "  make plm-demo        - mock PLM bump → compare → show drift"
@@ -72,6 +73,9 @@ mqtt-smoke:
 
 health:
 	$(BIN)/twinopsctl health --base-url http://127.0.0.1:8080
+
+openapi:
+	$(BIN)/twinopsctl openapi --out /tmp/twinops-openapi.json
 
 scene-highlight:
 	$(PYTHON) extensions/twinops_highlight/twinops_highlight/client.py --base-url http://127.0.0.1:8080

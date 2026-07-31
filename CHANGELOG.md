@@ -4,6 +4,8 @@ All notable TwinOps changes are listed here. Dates are UTC.
 
 ## Unreleased
 
+- CI uploads sample drift SARIF artifact; web links to Swagger/OpenAPI
+- `twinopsctl openapi` offline schema dump
 - Drift SARIF export (`drift-report.sarif`, `--sarif`, ADR-0005)
 - Optional pre-commit config (ruff + basic hooks)
 - Helm chart README under `deploy/helm/twinops-operator/`

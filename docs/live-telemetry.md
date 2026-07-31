@@ -20,6 +20,19 @@ API:
 | `GET /api/scene` | OpenUSD prim highlight snapshot (`twinops.highlight.v1`) |
 | `GET /api/metrics` | compact JSON metrics for demos |
 | `GET /metrics` | Prometheus text exposition |
+| `GET /api/timeline` | recent telemetry/drift events |
+| `POST /api/simulate/spike` | force overheating robot event |
+| `POST /api/reconcile` | generate proposal, apply USD overlay, heal line |
+| `GET /api/proposal/latest` | last reconciliation proposal |
+| `WS /ws/events` | live event stream (includes `scene` on drift/reconcile) |
+| `GET /docs` | Swagger UI (FastAPI) |
+| `GET /openapi.json` | OpenAPI schema |
+
+Offline schema dump (no server):
+
+```bash
+twinopsctl openapi --out /tmp/twinops-openapi.json
+```
 
 Prometheus scrape example (local / sidecar):
 
@@ -29,11 +42,6 @@ annotations:
   prometheus.io/port: "8080"
   prometheus.io/path: "/metrics"
 ```
-| `GET /api/timeline` | recent telemetry/drift events |
-| `POST /api/simulate/spike` | force overheating robot event |
-| `POST /api/reconcile` | generate proposal, apply USD overlay, heal line |
-| `GET /api/proposal/latest` | last reconciliation proposal |
-| `WS /ws/events` | live event stream (includes `scene` on drift/reconcile) |
 
 Demo flow in the web UI:
 
