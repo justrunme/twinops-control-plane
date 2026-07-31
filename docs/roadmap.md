@@ -43,27 +43,28 @@ twinopsctl drift \
 - Helm chart + sample CR
 - Local `make operator-run`
 
-## Milestone 4 — Live telemetry
+## Milestone 4 — Live telemetry ✅ (API foundation)
 
-- MQTT simulator for assembly line
-- Telemetry adapter
-- Transient / session layer updates
-- Drift events to Prometheus
+- In-process MQTT-style simulator for assembly line
+- Optional Mosquitto bridge (`deploy/demo/docker-compose.mqtt.yml`)
+- Live drift evaluation loop
+- HTTP + WebSocket control API (`twinopsctl serve`)
+- Timeline event store for the web control plane
 
-## Milestone 5 — Omniverse Kit extension
+## Milestone 5 — Web control plane ✅ (foundation)
 
-- `twinops.dashboard` extension
-- Prim walk + metadata panel
-- Drift color highlighting
-- Reconcile request action
+- React + Vite UI with live WebSocket updates
+- Drift findings table
+- Event timeline
+- Heat-spike demo action
+- Optional static hosting from `twinopsctl serve`
 
-## Milestone 6 — GPU streaming
+## Milestone 6 — Omniverse / GPU streaming
 
-- NVIDIA GPU Operator notes / Helm values
-- Containerized Kit App
-- Application / Profile CRs (Kit App Streaming)
-- Browser client + idle timeout
-- DCGM / Grafana dashboard
+- Kit extension with scene highlighting
+- GPU Operator notes / Helm values
+- Kit App Streaming session lifecycle
+- Browser streaming client
 
 ## Non-goals (for now)
 

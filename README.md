@@ -102,10 +102,50 @@ examples/assembly-line/demo-run/
     └── PULL_REQUEST.md
 ```
 
+Live telemetry API (no external broker required):
+
+```bash
+make serve
+# GET  http://127.0.0.1:8080/api/twin
+# POST http://127.0.0.1:8080/api/simulate/spike
+# WS   ws://127.0.0.1:8080/ws/events
+```
+
+See [docs/live-telemetry.md](docs/live-telemetry.md).
+
+Web control plane (timeline UI):
+
+```bash
+# terminal 1
+make serve
+
+# terminal 2
+make web-dev
+# open http://127.0.0.1:5173
+```
+
+Or build UI into the API:
+
+```bash
+make web && make serve
+# open http://127.0.0.1:8080/
+```
+
+Operator:
+
+```bash
+make operator-build
+# kubectl apply -f config/crd/bases/twinops.io_digitaltwins.yaml
+# make operator-run
+```
+
+See [docs/operator.md](docs/operator.md).
+
 Run tests:
 
 ```bash
 make test
+make go-test
 ```
 
 ---
@@ -162,8 +202,8 @@ twinops-control-plane/
 ├── cmd/manager/             # Operator manager entrypoint
 ├── deploy/helm/             # Helm chart for the operator
 ├── usd/                     # Generated / shared USD workspace
-├── kit-app/                 # Planned Omniverse Kit extension
-└── web/                     # Planned control-plane UI
+├── web/                     # Live control-plane UI
+└── kit-app/                 # Planned Omniverse Kit extension
 ```
 
 About **70% of the platform** (compiler, drift engine, operator, GitOps, observability, mock adapters) can be built **without an NVIDIA GPU**. GPU is required only for Kit rendering and streaming.
@@ -193,10 +233,10 @@ Milestones 1–2 deliver composition, drift detection, HTML report, and a reconc
 | 0         | Repository foundation, docs, sample scene  | **done**    |
 | 1         | OpenUSD Digital Twin Compiler + CLI        | **done**    |
 | 2         | Drift engine + reconcile proposal + demo   | **done**    |
-| 3         | Kubernetes operator + DigitalTwin CRD      | in progress |
-| 4         | Live MQTT telemetry adapter                | planned     |
-| 5         | Omniverse Kit extension (highlight + panel)| planned     |
-| 6         | GPU streaming + browser client             | planned     |
+| 3         | Kubernetes operator + DigitalTwin CRD      | **done**    |
+| 4         | Live MQTT telemetry + drift API            | **done**    |
+| 5         | Web control plane (timeline UI)            | **done**    |
+| 6         | Omniverse Kit extension / GPU streaming    | planned     |
 
 See [docs/roadmap.md](docs/roadmap.md) and [docs/architecture.md](docs/architecture.md).
 
