@@ -4,6 +4,9 @@ All notable TwinOps changes are listed here. Dates are UTC.
 
 ## Unreleased
 
+- Drift SARIF export (`drift-report.sarif`, `--sarif`, ADR-0005)
+- Optional pre-commit config (ruff + basic hooks)
+- Helm chart README under `deploy/helm/twinops-operator/`
 - Docs index (`docs/README.md`) + root `SECURITY.md`
 - `twinopsctl health` / `make health` for live API probes
 - `make mqtt-up` / `make mqtt-down` Mosquitto shortcuts
