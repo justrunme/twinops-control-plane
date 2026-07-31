@@ -4,6 +4,8 @@ All notable TwinOps changes are listed here. Dates are UTC.
 
 ## Unreleased
 
+- README documents `scene-live` / `live-status` DX path
+
 ## 0.3.5 — 2026-07-31
 
 - `twinopsctl scene --json` emits JSON-only stdout for scripts
