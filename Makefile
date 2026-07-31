@@ -3,7 +3,7 @@ PIP ?= $(PYTHON) -m pip
 VENV ?= .venv
 BIN := $(VENV)/bin
 
-.PHONY: help venv install test lint build demo drift clean
+.PHONY: help venv install test lint build demo drift serve clean
 
 help:
 	@echo "TwinOps targets:"
@@ -13,6 +13,7 @@ help:
 	@echo "  make lint     - run ruff"
 	@echo "  make demo     - full self-healing drift demo"
 	@echo "  make drift    - build + drift against sample telemetry"
+	@echo "  make serve    - live MQTT-style simulator + drift API"
 	@echo "  make build    - build sdist/wheel"
 	@echo "  make clean    - remove build artifacts"
 
@@ -44,6 +45,9 @@ drift:
 		--manifest examples/assembly-line/twin.yaml \
 		--out examples/assembly-line/generated/drift \
 		--propose examples/assembly-line/generated/proposal
+
+serve:
+	$(BIN)/twinopsctl serve --example examples/assembly-line --host 127.0.0.1 --port 8080
 
 clean:
 	rm -rf dist build *.egg-info python/*.egg-info .pytest_cache .ruff_cache .coverage

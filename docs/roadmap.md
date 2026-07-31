@@ -43,12 +43,13 @@ twinopsctl drift \
 - Object storage upload
 - envtest integration tests
 
-## Milestone 4 — Live telemetry
+## Milestone 4 — Live telemetry ✅ (API foundation)
 
-- MQTT simulator for assembly line
-- Telemetry adapter
-- Transient / session layer updates
-- Drift events to Prometheus
+- In-process MQTT-style simulator for assembly line
+- Optional Mosquitto bridge (`deploy/demo/docker-compose.mqtt.yml`)
+- Live drift evaluation loop
+- HTTP + WebSocket control API (`twinopsctl serve`)
+- Timeline event store for the web control plane
 
 ## Milestone 5 — Omniverse Kit extension
 
