@@ -4,6 +4,11 @@ All notable TwinOps changes are listed here. Dates are UTC.
 
 ## Unreleased
 
+## 0.5.9 — 2026-07-31
+
+- Kit streaming session mock exposes `spec.webrtc` placeholder (ADR-0012)
+- Docs: mock → future Kit App Streaming / WebRTC contract
+
 ## 0.5.8 — 2026-07-31
 
 - `make mqtt-tls-smoke` / `scripts/mqtt_tls_smoke.sh` end-to-end lab TLS pub/sub

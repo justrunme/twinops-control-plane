@@ -29,7 +29,14 @@ def mock_streaming_session(*, base_url: str = "http://127.0.0.1:8080") -> dict[s
             "protocol": "twinops.highlight.v1",
             "sceneUrl": f"{base_url.rstrip('/')}/api/scene",
             "eventsUrl": f"{base_url.rstrip('/').replace('http', 'ws', 1)}/ws/events",
+            # Real Kit App Streaming fills streamUrl + webrtc; mock stays null/disabled.
             "streamUrl": None,
+            "webrtc": {
+                "enabled": False,
+                "signalingUrl": None,
+                "iceServers": [],
+                "notes": "Placeholder for future Kit App Streaming / browser WebRTC",
+            },
         },
         "status": {
             "phase": "MockReady",
