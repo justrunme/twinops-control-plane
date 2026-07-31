@@ -3,7 +3,7 @@ PIP ?= $(PYTHON) -m pip
 VENV ?= .venv
 BIN := $(VENV)/bin
 
-.PHONY: help venv install test lint build demo live-demo live-demo-smoke mqtt-up mqtt-down mqtt-smoke mqtt-topics mqtt-topics-sync drift serve web web-dev operator-build operator-run operator-demo operator-demo-watch operator-demo-cleanup scene scene-highlight plm-demo verify-all doctor health ready timeline proposal metrics live-spike live-reconcile openapi version docker-live docker-operator docker-live-up docker-live-down go-test clean
+.PHONY: help venv install test lint build demo live-demo live-demo-smoke mqtt-up mqtt-down mqtt-smoke mqtt-topics mqtt-topics-sync drift serve web web-dev operator-build operator-run operator-demo operator-demo-watch operator-demo-cleanup scene scene-highlight plm-demo verify-all doctor health ready wait-ready timeline proposal metrics live-spike live-reconcile openapi version docker-live docker-operator docker-live-up docker-live-down go-test clean
 
 help:
 	@echo "TwinOps targets:"
@@ -20,6 +20,7 @@ help:
 	@echo "  make mqtt-topics-sync - rewrite examples/.../mqtt-topics.json from code"
 	@echo "  make health          - probe live API /api/health on :8080"
 	@echo "  make ready           - probe live API /api/ready on :8080"
+	@echo "  make wait-ready      - poll /api/ready until twin is loaded"
 	@echo "  make timeline        - print live API timeline on :8080"
 	@echo "  make proposal        - print latest live reconcile proposal"
 	@echo "  make metrics         - print live API metrics on :8080"
@@ -95,6 +96,9 @@ health:
 
 ready:
 	$(BIN)/twinopsctl ready --base-url http://127.0.0.1:8080
+
+wait-ready:
+	bash scripts/wait_ready.sh http://127.0.0.1:8080 30
 
 timeline:
 	$(BIN)/twinopsctl timeline --base-url http://127.0.0.1:8080
