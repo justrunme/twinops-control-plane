@@ -16,6 +16,7 @@ from twinops.drift.reconcile import propose_reconciliation
 from twinops.scene import build_scene_snapshot
 from twinops.schema import load_manifest
 from twinops.telemetry.bus import TelemetryBus
+from twinops.telemetry.ingest import ObservationIngest
 from twinops.telemetry.simulator import AssemblyLineSimulator, SimulatorConfig
 
 logger = logging.getLogger(__name__)
@@ -31,6 +32,7 @@ class LiveDriftRuntime:
         interval_seconds: float = 1.0,
         mqtt_host: str | None = None,
         mqtt_port: int = 1883,
+        mqtt_ingest: bool = True,
     ) -> None:
         self.example_dir = example_dir.resolve()
         self.work_dir = work_dir.resolve()
@@ -44,11 +46,13 @@ class LiveDriftRuntime:
                 # Drift loop drives ticks; keep sim thread as optional publisher only.
             ),
         )
+        self.ingest = ObservationIngest()
         self._stop = threading.Event()
         self._thread: threading.Thread | None = None
         self._stage_root: Path | None = None
         self._mqtt_host = mqtt_host
         self._mqtt_port = mqtt_port
+        self._mqtt_ingest = mqtt_ingest
         self._ws_clients: list[Any] = []
         self._ws_lock = threading.Lock()
         self._stage_dir: Path | None = None
@@ -82,8 +86,16 @@ class LiveDriftRuntime:
                 "reconciled": False,
             }
         )
+        self.ingest = ObservationIngest.from_manifest_mappings(manifest.telemetry_mappings)
         if self._mqtt_host:
             self.bus.enable_mqtt(self._mqtt_host, self._mqtt_port)
+            if self._mqtt_ingest and self.ingest.topics:
+                self.bus.enable_mqtt_ingest(
+                    self._mqtt_host,
+                    self._mqtt_port,
+                    topics=self.ingest.topics,
+                    handler=self._on_mqtt_ingest,
+                )
 
         # Seed first drift evaluation.
         self.evaluate_drift()
@@ -97,12 +109,16 @@ class LiveDriftRuntime:
 
     def mqtt_status(self) -> dict[str, Any]:
         endpoint = self.bus.mqtt_endpoint
+        ingest = self.ingest.status()
+        ingest["enabled"] = self.bus.mqtt_ingest_enabled
+        ingest["requested"] = bool(self._mqtt_host and self._mqtt_ingest)
         return {
             "requested": bool(self._mqtt_host),
             "enabled": self.bus.mqtt_enabled,
             "host": self._mqtt_host,
             "port": self._mqtt_port if self._mqtt_host else None,
             "endpoint": endpoint,
+            "ingest": ingest,
         }
 
     def scene_snapshot(self) -> dict[str, Any]:
@@ -145,6 +161,7 @@ class LiveDriftRuntime:
         proposal = propose_reconciliation(self._last_report, proposal_dir)
         applied = self._apply_proposal_overlay(proposal.overlay_path)
 
+        self.ingest.clear()
         healed = self.simulator.heal(firmware="4.14", cooldown_cycles=25)
         self.simulator.tick()
 
@@ -202,7 +219,7 @@ class LiveDriftRuntime:
         if self._stage_root is None:
             raise RuntimeError("runtime not bootstrapped")
 
-        observed_raw = self.simulator.snapshot_observations()
+        observed_raw = self.ingest.merge_observations(self.simulator.snapshot_observations())
         observed = ObservedState(
             timestamp=observed_raw.get("timestamp"),
             source=observed_raw.get("source"),
@@ -259,6 +276,21 @@ class LiveDriftRuntime:
         )
         return payload
 
+    def _on_mqtt_ingest(self, topic: str, payload: bytes) -> None:
+        applied = self.ingest.handle_message(topic, payload)
+        if not applied:
+            return
+        binding = self.ingest.binding_for(topic)
+        if binding is None:
+            return
+        self.simulator.apply_external(
+            binding.prim, binding.attribute, self.ingest.status().get("lastValue")
+        )
+        try:
+            self.evaluate_drift(record_telemetry=True)
+        except Exception:  # noqa: BLE001
+            logger.exception("drift evaluation after mqtt ingest failed")
+
     def _loop(self) -> None:
         while not self._stop.is_set():
             try:
@@ -309,4 +341,3 @@ class LiveDriftRuntime:
             )
             self._stage_root.write_text(root_text, encoding="utf-8")
         return target
-

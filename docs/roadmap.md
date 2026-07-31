@@ -47,6 +47,7 @@ twinopsctl drift \
 
 - In-process MQTT-style simulator for assembly line
 - Optional Mosquitto bridge (`deploy/demo/docker-compose.mqtt.yml`)
+- Bidirectional MQTT: publish + ingest (external PLC → observed state)
 - Live drift evaluation loop
 - HTTP + WebSocket control API (`twinopsctl serve`)
 - Timeline event store for the web control plane
