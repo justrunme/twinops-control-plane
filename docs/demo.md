@@ -15,7 +15,7 @@ Optional containerized live API (demo only; set `TWINOPS_API_TOKEN` before shari
 
 ```bash
 make docker-live
-docker run --rm -p 8080:8080 twinops-live:0.5.5
+docker run --rm -p 8080:8080 twinops-live:0.5.6
 # or Mosquitto + live API/UI:
 make docker-live-up
 make wait-ready

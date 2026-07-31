@@ -18,7 +18,7 @@ Omniverse Kit (optional)
 Browser streaming (mock viewport now; Kit App Streaming later)
 ```
 
-> Status: **experimental** (v0.5.5). Mock PLM adapter. Bidirectional MQTT. Optional Omniverse highlight contract. Not production-ready.
+> Status: **experimental** (v0.5.6). Mock PLM adapter. Bidirectional MQTT. Optional Omniverse highlight contract. Not production-ready.
 
 [![CI](https://github.com/justrunme/twinops-control-plane/actions/workflows/ci.yml/badge.svg)](https://github.com/justrunme/twinops-control-plane/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/justrunme/twinops-control-plane?display_name=tag)](https://github.com/justrunme/twinops-control-plane/releases/latest)
@@ -171,7 +171,7 @@ make operator-build
 # make operator-run
 ```
 
-See [docs/operator.md](docs/operator.md) and [docs/live-telemetry.md](docs/live-telemetry.md).
+See [docs/images.md](docs/images.md), [docs/operator.md](docs/operator.md), and [docs/live-telemetry.md](docs/live-telemetry.md).
 
 ### Tests
 
