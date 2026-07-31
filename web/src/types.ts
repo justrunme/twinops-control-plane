@@ -17,6 +17,29 @@ export type TimelineItem = {
   payload: Record<string, unknown>
 }
 
+export type ScenePrim = {
+  prim: string
+  label: string
+  status: string
+  highlight: {
+    enabled: boolean
+    color: number[]
+    intensity: number
+  }
+  findings: Finding[]
+}
+
+export type SceneSnapshot = {
+  twin: string
+  generatedAt?: string | null
+  hasDrift: boolean
+  prims: ScenePrim[]
+  protocol: {
+    name: string
+    description?: string
+  }
+}
+
 export type TwinSnapshot = {
   twin: {
     name?: string
