@@ -104,7 +104,9 @@ print(f\"    spike: hasDrift={status.get('hasDrift')} summary={status.get('summa
 SCENE_JSON="$(curl -fsS "$BASE/api/scene")"
 printf '%s' "$SCENE_JSON" | "$PYTHON" -c "
 import json, sys
+from twinops.scene import assert_valid_scene_snapshot
 scene = json.load(sys.stdin)
+assert_valid_scene_snapshot(scene)
 lit = [p for p in scene.get('prims', []) if (p.get('highlight') or {}).get('enabled')]
 robot = next((p for p in scene.get('prims', []) if p.get('label') == 'Robot01'), None)
 print(f\"    scene: protocol={scene.get('protocol', {}).get('name')} lit={len(lit)}\")
@@ -112,7 +114,7 @@ if not lit:
     raise SystemExit('expected highlighted prims after spike')
 if not robot or not (robot.get('highlight') or {}).get('enabled'):
     raise SystemExit('expected Robot01 highlight after spike')
-print(f\"    scene: Robot01 status={robot.get('status')}\")
+print(f\"    scene: Robot01 status={robot.get('status')} (schema OK)\")
 "
 
 SCENE_HTML="$(curl -fsS "$BASE/api/scene/report")"
