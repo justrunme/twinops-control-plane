@@ -1,0 +1,13 @@
+[package]
+title = "TwinOps Drift Highlight"
+description = "Poll TwinOps /api/scene and highlight drifted OpenUSD prims"
+version = "0.1.0"
+category = "Simulation"
+keywords = ["twinops", "digital twin", "gitops", "drift"]
+
+[dependencies]
+# Declared for Kit packaging; this stub also runs outside Omniverse.
+# "omni.kit.commands" = {}
+
+[[python.module]]
+name = "twinops_highlight"

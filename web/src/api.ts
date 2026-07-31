@@ -1,4 +1,4 @@
-import type { TwinSnapshot } from './types'
+import type { SceneSnapshot, TwinSnapshot } from './types'
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? ''
 
@@ -6,6 +6,14 @@ export async function fetchTwin(): Promise<TwinSnapshot> {
   const response = await fetch(`${API_BASE}/api/twin`)
   if (!response.ok) {
     throw new Error(`API ${response.status}`)
+  }
+  return response.json()
+}
+
+export async function fetchScene(): Promise<SceneSnapshot> {
+  const response = await fetch(`${API_BASE}/api/scene`)
+  if (!response.ok) {
+    throw new Error(`scene API ${response.status}`)
   }
   return response.json()
 }
