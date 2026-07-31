@@ -100,15 +100,27 @@ def _cmd_drift(args: argparse.Namespace) -> int:
 def _cmd_scene(args: argparse.Namespace) -> int:
     """Build twinops.highlight.v1 from a drift report or by evaluating drift."""
     try:
-        if args.from_report:
+        if getattr(args, "from_url", None):
+            base = str(args.from_url).rstrip("/")
+            status, body = _fetch_json(f"{base}/api/scene", timeout=getattr(args, "timeout", 3.0))
+            if not body or status != 200:
+                return 1
+            scene = json.loads(body)
+        elif args.from_report:
             payload = json.loads(Path(args.from_report).read_text(encoding="utf-8"))
             twin_name = str((payload.get("metadata") or {}).get("name") or "twin")
             findings = list((payload.get("status") or {}).get("findings") or [])
             generated_at = (payload.get("metadata") or {}).get("generatedAt")
+            scene = build_scene_snapshot(
+                twin_name=twin_name,
+                findings=findings,
+                generated_at=generated_at,
+            )
         else:
             if not args.desired or not args.stage or not args.observed:
                 print(
-                    "error: --desired/--stage/--observed required unless --from-report is set",
+                    "error: --desired/--stage/--observed required unless "
+                    "--from-report/--from-url is set",
                     file=sys.stderr,
                 )
                 return 2
@@ -122,15 +134,15 @@ def _cmd_scene(args: argparse.Namespace) -> int:
             twin_name = report.name
             findings = list((payload.get("status") or {}).get("findings") or [])
             generated_at = report.generated_at
+            scene = build_scene_snapshot(
+                twin_name=twin_name,
+                findings=findings,
+                generated_at=generated_at,
+            )
     except (DriftLoadError, ManifestError, OSError, ValueError, json.JSONDecodeError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2
 
-    scene = build_scene_snapshot(
-        twin_name=twin_name,
-        findings=findings,
-        generated_at=generated_at,
-    )
     if getattr(args, "strict", False):
         try:
             assert_valid_scene_snapshot(scene)
@@ -748,6 +760,12 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help="build scene from an existing drift-report.json",
     )
+    scene.add_argument(
+        "--from-url",
+        default=None,
+        help="fetch live scene snapshot from BASE/api/scene",
+    )
+    scene.add_argument("--timeout", type=float, default=3.0, help="HTTP timeout for --from-url")
     scene.add_argument("--out", default=None, help="write scene JSON to this path")
     scene.add_argument("--html", default=None, help="write offline scene HTML report")
     scene.add_argument(
