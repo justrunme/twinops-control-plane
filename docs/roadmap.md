@@ -76,6 +76,13 @@ twinopsctl drift \
 - `twinopsctl plm show|compare|bump|sync|desired`
 - Vendor-neutral mock only — no proprietary PLM SDK
 
+## Architecture decisions
+
+- [ADR-0001](adr/0001-gitops-for-digital-twins.md) — GitOps for digital twins
+- [ADR-0002](adr/0002-kubernetes-operator.md) — Kubernetes operator
+- [ADR-0003](adr/0003-scene-highlight-protocol.md) — Scene highlight without GPU
+- [ADR-0004](adr/0004-bidirectional-mqtt-bridge.md) — Bidirectional MQTT bridge
+
 ## Non-goals (for now)
 
 - Claiming production / enterprise readiness
