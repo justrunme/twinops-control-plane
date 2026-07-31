@@ -8,6 +8,9 @@ can consume.
 
 ## Highlight protocol (`twinops.highlight.v1`)
 
+Machine-readable schema: [`schemas/twinops.highlight.v1.json`](../schemas/twinops.highlight.v1.json).  
+Offline validation: `twinopsctl scene … --strict`.
+
 ```bash
 make serve
 curl -s http://127.0.0.1:8080/api/scene | jq .
