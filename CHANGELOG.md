@@ -4,6 +4,8 @@ All notable TwinOps changes are listed here. Dates are UTC.
 
 ## Unreleased
 
+- `twinopsctl build --json` emits JSON-only stdout
+
 ## 0.3.7 — 2026-07-31
 
 - `twinopsctl plm show|compare --json` emits JSON-only stdout
