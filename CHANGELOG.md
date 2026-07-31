@@ -4,6 +4,7 @@ All notable TwinOps changes are listed here. Dates are UTC.
 
 ## Unreleased
 
+- `twinopsctl metrics` / `make metrics`
 - Live demo smoke uses `twinopsctl live spike|reconcile`
 - `twinopsctl live spike|reconcile` against a running live API
 - GitHub release `v0.3.2`
