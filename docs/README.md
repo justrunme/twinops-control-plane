@@ -9,6 +9,7 @@ Navigation index for the control plane docs.
 | Architecture overview | [architecture.md](architecture.md) |
 | 2-minute live demo | [demo.md](demo.md) |
 | 5–7 minute demo script | [demo-script.md](demo-script.md) |
+| Sequence diagrams | [sequences.md](sequences.md) |
 | Local prerequisites | `make doctor` / [CONTRIBUTING.md](../CONTRIBUTING.md) |
 | Cutting a release | [RELEASING.md](../RELEASING.md) |
 
