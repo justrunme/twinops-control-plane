@@ -4,6 +4,8 @@ All notable TwinOps changes are listed here. Dates are UTC.
 
 ## Unreleased
 
+## 0.4.6 — 2026-07-31
+
 - Web UI passes `VITE_TWINOPS_API_TOKEN`; WS accepts `?token=` for demos
 
 ## 0.4.5 — 2026-07-31
