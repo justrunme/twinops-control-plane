@@ -41,6 +41,7 @@ Navigation index for the control plane docs.
 | [0009](adr/0009-mqtt-payload-schema.md) | MQTT payload schema |
 | [0010](adr/0010-apply-verify-loop.md) | Apply verification loop |
 | [0011](adr/0011-lab-mqtt-tls.md) | Lab MQTT TLS stub |
+| [0012](adr/0012-kit-streaming-mock-contract.md) | Kit streaming mock contract |
 
 ## Schemas
 
