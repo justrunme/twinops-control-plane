@@ -17,6 +17,8 @@ API:
 | `GET /api/twin` | twin + latest drift + timeline snapshot |
 | `GET /api/drift/latest` | latest drift report |
 | `GET /api/scene` | OpenUSD prim highlight snapshot (`twinops.highlight.v1`) |
+| `GET /api/metrics` | compact JSON metrics for demos |
+| `GET /metrics` | Prometheus text exposition |
 | `GET /api/timeline` | recent telemetry/drift events |
 | `POST /api/simulate/spike` | force overheating robot event |
 | `POST /api/reconcile` | generate proposal, apply USD overlay, heal line |

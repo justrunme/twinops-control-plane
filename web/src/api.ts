@@ -1,4 +1,4 @@
-import type { SceneSnapshot, TwinSnapshot } from './types'
+import type { LiveMetrics, SceneSnapshot, TwinSnapshot } from './types'
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? ''
 
@@ -14,6 +14,14 @@ export async function fetchScene(): Promise<SceneSnapshot> {
   const response = await fetch(`${API_BASE}/api/scene`)
   if (!response.ok) {
     throw new Error(`scene API ${response.status}`)
+  }
+  return response.json()
+}
+
+export async function fetchMetrics(): Promise<LiveMetrics> {
+  const response = await fetch(`${API_BASE}/api/metrics`)
+  if (!response.ok) {
+    throw new Error(`metrics API ${response.status}`)
   }
   return response.json()
 }

@@ -29,6 +29,18 @@ export type ScenePrim = {
   findings: Finding[]
 }
 
+export type LiveMetrics = {
+  twin?: string
+  hasDrift: boolean
+  summary: Record<string, number>
+  highlightedPrims: number
+  timelineEvents: number
+  reconciled: boolean
+  mqttPublishEnabled: boolean
+  mqttIngestReceived: number
+  robotTemp?: number
+}
+
 export type SceneSnapshot = {
   twin: string
   generatedAt?: string | null
