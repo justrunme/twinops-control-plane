@@ -203,17 +203,56 @@ def _cmd_reconcile(args: argparse.Namespace) -> int:
     return 0 if proposal.changes else 0
 
 
+def _materialize_proposal_bundle(base_url: str, *, timeout: float, work_dir: Path) -> Path:
+    """Fetch /api/proposal/latest/bundle and write local proposal artifacts."""
+    status, body = _fetch_json(
+        f"{base_url.rstrip('/')}/api/proposal/latest/bundle",
+        timeout=timeout,
+    )
+    if not body or status != 200:
+        raise RuntimeError(f"failed to fetch proposal bundle from {base_url}")
+    payload = json.loads(body)
+    if not payload.get("available"):
+        raise RuntimeError("no proposal bundle available — run live reconcile first")
+    out = work_dir.resolve()
+    out.mkdir(parents=True, exist_ok=True)
+    (out / "reconcile-overlay.usda").write_text(str(payload.get("overlay") or ""), encoding="utf-8")
+    (out / "reconciliation-proposal.json").write_text(
+        json.dumps(payload.get("proposal") or {}, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    (out / "PULL_REQUEST.md").write_text(str(payload.get("pullRequest") or ""), encoding="utf-8")
+    return out
+
+
 def _cmd_apply(args: argparse.Namespace) -> int:
     """Apply a local reconciliation proposal into a GitOps working tree."""
     try:
+        proposal_dir = args.proposal_dir
+        if getattr(args, "from_url", None):
+            work = (
+                Path(args.bundle_dir)
+                if args.bundle_dir
+                else Path("/tmp/twinops-proposal-bundle")
+            )
+            proposal_dir = str(
+                _materialize_proposal_bundle(
+                    args.from_url,
+                    timeout=args.timeout,
+                    work_dir=work,
+                )
+            )
+        if not proposal_dir:
+            print("error: proposal_dir or --from-url is required", file=sys.stderr)
+            return 2
         result = apply_proposal(
-            args.proposal_dir,
+            proposal_dir,
             repo=args.repo,
             target_dir=args.target_dir,
             branch=args.branch,
             commit=not args.no_commit,
         )
-    except (OSError, RuntimeError, FileNotFoundError, ValueError) as exc:
+    except (OSError, RuntimeError, FileNotFoundError, ValueError, json.JSONDecodeError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2
     if args.json:
@@ -911,7 +950,23 @@ def build_parser() -> argparse.ArgumentParser:
         "apply",
         help="apply a reconciliation proposal into a local GitOps branch (no push)",
     )
-    apply_cmd.add_argument("proposal_dir", help="directory with reconcile-overlay.usda")
+    apply_cmd.add_argument(
+        "proposal_dir",
+        nargs="?",
+        default=None,
+        help="directory with reconcile-overlay.usda (optional with --from-url)",
+    )
+    apply_cmd.add_argument(
+        "--from-url",
+        default=None,
+        help="fetch proposal bundle from live API base URL",
+    )
+    apply_cmd.add_argument(
+        "--bundle-dir",
+        default=None,
+        help="where to materialize --from-url artifacts (default: /tmp/twinops-proposal-bundle)",
+    )
+    apply_cmd.add_argument("--timeout", type=float, default=5.0, help="HTTP timeout for --from-url")
     apply_cmd.add_argument(
         "--repo",
         default=".",
