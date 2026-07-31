@@ -152,7 +152,10 @@ See [docs/operator.md](docs/operator.md) and [docs/live-telemetry.md](docs/live-
 ```bash
 make test
 make go-test
+make verify-all
 ```
+
+See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ---
 
