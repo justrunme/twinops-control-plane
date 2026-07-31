@@ -9,6 +9,15 @@ make live-demo
 
 Opens the control plane at [http://127.0.0.1:8080/](http://127.0.0.1:8080/).
 
+Keyboard shortcuts in the UI: **1** = heat spike, **2** = reconcile.
+
+Optional containerized live API (demo only, unauthenticated):
+
+```bash
+make docker-live
+docker run --rm -p 8080:8080 twinops-live:0.3.1
+```
+
 What you will see:
 
 ```text

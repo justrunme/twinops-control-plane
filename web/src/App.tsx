@@ -170,6 +170,27 @@ export default function App() {
     }
   }
 
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.target instanceof HTMLElement) {
+        const tag = event.target.tagName
+        if (tag === 'INPUT' || tag === 'TEXTAREA' || event.target.isContentEditable) {
+          return
+        }
+      }
+      if (busy !== null) return
+      if (event.key === '1') {
+        event.preventDefault()
+        void onSpike()
+      } else if (event.key === '2') {
+        event.preventDefault()
+        void onReconcile()
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [busy])
+
   return (
     <div className="page">
       <header className="hero">
@@ -184,10 +205,21 @@ export default function App() {
           <span className={`link ${connected ? 'ok' : 'bad'}`}>
             {connected ? 'LIVE' : 'OFFLINE'}
           </span>
-          <button type="button" className="secondary" onClick={onSpike} disabled={busy !== null}>
+          <button
+            type="button"
+            className="secondary"
+            onClick={onSpike}
+            disabled={busy !== null}
+            title="Keyboard: 1"
+          >
             {busy === 'spike' ? 'Spiking…' : '1. Trigger heat spike'}
           </button>
-          <button type="button" onClick={onReconcile} disabled={busy !== null}>
+          <button
+            type="button"
+            onClick={onReconcile}
+            disabled={busy !== null}
+            title="Keyboard: 2"
+          >
             {busy === 'reconcile' ? 'Reconciling…' : '2. Apply reconciliation'}
           </button>
         </div>

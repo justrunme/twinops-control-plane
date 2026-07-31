@@ -4,6 +4,7 @@ All notable TwinOps changes are listed here. Dates are UTC.
 
 ## Unreleased
 
+- `Dockerfile.live` + Go 1.26 operator image base; UI hotkeys 1/2
 - `twinopsctl serve --open` + `scripts/sync_mqtt_topics.py` / CI catalog check
 - ADR-0006 MQTT topic catalog + `make version`
 - Drift CSV export (`drift-report.csv`, `--csv`, `GET /api/drift/csv`)
