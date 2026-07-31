@@ -19,6 +19,15 @@ API:
 | `GET /api/scene` | OpenUSD prim highlight snapshot (`twinops.highlight.v1`) |
 | `GET /api/metrics` | compact JSON metrics for demos |
 | `GET /metrics` | Prometheus text exposition |
+
+Prometheus scrape example (local / sidecar):
+
+```yaml
+annotations:
+  prometheus.io/scrape: "true"
+  prometheus.io/port: "8080"
+  prometheus.io/path: "/metrics"
+```
 | `GET /api/timeline` | recent telemetry/drift events |
 | `POST /api/simulate/spike` | force overheating robot event |
 | `POST /api/reconcile` | generate proposal, apply USD overlay, heal line |
