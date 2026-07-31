@@ -36,6 +36,14 @@ twinopsctl plm desired --example examples/assembly-line --out /tmp/plm-desired.y
 
 ## Demo flow
 
+Safe one-command demo (temp copy, does not mutate the repo):
+
+```bash
+make plm-demo
+```
+
+Manual flow:
+
 1. `plm bump 1004711` → catalog revision C→D  
 2. `plm compare` → DRIFT vs manifest  
 3. `plm sync` → manifest catches up  
