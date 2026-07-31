@@ -4,7 +4,10 @@ All notable TwinOps changes are listed here. Dates are UTC.
 
 ## Unreleased
 
+## 0.4.3 — 2026-07-31
+
 - `twinopsctl apply --print-pr` suggests a manual gh pr create command
+- Prometheus scrape snippet + `make apply-live`
 
 ## 0.4.2 — 2026-07-31
 
