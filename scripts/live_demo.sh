@@ -84,13 +84,7 @@ if ! curl -fsS "$BASE/api/health" >/dev/null 2>&1; then
   exit 1
 fi
 
-"$TWINOPSCTL" ready --base-url "$BASE"
-READY_JSON="$("$TWINOPSCTL" ready --base-url "$BASE" --json)"
-printf '%s' "$READY_JSON" | "$PYTHON" -c "
-import json, sys
-payload = json.load(sys.stdin)
-print(f\"    ready: twin={payload.get('twin')} hasDriftReport={payload.get('hasDriftReport')}\")
-"
+"$TWINOPSCTL" live status --base-url "$BASE"
 
 echo "==> Demo flow: spike → scene highlight → reconcile → SYNCED"
 SPIKE_JSON="$("$TWINOPSCTL" live spike --base-url "$BASE" --json)"
