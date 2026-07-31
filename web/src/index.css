@@ -273,6 +273,18 @@ button:disabled {
   margin-bottom: 0;
 }
 
+.stream-canvas {
+  display: none;
+}
+
+.stream-video {
+  width: 100%;
+  min-height: 180px;
+  border-radius: 4px;
+  background: #04100c;
+  object-fit: cover;
+}
+
 .stream-viewport {
   padding: 14px 16px 16px;
   min-height: 220px;

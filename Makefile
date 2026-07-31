@@ -3,7 +3,7 @@ PIP ?= $(PYTHON) -m pip
 VENV ?= .venv
 BIN := $(VENV)/bin
 
-.PHONY: help venv install test lint build demo live-demo live-demo-smoke demo-gitops mqtt-up mqtt-down mqtt-smoke mqtt-topics mqtt-topics-sync mqtt-topics-check mqtt-acl-up mqtt-acl-down mqtt-tls-certs mqtt-tls-up mqtt-tls-down mqtt-tls-smoke drift serve web web-dev operator-build operator-run operator-demo operator-demo-watch operator-demo-cleanup scene scene-live scene-highlight plm-demo verify-all doctor health ready wait-ready timeline proposal metrics live-status live-spike live-reconcile openapi version docker-live docker-operator docker-live-up docker-live-down go-test clean apply apply-live apply-verify helm-deps helm-template
+.PHONY: help venv install test lint build demo live-demo live-demo-smoke demo-gitops mqtt-up mqtt-down mqtt-smoke mqtt-topics mqtt-topics-sync mqtt-topics-check mqtt-acl-up mqtt-acl-down mqtt-tls-certs mqtt-tls-up mqtt-tls-down mqtt-tls-smoke drift serve live-tls-certs serve-webrtc web web-dev operator-build operator-run operator-demo operator-demo-watch operator-demo-cleanup scene scene-live scene-highlight plm-demo verify-all doctor health ready wait-ready timeline proposal metrics live-status live-spike live-reconcile openapi version docker-live docker-operator docker-live-up docker-live-down go-test clean apply apply-live apply-verify helm-deps helm-template
 
 help:
 	@echo "TwinOps targets:"
@@ -52,6 +52,8 @@ help:
 	@echo "  make helm-deps       - helm dependency update for umbrella chart"
 	@echo "  make helm-template   - render umbrella chart (live stub enabled)"
 	@echo "  make serve           - live MQTT-style simulator + drift API"
+	@echo "  make live-tls-certs  - generate lab HTTPS/mTLS certs for serve"
+	@echo "  make serve-webrtc    - serve with lab WebRTC enabled"
 	@echo "  make web             - build web control plane into web/dist"
 	@echo "  make web-dev         - run Vite UI (proxies API on :8080)"
 	@echo "  make operator-build  - build Go operator manager binary"
@@ -171,7 +173,7 @@ version:
 	$(BIN)/twinopsctl version
 
 docker-live:
-	docker build -f Dockerfile.live -t twinops-live:0.5.9 .
+	docker build -f Dockerfile.live -t twinops-live:0.6.0 .
 
 docker-live-up:
 	docker compose -f deploy/demo/docker-compose.live.yml up --build -d
@@ -180,7 +182,7 @@ docker-live-down:
 	docker compose -f deploy/demo/docker-compose.live.yml down
 
 docker-operator:
-	docker build -f Dockerfile.operator -t twinops-operator:0.5.9 .
+	docker build -f Dockerfile.operator -t twinops-operator:0.6.0 .
 
 drift:
 	$(BIN)/twinopsctl build examples/assembly-line/twin.yaml --out examples/assembly-line/generated
@@ -250,6 +252,12 @@ helm-template: helm-deps
 
 serve:
 	$(BIN)/twinopsctl serve --example examples/assembly-line --host 127.0.0.1 --port 8080
+
+live-tls-certs:
+	./scripts/gen_live_tls_certs.sh
+
+serve-webrtc:
+	$(BIN)/twinopsctl serve --example examples/assembly-line --host 127.0.0.1 --port 8080 --webrtc
 
 web:
 	cd web && npm install && npm run build

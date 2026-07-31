@@ -44,7 +44,7 @@ Payload shape:
 Consumers should:
 
 1. Poll `GET /api/scene` (or consume scene frames from `/ws/events` snapshots)
-2. Optionally fetch `GET /api/streaming/session` for a Kit session descriptor (mock today; see [ADR-0012](adr/0012-kit-streaming-mock-contract.md))
+2. Optionally fetch `GET /api/streaming/session` (mock or lab WebRTC via `--webrtc`; see ADR-0012 / ADR-0014)
 3. For each prim with `highlight.enabled`, select / tint / emissive-highlight it
 4. Clear highlights when status returns to `SYNCED`
 

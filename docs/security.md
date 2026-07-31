@@ -32,7 +32,24 @@
 | Streaming | Authenticated session API, idle timeout |
 | Telemetry | Lab TLS+ACL demos shipped; production CA/client certs later; no secrets in USD layers |
 | Supply chain | CI checks, pinned Actions, SBOM later |
-| Live API | Optional bearer token (ADR-0008); operator SecretRef for CR tokens; mTLS / SSO later |
+| Live API | Bearer token (ADR-0008); SSO JWT + HTTPS/mTLS lab path (ADR-0013); operator SecretRef |
+
+## Lab HTTPS / mTLS / SSO
+
+```bash
+./scripts/gen_live_tls_certs.sh
+twinopsctl serve --example examples/assembly-line \
+  --tls-cert deploy/demo/live-certs/server.crt \
+  --tls-key deploy/demo/live-certs/server.key \
+  --tls-client-ca deploy/demo/live-certs/ca.crt \
+  --tls-require-client-cert \
+  --sso-jwt-secret demosecret \
+  --webrtc
+export TWINOPS_SSO_JWT_SECRET=demosecret
+twinopsctl sso issue --subject demo-user
+```
+
+Optional OIDC reverse-proxy shape: `deploy/demo/docker-compose.oauth2-proxy.yml`.
 
 ## Explicit non-goals for now
 

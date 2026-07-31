@@ -425,11 +425,15 @@ def _cmd_serve(args: argparse.Namespace) -> int:
 
     from twinops.api.app import create_app
     from twinops.api.auth import resolve_api_token
+    from twinops.api.sso import resolve_sso_secret
+    from twinops.api.tlsutil import build_ssl_context
 
     example_dir = Path(args.example).resolve()
     work_dir = Path(args.work_dir).resolve() if args.work_dir else Path("usd/generated/live")
     web_dist = Path(args.web_dist).resolve() if args.web_dist else Path("web/dist")
     api_token = resolve_api_token(getattr(args, "api_token", None))
+    sso_secret = resolve_sso_secret(getattr(args, "sso_jwt_secret", None))
+    webrtc = True if getattr(args, "webrtc", False) else None
     app = create_app(
         example_dir=example_dir,
         work_dir=work_dir,
@@ -443,8 +447,13 @@ def _cmd_serve(args: argparse.Namespace) -> int:
         autostart=True,
         web_dist=web_dist if web_dist.is_dir() else None,
         api_token=api_token,
+        sso_secret=sso_secret,
+        webrtc=webrtc,
     )
-    base = f"http://{args.host}:{args.port}"
+    tls_cert = getattr(args, "tls_cert", None)
+    tls_key = getattr(args, "tls_key", None)
+    scheme = "https" if tls_cert and tls_key else "http"
+    base = f"{scheme}://{args.host}:{args.port}"
     print(f"TwinOps live API on {base}")
     print(f"  example: {example_dir}")
     print(f"  workdir: {work_dir}")
@@ -452,8 +461,15 @@ def _cmd_serve(args: argparse.Namespace) -> int:
     print(f"  twin:    {base}/api/twin")
     print(f"  ready:   {base}/api/ready")
     print(f"  stream:  {base}/api/streaming/session")
-    print(f"  ws:      ws://{args.host}:{args.port}/ws/events")
-    print(f"  auth:    {'enabled' if api_token else 'disabled (demo)'}")
+    ws_scheme = "wss" if scheme == "https" else "ws"
+    print(f"  ws:      {ws_scheme}://{args.host}:{args.port}/ws/events")
+    auth_bits = []
+    if api_token:
+        auth_bits.append("api-token")
+    if sso_secret:
+        auth_bits.append("sso-jwt")
+    print(f"  auth:    {','.join(auth_bits) if auth_bits else 'disabled (demo)'}")
+    print(f"  webrtc:  {'lab' if webrtc else 'mock'}")
     if getattr(args, "open", False):
         import threading
         import webbrowser
@@ -463,12 +479,42 @@ def _cmd_serve(args: argparse.Namespace) -> int:
 
         threading.Timer(0.8, _open).start()
         print(f"  browser: opening {base}")
-    uvicorn.run(app, host=args.host, port=args.port, log_level="info")
+    ssl_kwargs: dict = {}
+    if tls_cert and tls_key:
+        ssl_kwargs["ssl_certfile"] = tls_cert
+        ssl_kwargs["ssl_keyfile"] = tls_key
+        client_ca = getattr(args, "tls_client_ca", None)
+        if client_ca:
+            # uvicorn uses ssl_ca_certs + ssl_cert_reqs via SSLContext in recent versions;
+            # pass constructed context when mTLS requested.
+            ctx = build_ssl_context(
+                certfile=tls_cert,
+                keyfile=tls_key,
+                client_ca=client_ca,
+                require_client_cert=bool(getattr(args, "tls_require_client_cert", False)),
+            )
+            ssl_kwargs = {"ssl": ctx}
+    uvicorn.run(app, host=args.host, port=args.port, log_level="info", **ssl_kwargs)
     return 0
 
 
 def _cmd_version(_: argparse.Namespace) -> int:
     print(f"twinopsctl {__version__}")
+    return 0
+
+
+def _cmd_sso_issue(args: argparse.Namespace) -> int:
+    from twinops.api.sso import issue_demo_jwt, resolve_sso_secret
+
+    secret = resolve_sso_secret(args.secret)
+    if not secret:
+        print(
+            "error: set --secret or TWINOPS_SSO_JWT_SECRET",
+            file=sys.stderr,
+        )
+        return 2
+    token = issue_demo_jwt(secret=secret, subject=args.subject, ttl_seconds=args.ttl)
+    print(token)
     return 0
 
 
@@ -497,7 +543,7 @@ def _cmd_openapi(args: argparse.Namespace) -> int:
 def _cmd_completion(args: argparse.Namespace) -> int:
     """Print shell completion script for twinopsctl."""
     commands = (
-        "build drift scene reconcile apply serve plm mqtt doctor health ready timeline "
+        "build drift scene reconcile apply serve plm mqtt sso doctor health ready timeline "
         "proposal metrics live openapi version completion"
     )
     if args.shell == "bash":
@@ -1115,7 +1161,41 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help="require bearer token (overrides TWINOPS_API_TOKEN when set)",
     )
+    serve.add_argument(
+        "--sso-jwt-secret",
+        default=None,
+        help="accept HS256 SSO JWTs (or set TWINOPS_SSO_JWT_SECRET)",
+    )
+    serve.add_argument(
+        "--webrtc",
+        action="store_true",
+        help="enable lab WebRTC session + signaling (or TWINOPS_WEBRTC=1)",
+    )
+    serve.add_argument("--tls-cert", default=None, help="PEM server certificate for HTTPS")
+    serve.add_argument("--tls-key", default=None, help="PEM server private key for HTTPS")
+    serve.add_argument(
+        "--tls-client-ca",
+        default=None,
+        help="PEM CA for client certificates (mTLS)",
+    )
+    serve.add_argument(
+        "--tls-require-client-cert",
+        action="store_true",
+        help="require client certificates when --tls-client-ca is set",
+    )
     serve.set_defaults(func=_cmd_serve)
+
+    sso = sub.add_parser("sso", help="demo SSO JWT helpers (HS256, not a real IdP)")
+    sso_sub = sso.add_subparsers(dest="sso_command", required=True)
+    sso_issue = sso_sub.add_parser("issue", help="issue a lab SSO JWT")
+    sso_issue.add_argument(
+        "--secret",
+        default=None,
+        help="HMAC secret (default: TWINOPS_SSO_JWT_SECRET)",
+    )
+    sso_issue.add_argument("--subject", default="demo-user")
+    sso_issue.add_argument("--ttl", type=int, default=3600, help="token TTL seconds")
+    sso_issue.set_defaults(func=_cmd_sso_issue)
 
     plm = sub.add_parser("plm", help="mock PLM adapter (catalog sync / compare / bump)")
     plm_sub = plm.add_subparsers(dest="plm_command", required=True)

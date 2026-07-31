@@ -1,0 +1,24 @@
+# Optional SSO front for twinopsctl serve (lab only).
+# Requires a running live API on host :8080 and an upstream IdP.
+#
+#   docker compose -f deploy/demo/docker-compose.oauth2-proxy.yml up
+#
+# Prefer twinopsctl SSO JWT demos (`TWINOPS_SSO_JWT_SECRET`) when you do not
+# have a real OIDC provider. This compose file documents the reverse-proxy shape.
+services:
+  oauth2-proxy:
+    image: quay.io/oauth2-proxy/oauth2-proxy:v7.6.0
+    ports:
+      - "4180:4180"
+    environment:
+      OAUTH2_PROXY_HTTP_ADDRESS: 0.0.0.0:4180
+      OAUTH2_PROXY_UPSTREAMS: http://host.docker.internal:8080/
+      OAUTH2_PROXY_EMAIL_DOMAINS: "*"
+      # Set these for a real IdP — placeholders fail closed on purpose.
+      OAUTH2_PROXY_CLIENT_ID: twinops-lab
+      OAUTH2_PROXY_CLIENT_SECRET: replace-me
+      OAUTH2_PROXY_COOKIE_SECRET: replace-with-32-byte-secret!!!!!!
+      OAUTH2_PROXY_PROVIDER: oidc
+      OAUTH2_PROXY_OIDC_ISSUER_URL: https://example.invalid/
+    extra_hosts:
+      - "host.docker.internal:host-gateway"

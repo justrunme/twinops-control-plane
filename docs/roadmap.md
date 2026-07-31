@@ -123,17 +123,15 @@ twinopsctl drift \
 - [ADR-0010](adr/0010-apply-verify-loop.md) — Apply verification loop
 - [ADR-0011](adr/0011-lab-mqtt-tls.md) — Lab MQTT TLS stub
 - [ADR-0012](adr/0012-kit-streaming-mock-contract.md) — Kit streaming mock contract
+- [ADR-0013](adr/0013-live-mtls-and-sso.md) — Live API mTLS and demo SSO JWT
+- [ADR-0014](adr/0014-lab-webrtc-streaming.md) — Lab WebRTC streaming path
 
-## Next focus (0.5.x → 0.6)
+## Next focus (0.6.x)
 
-Done in 0.5.x: GHCR publish workflow, apply `--verify`, MQTT ACL, Kit `--ws`, Helm umbrella + live stub,
-lab MQTT TLS compose + serve TLS client flags, Secret-mounted live API token, `liveAPITokenSecretRef`,
-`Chart.lock` / `make helm-deps`, `make demo-gitops`.
+Done in 0.5.x–0.6.0: GHCR publish, apply `--verify`, MQTT ACL/TLS lab, Kit `--ws`, Helm umbrella,
+Secret-backed tokens, `make demo-gitops`, lab WebRTC + HTTPS/mTLS + SSO JWT.
 
-1. Real Kit App Streaming session + browser WebRTC (still mock today)
-2. GHCR images publishing on each `v*` tag (verified pull for 0.5.6+)
-3. Recorded 5–7 minute demo using `docs/demo-script.md` / `make demo-gitops`
-4. Live API mTLS / SSO (token + SecretRef remain the demo auth path)
+1. Optional Kit App Streaming sidecar that answers WebRTC with GPU frames (beyond lab echo)
 
 ## Non-goals (for now)
 

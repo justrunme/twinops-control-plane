@@ -1,4 +1,4 @@
-"""Optional bearer-token auth for the TwinOps live API (demo control plane)."""
+"""Optional bearer-token + demo SSO JWT auth for the TwinOps live API."""
 
 from __future__ import annotations
 
@@ -7,6 +7,8 @@ from collections.abc import Awaitable, Callable
 
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
+
+from twinops.api.sso import resolve_sso_secret, validate_hs256_jwt
 
 # Unauthenticated probes stay open so compose/k8s readiness keeps working.
 PUBLIC_PATHS = frozenset(
@@ -57,15 +59,27 @@ def authorize_headers(
     *,
     authorization: str | None,
     header_token: str | None,
-    expected: str,
+    expected_token: str | None,
+    sso_secret: str | None = None,
 ) -> bool:
     provided = extract_bearer_token(authorization, header_token)
-    return provided == expected
+    if not provided:
+        return False
+    if expected_token and provided == expected_token:
+        return True
+    if sso_secret and validate_hs256_jwt(provided, secret=sso_secret) is not None:
+        return True
+    return False
 
 
 def build_http_auth_middleware(
-    token: str,
+    token: str | None = None,
+    *,
+    sso_secret: str | None = None,
 ) -> Callable[[Request, Callable[[Request], Awaitable[Response]]], Awaitable[Response]]:
+    api_token = token
+    jwt_secret = sso_secret if sso_secret is not None else resolve_sso_secret()
+
     async def middleware(
         request: Request,
         call_next: Callable[[Request], Awaitable[Response]],
@@ -73,17 +87,22 @@ def build_http_auth_middleware(
         path = request.url.path
         if is_public_path(path):
             return await call_next(request)
+        if not api_token and not jwt_secret:
+            return await call_next(request)
         if authorize_headers(
             authorization=request.headers.get("authorization"),
             header_token=request.headers.get("x-twinops-token"),
-            expected=token,
+            expected_token=api_token,
+            sso_secret=jwt_secret,
         ):
             return await call_next(request)
         return JSONResponse(
             status_code=401,
             content={
                 "detail": "unauthorized",
-                "hint": "Pass Authorization: Bearer <token> or X-TwinOps-Token",
+                "hint": (
+                    "Pass Authorization: Bearer <api-token|sso-jwt> or X-TwinOps-Token"
+                ),
             },
         )
 

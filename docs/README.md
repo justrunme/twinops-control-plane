@@ -42,6 +42,8 @@ Navigation index for the control plane docs.
 | [0010](adr/0010-apply-verify-loop.md) | Apply verification loop |
 | [0011](adr/0011-lab-mqtt-tls.md) | Lab MQTT TLS stub |
 | [0012](adr/0012-kit-streaming-mock-contract.md) | Kit streaming mock contract |
+| [0013](adr/0013-live-mtls-and-sso.md) | Live API mTLS and demo SSO JWT |
+| [0014](adr/0014-lab-webrtc-streaming.md) | Lab WebRTC streaming path |
 
 ## Schemas
 

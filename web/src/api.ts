@@ -69,6 +69,40 @@ export async function triggerReconcile(): Promise<{
   return response.json()
 }
 
+export type StreamingSession = {
+  metadata: { mode: string; name: string }
+  spec: {
+    streamUrl: string | null
+    webrtc: {
+      enabled: boolean
+      signalingUrl: string | null
+      iceServers: Array<{ urls: string[] }>
+      notes?: string
+    }
+  }
+  status: { phase: string; sessionId: string; message?: string }
+}
+
+export async function fetchStreamingSession(): Promise<StreamingSession> {
+  const response = await apiFetch('/api/streaming/session')
+  if (!response.ok) {
+    throw new Error(`streaming session API ${response.status}`)
+  }
+  return response.json()
+}
+
+export async function signalWebRTC(body: Record<string, unknown>): Promise<Record<string, unknown>> {
+  const response = await apiFetch('/api/streaming/webrtc/signal', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  if (!response.ok) {
+    throw new Error(`webrtc signal API ${response.status}`)
+  }
+  return response.json()
+}
+
 export function connectEvents(onMessage: (data: unknown) => void): WebSocket {
   const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws'
   const host = import.meta.env.VITE_WS_HOST ?? window.location.host
