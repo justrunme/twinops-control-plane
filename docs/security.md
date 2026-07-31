@@ -17,6 +17,7 @@
 | `Dockerfile.live` | Image entrypoint binds `0.0.0.0:8080` | Local/demo compose only; put a proxy/auth in front if shared |
 | `docker-compose.live.yml` | Publishes `:8080` + anonymous MQTT | Local demos only; do not expose to the internet |
 | MQTT Mosquitto demo | Open publish/subscribe | Local compose only; no TLS; not for prod |
+| MQTT ACL profile | Shared lab passwords | `docker-compose.mqtt-acl.yml` still lab-only; do not reuse passwd files outside demos |
 | Kit / streaming mock | Fake viewport may be mistaken for real GPU stream | Docs mark mock / no NVCF claims |
 | PLM catalog | Accidental commit of vendor secrets | Mock JSON only; no proprietary SDKs |
 
