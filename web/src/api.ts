@@ -1,6 +1,14 @@
-import type { LiveMetrics, SceneSnapshot, TwinSnapshot } from './types'
+import type { HealthInfo, LiveMetrics, SceneSnapshot, TwinSnapshot } from './types'
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? ''
+
+export async function fetchHealth(): Promise<HealthInfo> {
+  const response = await fetch(`${API_BASE}/api/health`)
+  if (!response.ok) {
+    throw new Error(`health API ${response.status}`)
+  }
+  return response.json()
+}
 
 export async function fetchTwin(): Promise<TwinSnapshot> {
   const response = await fetch(`${API_BASE}/api/twin`)
