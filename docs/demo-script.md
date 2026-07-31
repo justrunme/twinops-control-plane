@@ -30,6 +30,8 @@ twinopsctl reconcile \
   --manifest examples/assembly-line/twin.yaml \
   --out /tmp/twinops-proposal
 twinopsctl apply /tmp/twinops-proposal --no-commit --json
+# or from a running live API after reconcile:
+# twinopsctl apply --from-url http://127.0.0.1:8080 --no-commit --json
 ```
 
 ## Talking points
