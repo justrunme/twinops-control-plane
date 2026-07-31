@@ -111,10 +111,12 @@ echo "$HEALTH" | "$PYTHON" -c '
 import json, sys
 body = json.load(sys.stdin)
 mqtt = body.get("mqtt") or {}
+ingest = mqtt.get("ingest") or {}
 assert body.get("status") == "ok", body
 assert mqtt.get("requested") is True, mqtt
 assert mqtt.get("enabled") is True, mqtt
-print("health mqtt.enabled =", mqtt.get("enabled"))
+assert ingest.get("enabled") is True, ingest
+print("health mqtt.enabled =", mqtt.get("enabled"), "ingest.enabled =", ingest.get("enabled"))
 '
 
 echo "==> Subscribing to factory/# (expect telemetry within 15s)"
@@ -162,9 +164,76 @@ if not seen:
 topic, payload = seen[0]
 print(f"received {topic}: {json.dumps(payload, sort_keys=True)}")
 assert "attribute" in payload or "raw" in payload
-print(f"mqtt smoke OK ({len(seen)} message(s))")
+print(f"mqtt publish smoke OK ({len(seen)} message(s))")
 PY
 
+echo "==> Publishing external heat spike via MQTT ingest"
+"$PYTHON" - "$MQTT_HOST" "$MQTT_PORT" <<'PY'
+import json
+import sys
+
+import paho.mqtt.client as mqtt
+
+host = sys.argv[1]
+port = int(sys.argv[2])
+client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id="twinops-mqtt-injector")
+client.connect(host, port, keepalive=30)
+payload = {
+    "prim": "/World/Factory/LineA/Robot01",
+    "attribute": "twinops:temperature",
+    "value": 91.5,
+    "source": "factory-plc",
+}
+client.publish(
+    "factory/robot-01/temperature",
+    json.dumps(payload),
+    qos=1,
+)
+client.loop(timeout=1.0)
+client.disconnect()
+print("published external temperature=91.5")
+PY
+
+echo -n "==> Waiting for ingest + critical drift"
+for _ in $(seq 1 40); do
+  BODY="$(curl -fsS "$BASE/api/health")"
+  OK="$("$PYTHON" -c '
+import json, sys
+body = json.loads(sys.argv[1])
+ingest = (body.get("mqtt") or {}).get("ingest") or {}
+print("1" if int(ingest.get("received") or 0) >= 1 else "0")
+' "$BODY")"
+  if [[ "$OK" == "1" ]]; then
+    echo " OK"
+    break
+  fi
+  echo -n "."
+  sleep 0.25
+done
+
+curl -fsS "$BASE/api/health" | "$PYTHON" -c '
+import json, sys
+body = json.load(sys.stdin)
+ingest = (body.get("mqtt") or {}).get("ingest") or {}
+assert int(ingest.get("received") or 0) >= 1, ingest
+assert ingest.get("lastTopic") == "factory/robot-01/temperature", ingest
+print("ingest received =", ingest.get("received"), "lastValue =", ingest.get("lastValue"))
+'
+
+curl -fsS "$BASE/api/twin" | "$PYTHON" -c '
+import json, sys
+body = json.load(sys.stdin)
+temp = body.get("simulator", {}).get("robot_temp")
+assert float(temp) >= 90, body.get("simulator")
+findings = ((body.get("drift") or {}).get("status") or {}).get("findings") or []
+critical = [
+    f for f in findings
+    if f.get("attribute") == "twinops:temperature" and f.get("status") == "CRITICAL"
+]
+assert critical, findings[:8]
+print("ingest drift OK: robot_temp=", temp, "critical_findings=", len(critical))
+'
+
 echo
-echo "Mosquitto MQTT bridge smoke succeeded."
+echo "Mosquitto MQTT publish+ingest smoke succeeded."
 echo "Log: $KEEP_LOG"

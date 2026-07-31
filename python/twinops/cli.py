@@ -124,6 +124,7 @@ def _cmd_serve(args: argparse.Namespace) -> int:
         interval_seconds=args.interval,
         mqtt_host=args.mqtt_host,
         mqtt_port=args.mqtt_port,
+        mqtt_ingest=not args.no_mqtt_ingest,
         autostart=True,
         web_dist=web_dist if web_dist.is_dir() else None,
     )
@@ -243,6 +244,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="optional MQTT broker host (in-process bus always enabled)",
     )
     serve.add_argument("--mqtt-port", type=int, default=1883, help="MQTT broker port")
+    serve.add_argument(
+        "--no-mqtt-ingest",
+        action="store_true",
+        help="publish to MQTT only; do not subscribe/ingest factory topics",
+    )
     serve.add_argument(
         "--web-dist",
         default="web/dist",
