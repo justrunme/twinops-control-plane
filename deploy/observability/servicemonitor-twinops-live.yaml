@@ -1,0 +1,17 @@
+# Optional Prometheus Operator ServiceMonitor for a TwinOps live Service.
+# Requires prometheus-operator CRDs. Demo-oriented — adjust labels to match your release.
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: twinops-live
+  labels:
+    app.kubernetes.io/name: twinops-live
+    release: prometheus
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: twinops-live
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 15s

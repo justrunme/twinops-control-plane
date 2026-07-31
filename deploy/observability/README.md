@@ -26,6 +26,11 @@ Key series (see `LiveDriftRuntime.metrics_prometheus`):
 
 Import [`grafana/twinops-overview.json`](grafana/twinops-overview.json) into a Grafana that scrapes the job above.
 
+## ServiceMonitor
+
+Kubernetes + prometheus-operator example:
+[`servicemonitor-twinops-live.yaml`](servicemonitor-twinops-live.yaml).
+
 ## Auth note
 
 If `TWINOPS_API_TOKEN` is set, `/metrics` stays public for scrape probes; protect the network path instead.
