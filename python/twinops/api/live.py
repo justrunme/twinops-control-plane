@@ -9,8 +9,8 @@ from typing import Any
 
 from twinops.api.store import TwinStore
 from twinops.composer import compose_digital_twin
-from twinops.drift.engine import DriftReport, detect_drift
 from twinops.drift.csv_report import render_csv_report
+from twinops.drift.engine import DriftReport, detect_drift
 from twinops.drift.html_report import render_html_report
 from twinops.drift.loaders import load_desired_state
 from twinops.drift.model import ObservedState
