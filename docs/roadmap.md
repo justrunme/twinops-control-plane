@@ -87,18 +87,16 @@ Omniverse Kit is an optional OpenUSD runtime — not the product center.
 - Live API mode \`kit-sidecar\` via sidecar URL
 - Honest limitations: no NVENC/TURN/NVCF yet
 
-## v1.0 — Stable reference architecture ⏳
+## v1.0 — Stable reference architecture ✅
 
-Track remaining boxes in [ops-checklist-1.0.md](ops-checklist-1.0.md).
+See [ops-checklist-1.0.md](ops-checklist-1.0.md).
 
-When closed (or explicitly deferred with docs):
-
-- Kit scene runtime + streaming sidecar ✅ (encoder follow-up optional)
+- Kit scene runtime + streaming sidecar (encoder follow-up deferred)
 - Persisted incident history + verified replay
 - Generic PLM adapters + contract tests
 - Auth / TLS / audit / metrics / reproducible deploy
-- Backup/restore notes + compatibility matrix + security scan
-- Recorded walkthrough (owner; not a version gate)
+- Backup/restore + compatibility matrix + on-demand security scan
+- Recorded walkthrough (owner)
 
 ## Architecture decisions
 

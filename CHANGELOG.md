@@ -4,6 +4,14 @@ All notable TwinOps changes are listed here. Dates are UTC.
 
 ## Unreleased
 
+## 1.0.0 — 2026-07-31
+
+- Stable **reference architecture** release (see `docs/ops-checklist-1.0.md`)
+- SQLite `twinopsctl state backup|restore` + backup/restore docs
+- Compatibility matrix, upgrade notes (0.10 → 0.11 → 1.0)
+- On-demand security scan (`make security-scan`, release-only Actions workflow)
+- NVENC/Kit App Streaming encoder explicitly deferred
+
 ## 0.11.0 — 2026-07-31
 
 - Rename `make portfolio-demo` → `make e2e-demo`

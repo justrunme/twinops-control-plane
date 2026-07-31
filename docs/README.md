@@ -10,6 +10,10 @@ Navigation index for the control plane docs.
 | 2-minute live demo | [demo.md](demo.md) |
 | E2E operational demo | [e2e-demo.md](e2e-demo.md) |
 | 5–7 minute demo script | [demo-script.md](demo-script.md) |
+| Backup / restore | [backup-restore.md](backup-restore.md) |
+| Upgrade notes | [upgrade.md](upgrade.md) |
+| Compatibility matrix | [compatibility.md](compatibility.md) |
+| 1.0 ops checklist | [ops-checklist-1.0.md](ops-checklist-1.0.md) |
 | Sequence diagrams | [sequences.md](sequences.md) |
 | Local prerequisites | `make doctor` / [CONTRIBUTING.md](../CONTRIBUTING.md) |
 | Cutting a release | [RELEASING.md](../RELEASING.md) |

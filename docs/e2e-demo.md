@@ -1,4 +1,4 @@
-# End-to-end operational demo (v0.10)
+# End-to-end operational demo (v1.0)
 
 One command that proves Kit contract, incident replay, PLM adapters, GitOps
 apply/verify, and SQLite persistence form a single product loop.

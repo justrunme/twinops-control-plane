@@ -1,7 +1,6 @@
 # TwinOps 1.0 — ops checklist (stable reference architecture)
 
-Use this after v0.11 sidecar lands. **1.0 means stable reference architecture**,
-not a production industrial platform.
+**1.0 means stable reference architecture**, not a production industrial platform.
 
 ## Core
 
@@ -18,7 +17,7 @@ not a production industrial platform.
 - [x] Kit extension session-layer highlighting
 - [x] Reconnect / recovery / idempotent apply
 - [x] Single-session streaming sidecar (mock path in CI)
-- [ ] Real GPU → WebRTC MediaStream encoder (NVENC / Kit App Streaming) — follow-up
+- [x] Real GPU → WebRTC MediaStream encoder — **deferred** (documented follow-up)
 
 ## Operations
 
@@ -26,18 +25,22 @@ not a production industrial platform.
 - [x] HTTPS / mTLS lab path
 - [x] Audit trail (SQLite audit_events)
 - [x] Prometheus metrics (live + sidecar)
-- [ ] Documented backup/restore for SQLite state
+- [x] Documented backup/restore for SQLite state (`docs/backup-restore.md`)
 - [x] Reproducible deploy (Helm umbrella + compose demos)
-- [ ] Upgrade notes for 0.10 → 0.11 → 1.0
+- [x] Upgrade notes (`docs/upgrade.md`)
 
 ## Quality
 
 - [x] Tagged releases
-- [ ] Compatibility matrix (Python / K8s / Kit versions)
+- [x] Compatibility matrix (`docs/compatibility.md`)
 - [x] E2E CI (`make e2e-demo` + sidecar smoke)
-- [ ] Security scanning in CI
+- [x] Security scanning (`make security-scan`; Actions on release / manual only)
 - [x] No critical known failures in canonical E2E demo
 - [x] Experimental limitations documented
+- [x] Recorded walkthrough (owner)
 
-When the remaining boxes are closed (or explicitly deferred with docs), cut
-`v1.0.0` as **stable reference architecture**.
+## Deferred after 1.0
+
+- NVENC / Kit App Streaming encoder into browser MediaStream
+- Multi-session / multi-GPU streaming
+- Proprietary PLM vendor SDKs

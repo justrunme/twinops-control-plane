@@ -1,6 +1,6 @@
 # TwinOps 5–7 minute demo script
 
-Recorded walkthrough checklist for portfolio / interviews.
+Recorded walkthrough checklist for interviews / demos.
 
 ## Setup (30s)
 
@@ -61,4 +61,4 @@ twinopsctl apply /tmp/twinops-proposal --no-commit --verify \
 1. Start with `make docker-live-up` already warm (UI open).
 2. Keep terminal font large; use `make demo-gitops` for the offline GitOps close.
 3. Say the non-goals out loud: no enterprise PLM SDK, no forced GPU, no remote PR automation.
-4. End on GitHub release tag + portfolio blurb (v0.5.x line).
+4. End on GitHub release tag + portfolio blurb (v1.0.0 tag).
