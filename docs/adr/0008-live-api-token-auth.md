@@ -14,8 +14,10 @@ authn switch before any shared exposure.
 
 - If `TWINOPS_API_TOKEN` (or `--api-token`) is set, require
   `Authorization: Bearer <token>` or `X-TwinOps-Token` for `/api/*` and `/ws/*`
+- WebSocket demos may also pass `?token=` (browsers cannot set WS auth headers)
 - Keep `/api/health`, `/api/ready`, and `/metrics` public for probes
 - If unset, auth stays disabled (local demo default)
+- Web UI can set `VITE_TWINOPS_API_TOKEN` at build time
 
 ## Consequences
 

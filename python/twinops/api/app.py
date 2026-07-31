@@ -213,10 +213,15 @@ def create_app(
 
     @app.websocket("/ws/events")
     async def ws_events(websocket: WebSocket) -> None:
-        if token and not authorize_headers(
-            authorization=websocket.headers.get("authorization"),
-            header_token=websocket.headers.get("x-twinops-token"),
-            expected=token,
+        # Browsers cannot set WS Authorization headers; allow ?token= for demos.
+        query_token = websocket.query_params.get("token")
+        if token and not (
+            authorize_headers(
+                authorization=websocket.headers.get("authorization"),
+                header_token=websocket.headers.get("x-twinops-token"),
+                expected=token,
+            )
+            or (query_token == token)
         ):
             await websocket.close(code=4401)
             return
