@@ -38,6 +38,25 @@ jobs:
       - name: Demo build
         run: twinopsctl build examples/assembly-line/twin.yaml --out /tmp/twinops-demo
 
+      - name: Drift SARIF sample
+        run: |
+          twinopsctl build examples/assembly-line/twin.yaml --out examples/assembly-line/generated
+          twinopsctl drift \
+            --desired examples/assembly-line/desired.yaml \
+            --stage examples/assembly-line/generated/root.usda \
+            --observed examples/assembly-line/telemetry.json \
+            --manifest examples/assembly-line/twin.yaml \
+            --out /tmp/twinops-drift \
+            --sarif /tmp/twinops-drift/drift-report.sarif \
+            || true
+          test -f /tmp/twinops-drift/drift-report.sarif
+
+      - name: Upload drift SARIF artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: drift-sarif-py${{ matrix.python-version }}
+          path: /tmp/twinops-drift/drift-report.sarif
+
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
