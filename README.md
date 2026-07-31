@@ -18,7 +18,7 @@ Omniverse Kit (optional)
 Browser streaming (mock viewport now; Kit App Streaming later)
 ```
 
-> Status: **experimental** (v0.4.3). Mock PLM adapter. Bidirectional MQTT. Optional Omniverse highlight contract. Not production-ready.
+> Status: **experimental** (v0.4.4). Mock PLM adapter. Bidirectional MQTT. Optional Omniverse highlight contract. Not production-ready.
 
 [![CI](https://github.com/justrunme/twinops-control-plane/actions/workflows/ci.yml/badge.svg)](https://github.com/justrunme/twinops-control-plane/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/justrunme/twinops-control-plane?display_name=tag)](https://github.com/justrunme/twinops-control-plane/releases/latest)
@@ -34,6 +34,11 @@ Browser streaming (mock viewport now; Kit App Streaming later)
 
 Most Omniverse demos show a beautiful 3D scene.  
 Most Kubernetes demos show Helm, Terraform, and autoscaling.
+
+TwinOps is **not** “USD files + Grafana dashboards”. Grafana observes metrics;
+TwinOps reconciles **desired PLM / rendered OpenUSD / observed telemetry** into
+GitOps artifacts (overlay, proposal, optional local apply) and a highlight
+contract a Kit client can consume without a GPU.
 
 TwinOps connects both worlds:
 

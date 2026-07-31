@@ -4,7 +4,10 @@ All notable TwinOps changes are listed here. Dates are UTC.
 
 ## Unreleased
 
+## 0.4.4 — 2026-07-31
+
 - Optional MQTT ingest schema gate via `TWINOPS_MQTT_STRICT_SCHEMA`
+- README clarifies TwinOps vs Grafana+USD dashboards
 
 ## 0.4.3 — 2026-07-31
 
