@@ -197,16 +197,6 @@ PLM integration starts as a **generic mock adapter**.
 
 ---
 
-## Positioning
-
-Built as a portfolio / reference project for:
-
-> **Platform Engineer & AI Infrastructure Architect**
-
-It demonstrates product thinking across OpenUSD, GitOps, Kubernetes operators, industrial data, and optional Omniverse runtime — not just another “cluster install” demo.
-
----
-
 ## License
 
 Apache License 2.0 — see [LICENSE](LICENSE).

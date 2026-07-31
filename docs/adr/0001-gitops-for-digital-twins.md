@@ -32,7 +32,7 @@ OpenUSD is the composition substrate because layers, references, payloads, and v
 
 - Familiar DevOps workflows apply to industrial 3D systems.
 - ~70% of the stack is GPU-free and CI-friendly.
-- Portfolio narrative is product architecture, not “installed X on Kubernetes”.
+- Keeps the control plane portable and reviewable without a GPU runtime.
 
 ### Negative / trade-offs
 
@@ -44,4 +44,4 @@ OpenUSD is the composition substrate because layers, references, payloads, and v
 
 1. **Pure Omniverse extension** — strong UX, weak GitOps / platform story.
 2. **Only Kubernetes operator wrapping NVIDIA OVAS** — useful, but mostly deployment glue.
-3. **Heavy PLM-native integration first** — high coupling, poor open-source portfolio fit.
+3. **Heavy PLM-native integration first** — high coupling, weak portable open-source demo fit.
