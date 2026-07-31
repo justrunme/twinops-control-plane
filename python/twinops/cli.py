@@ -518,6 +518,60 @@ def _cmd_sso_issue(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_incident_export(args: argparse.Namespace) -> int:
+    from twinops.incident.record import export_incident, timeline_to_incident
+
+    if args.from_url:
+        status, body = _fetch_json(
+            f"{args.from_url.rstrip('/')}/api/timeline?limit=200",
+            timeout=args.timeout,
+        )
+        if status != 200 or not body:
+            return 1
+        payload = json.loads(body)
+        events = payload.get("items") if isinstance(payload, dict) else payload
+        if not isinstance(events, list):
+            print("error: /api/timeline did not return items", file=sys.stderr)
+            return 2
+        twin = args.twin or ""
+        record = timeline_to_incident(events, twin=twin)
+        path = Path(args.out)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(record.to_dict(), indent=2) + "\n", encoding="utf-8")
+    elif args.timeline:
+        raw = json.loads(Path(args.timeline).read_text(encoding="utf-8"))
+        events = raw.get("items") if isinstance(raw, dict) else raw
+        if not isinstance(events, list):
+            print("error: timeline JSON must be a list or {items: [...]}", file=sys.stderr)
+            return 2
+        export_incident(events, args.out, twin=args.twin or "")
+    else:
+        print("error: provide --from-url or --timeline", file=sys.stderr)
+        return 2
+    print(f"Wrote incident {args.out}")
+    return 0
+
+
+def _cmd_incident_replay(args: argparse.Namespace) -> int:
+    from twinops.incident.replay import replay_incident
+
+    result = replay_incident(
+        args.incident,
+        desired=args.desired,
+        stage=args.stage,
+        observed=args.observed,
+        manifest=args.manifest,
+    )
+    if args.json:
+        print(json.dumps(result.to_dict(), indent=2))
+    else:
+        print(f"replay twin={result.twin} steps={result.steps_played}")
+        for tick in result.ticks:
+            flag = "DRIFT" if tick.get("hasDrift") else "OK"
+            print(f"  {tick.get('at')} [{tick.get('kind')}] {flag} — {tick.get('summary')}")
+    return 0
+
+
 def _cmd_openapi(args: argparse.Namespace) -> int:
     """Dump the live API OpenAPI schema without starting the server loop."""
     from twinops.api.app import create_app
@@ -543,8 +597,8 @@ def _cmd_openapi(args: argparse.Namespace) -> int:
 def _cmd_completion(args: argparse.Namespace) -> int:
     """Print shell completion script for twinopsctl."""
     commands = (
-        "build drift scene reconcile apply serve plm mqtt sso doctor health ready timeline "
-        "proposal metrics live openapi version completion"
+        "build drift scene reconcile apply serve plm mqtt sso incident "
+        "doctor health ready timeline proposal metrics live openapi version completion"
     )
     if args.shell == "bash":
         script = f"""# twinopsctl bash completion — eval "$(twinopsctl completion bash)"
@@ -1196,6 +1250,28 @@ def build_parser() -> argparse.ArgumentParser:
     sso_issue.add_argument("--subject", default="demo-user")
     sso_issue.add_argument("--ttl", type=int, default=3600, help="token TTL seconds")
     sso_issue.set_defaults(func=_cmd_sso_issue)
+
+    incident = sub.add_parser("incident", help="export / replay twin incident history")
+    incident_sub = incident.add_subparsers(dest="incident_command", required=True)
+    incident_export = incident_sub.add_parser(
+        "export", help="export timeline events to TwinIncident JSON"
+    )
+    incident_export.add_argument("--out", required=True, help="output incident JSON path")
+    incident_export.add_argument("--from-url", default=None, help="live API base URL")
+    incident_export.add_argument("--timeline", default=None, help="timeline JSON list file")
+    incident_export.add_argument("--twin", default="")
+    incident_export.add_argument("--timeout", type=float, default=5.0)
+    incident_export.set_defaults(func=_cmd_incident_export)
+    incident_replay = incident_sub.add_parser(
+        "replay", help="replay an incident against desired/stage/observed"
+    )
+    incident_replay.add_argument("incident", help="TwinIncident JSON path")
+    incident_replay.add_argument("--desired", required=True)
+    incident_replay.add_argument("--stage", required=True)
+    incident_replay.add_argument("--observed", required=True, help="base observed JSON")
+    incident_replay.add_argument("--manifest", default=None)
+    incident_replay.add_argument("--json", action="store_true")
+    incident_replay.set_defaults(func=_cmd_incident_replay)
 
     plm = sub.add_parser("plm", help="mock PLM adapter (catalog sync / compare / bump)")
     plm_sub = plm.add_subparsers(dest="plm_command", required=True)
