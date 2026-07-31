@@ -32,7 +32,7 @@
 | Streaming | Authenticated session API, idle timeout |
 | Telemetry | Lab TLS+ACL demos shipped; production CA/client certs later; no secrets in USD layers |
 | Supply chain | CI checks, pinned Actions, SBOM later |
-| Live API | Optional bearer token shipped (ADR-0008); mTLS / SSO later |
+| Live API | Optional bearer token (ADR-0008); operator SecretRef for CR tokens; mTLS / SSO later |
 
 ## Explicit non-goals for now
 

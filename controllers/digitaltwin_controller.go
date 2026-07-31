@@ -31,6 +31,7 @@ type DigitalTwinReconciler struct {
 // +kubebuilder:rbac:groups=twinops.io,resources=digitaltwins,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=twinops.io,resources=digitaltwins/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=twinops.io,resources=digitaltwins/finalizers,verbs=update
+// +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch
 
 func (r *DigitalTwinReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := log.FromContext(ctx)
@@ -152,9 +153,16 @@ func (r *DigitalTwinReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 
 	liveStatus := twin.Status.Live
 	if twin.Spec.LiveAPIURL != "" {
-		snap, liveErr := livesync.Fetch(ctx, twin.Spec.LiveAPIURL, twin.Spec.LiveAPIToken)
+		token, tokenErr := livesync.ResolveToken(ctx, r.Client, &twin)
 		now := metav1.Now()
-		if liveErr != nil {
+		if tokenErr != nil {
+			logger.Error(tokenErr, "live API token resolve failed")
+			liveStatus = twinopsv1alpha1.LiveStatus{
+				Ready:      false,
+				Message:    tokenErr.Error(),
+				LastSynced: &now,
+			}
+		} else if snap, liveErr := livesync.Fetch(ctx, twin.Spec.LiveAPIURL, token); liveErr != nil {
 			logger.Error(liveErr, "live API probe failed")
 			liveStatus = twinopsv1alpha1.LiveStatus{
 				Ready:      false,
