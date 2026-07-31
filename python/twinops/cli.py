@@ -384,14 +384,12 @@ def _cmd_openapi(args: argparse.Namespace) -> int:
 
 def _cmd_completion(args: argparse.Namespace) -> int:
     """Print shell completion script for twinopsctl."""
-    if args.shell != "bash":
-        print(f"error: unsupported shell {args.shell!r} (only bash)", file=sys.stderr)
-        return 2
     commands = (
         "build drift scene reconcile serve plm mqtt doctor health ready timeline "
         "proposal metrics live openapi version completion"
     )
-    script = f"""# twinopsctl bash completion — eval "$(twinopsctl completion bash)"
+    if args.shell == "bash":
+        script = f"""# twinopsctl bash completion — eval "$(twinopsctl completion bash)"
 _twinopsctl_completions() {{
   local cur prev
   COMPREPLY=()
@@ -418,7 +416,7 @@ _twinopsctl_completions() {{
       fi
       ;;
     completion)
-      COMPREPLY=( $(compgen -W "bash" -- "$cur") )
+      COMPREPLY=( $(compgen -W "bash zsh" -- "$cur") )
       ;;
     *)
       COMPREPLY=( $(compgen -f -- "$cur") )
@@ -427,6 +425,42 @@ _twinopsctl_completions() {{
 }}
 complete -F _twinopsctl_completions twinopsctl
 """
+    elif args.shell == "zsh":
+        script = f"""# twinopsctl zsh completion — eval "$(twinopsctl completion zsh)"
+_twinopsctl_completions() {{
+  local -a cmds sub
+  cmds=({commands})
+  if (( CURRENT == 2 )); then
+    _describe -t commands 'twinopsctl command' cmds
+    return
+  fi
+  case ${{words[2]}} in
+    plm)
+      sub=(show compare bump sync desired)
+      _describe -t commands 'plm' sub
+      ;;
+    mqtt)
+      sub=(topics)
+      _describe -t commands 'mqtt' sub
+      ;;
+    live)
+      sub=(status spike reconcile)
+      _describe -t commands 'live' sub
+      ;;
+    completion)
+      sub=(bash zsh)
+      _describe -t commands 'shell' sub
+      ;;
+    *)
+      _files
+      ;;
+  esac
+}}
+compdef _twinopsctl_completions twinopsctl
+"""
+    else:
+        print(f"error: unsupported shell {args.shell!r} (bash|zsh)", file=sys.stderr)
+        return 2
     print(script, end="")
     return 0
 
@@ -978,8 +1012,8 @@ def build_parser() -> argparse.ArgumentParser:
         "shell",
         nargs="?",
         default="bash",
-        choices=["bash"],
-        help="shell type (bash only for now)",
+        choices=["bash", "zsh"],
+        help="shell type (bash or zsh)",
     )
     completion.set_defaults(func=_cmd_completion)
 

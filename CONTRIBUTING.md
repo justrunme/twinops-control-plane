@@ -59,7 +59,8 @@ Avoid bundling unrelated refactors with feature work.
 
 When a command supports `--json`, stdout must be **JSON only** (no tables /
 “Wrote …” lines mixed in). Human summaries stay on the default (non-`--json`)
-path. This keeps `live-demo-smoke` and other scripts parseable.
+path. This keeps `live-demo-smoke` and other scripts parseable. Covered
+commands include `build`, `drift`, `scene`, `reconcile`, `plm`, and `doctor`.
 
 ## Useful docs
 
