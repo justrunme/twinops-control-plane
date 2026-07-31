@@ -3,7 +3,7 @@ PIP ?= $(PYTHON) -m pip
 VENV ?= .venv
 BIN := $(VENV)/bin
 
-.PHONY: help venv install test lint build demo live-demo live-demo-smoke mqtt-up mqtt-down mqtt-smoke mqtt-topics mqtt-topics-sync mqtt-topics-check drift serve web web-dev operator-build operator-run operator-demo operator-demo-watch operator-demo-cleanup scene scene-highlight plm-demo verify-all doctor health ready wait-ready timeline proposal metrics live-spike live-reconcile openapi version docker-live docker-operator docker-live-up docker-live-down go-test clean
+.PHONY: help venv install test lint build demo live-demo live-demo-smoke mqtt-up mqtt-down mqtt-smoke mqtt-topics mqtt-topics-sync mqtt-topics-check drift serve web web-dev operator-build operator-run operator-demo operator-demo-watch operator-demo-cleanup scene scene-highlight plm-demo verify-all doctor health ready wait-ready timeline proposal metrics live-status live-spike live-reconcile openapi version docker-live docker-operator docker-live-up docker-live-down go-test clean
 
 help:
 	@echo "TwinOps targets:"
@@ -25,6 +25,7 @@ help:
 	@echo "  make timeline        - print live API timeline on :8080"
 	@echo "  make proposal        - print latest live reconcile proposal"
 	@echo "  make metrics         - print live API metrics on :8080"
+	@echo "  make live-status     - compact health/ready/metrics on :8080"
 	@echo "  make live-spike      - POST heat spike to live API on :8080"
 	@echo "  make live-reconcile  - POST reconcile to live API on :8080"
 	@echo "  make openapi         - dump live API OpenAPI schema to /tmp"
@@ -112,6 +113,9 @@ proposal:
 
 metrics:
 	$(BIN)/twinopsctl metrics --base-url http://127.0.0.1:8080
+
+live-status:
+	$(BIN)/twinopsctl live status --base-url http://127.0.0.1:8080
 
 live-spike:
 	$(BIN)/twinopsctl live spike --base-url http://127.0.0.1:8080
