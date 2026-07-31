@@ -15,7 +15,7 @@ Optional containerized live API (demo only, unauthenticated):
 
 ```bash
 make docker-live
-docker run --rm -p 8080:8080 twinops-live:0.3.6
+docker run --rm -p 8080:8080 twinops-live:0.3.7
 # or Mosquitto + live API/UI:
 make docker-live-up
 make wait-ready
