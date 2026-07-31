@@ -62,6 +62,12 @@ spec:
                   default: 30
                 twinopsctl:
                   type: string
+                liveAPIURL:
+                  type: string
+                  description: Optional TwinOps live API base URL for status sync
+                liveAPIToken:
+                  type: string
+                  description: Optional bearer token for the live API (demo auth)
             status:
               type: object
               properties:
@@ -92,6 +98,27 @@ spec:
                     lastChecked:
                       type: string
                       format: date-time
+                live:
+                  type: object
+                  description: Optional live API probe summary
+                  properties:
+                    ready:
+                      type: boolean
+                    version:
+                      type: string
+                    twin:
+                      type: string
+                    hasDrift:
+                      type: boolean
+                    highlightedPrims:
+                      type: integer
+                    timelineEvents:
+                      type: integer
+                    lastSynced:
+                      type: string
+                      format: date-time
+                    message:
+                      type: string
                 conditions:
                   type: array
                   items:

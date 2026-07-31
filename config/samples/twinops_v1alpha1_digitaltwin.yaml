@@ -10,3 +10,6 @@ spec:
   observedPath: /examples/assembly-line/telemetry.json
   outputDir: /tmp/twinops/assembly-line-a
   intervalSeconds: 30
+  # Optional: probe a running twinopsctl serve for status.live
+  # liveAPIURL: http://twinops-live.twinops-system.svc:8080
+  # liveAPIToken: ""

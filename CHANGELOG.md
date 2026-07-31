@@ -4,6 +4,10 @@ All notable TwinOps changes are listed here. Dates are UTC.
 
 ## Unreleased
 
+- MQTT payload validator (`twinops.mqtt.payload.v1`) helpers
+- Teamcenter/Windchill PLM stub adapters (NotImplemented surface)
+- CRD/sample fields for `spec.liveAPIURL` / `status.live`
+
 ## 0.4.0 — 2026-07-31
 
 - Milestone 0.4 foundations: local GitOps apply, live API token auth, operator live status sync
