@@ -4,6 +4,7 @@ All notable TwinOps changes are listed here. Dates are UTC.
 
 ## Unreleased
 
+- `make scene-live` + docs for `scene --from-url`
 - `twinopsctl scene --from-url` fetch/validate live highlight snapshots
 
 ## 0.3.4 — 2026-07-31
