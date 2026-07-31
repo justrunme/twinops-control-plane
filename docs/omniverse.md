@@ -10,7 +10,8 @@ can consume.
 
 Machine-readable schema: [`schemas/twinops.highlight.v1.json`](../schemas/twinops.highlight.v1.json).  
 Offline validation: `twinopsctl scene … --strict`.  
-Live fetch: `make scene-live` / `twinopsctl scene --from-url http://127.0.0.1:8080 --strict`.
+Live fetch: `make scene-live` / `twinopsctl scene --from-url http://127.0.0.1:8080 --strict`  
+(also writes `/tmp/twinops-scene.json` + `/tmp/twinops-scene.html`).
 
 ```bash
 make serve
