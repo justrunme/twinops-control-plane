@@ -87,6 +87,8 @@ kitStreaming:
 ## Honest status
 
 - ✅ Scene highlight API + web inspector
+- ✅ Scene snapshots on WebSocket drift/reconcile frames
+- ✅ Mock Kit streaming viewport in the web UI (no GPU)
 - ✅ Kit extension stub that polls TwinOps without GPU
 - ❌ Full Omniverse Kit App Streaming browser session
 - ❌ NVCF / cloud GPU product claims

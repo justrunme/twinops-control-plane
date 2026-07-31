@@ -21,7 +21,7 @@ API:
 | `POST /api/simulate/spike` | force overheating robot event |
 | `POST /api/reconcile` | generate proposal, apply USD overlay, heal line |
 | `GET /api/proposal/latest` | last reconciliation proposal |
-| `WS /ws/events` | live event stream |
+| `WS /ws/events` | live event stream (includes `scene` on drift/reconcile) |
 
 Demo flow in the web UI:
 
