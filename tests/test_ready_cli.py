@@ -26,7 +26,7 @@ class _Resp:
 def test_ready_cli_ok(capsys) -> None:
     payload = {
         "status": "ready",
-        "version": "0.3.3",
+        "version": "0.3.4",
         "twin": "assembly-line-a",
         "hasDriftReport": True,
     }
