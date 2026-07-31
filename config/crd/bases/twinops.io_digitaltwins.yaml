@@ -25,6 +25,12 @@ spec:
         - name: Drift
           type: string
           jsonPath: .status.drift.status
+        - name: Critical
+          type: integer
+          jsonPath: .status.drift.critical
+        - name: Findings
+          type: integer
+          jsonPath: .status.drift.findings
         - name: Age
           type: date
           jsonPath: .metadata.creationTimestamp
@@ -75,7 +81,13 @@ spec:
                       type: string
                     findings:
                       type: integer
+                    critical:
+                      type: integer
+                    warning:
+                      type: integer
                     summary:
+                      type: string
+                    reportPath:
                       type: string
                     lastChecked:
                       type: string
