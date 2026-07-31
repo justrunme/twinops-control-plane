@@ -140,7 +140,7 @@ version:
 	$(BIN)/twinopsctl version
 
 docker-live:
-	docker build -f Dockerfile.live -t twinops-live:0.3.2 .
+	docker build -f Dockerfile.live -t twinops-live:0.3.3 .
 
 docker-live-up:
 	docker compose -f deploy/demo/docker-compose.live.yml up --build -d
@@ -149,7 +149,7 @@ docker-live-down:
 	docker compose -f deploy/demo/docker-compose.live.yml down
 
 docker-operator:
-	docker build -f Dockerfile.operator -t twinops-operator:0.3.2 .
+	docker build -f Dockerfile.operator -t twinops-operator:0.3.3 .
 
 drift:
 	$(BIN)/twinopsctl build examples/assembly-line/twin.yaml --out examples/assembly-line/generated

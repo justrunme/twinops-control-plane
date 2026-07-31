@@ -4,6 +4,8 @@ All notable TwinOps changes are listed here. Dates are UTC.
 
 ## Unreleased
 
+## 0.3.3 — 2026-07-31
+
 - Architecture docs refresh for delivered live API / MQTT / highlight surface
 - Web UI shows twinopsctl/API version from `/api/health`
 - README release badge; live-demo uses `twinopsctl ready`
@@ -12,7 +14,6 @@ All notable TwinOps changes are listed here. Dates are UTC.
 - `twinopsctl metrics` / `make metrics`
 - Live demo smoke uses `twinopsctl live spike|reconcile`
 - `twinopsctl live spike|reconcile` against a running live API
-- GitHub release `v0.3.2`
 
 ## 0.3.2 — 2026-07-31
 
