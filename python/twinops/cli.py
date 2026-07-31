@@ -656,6 +656,30 @@ def _cmd_streaming_sidecar(args: argparse.Namespace) -> int:
     return sidecar_main(argv)
 
 
+def _cmd_state_backup(args: argparse.Namespace) -> int:
+    from twinops.api.state_io import backup_sqlite
+
+    try:
+        path = backup_sqlite(args.db, args.out)
+    except (OSError, FileNotFoundError, ValueError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
+    print(f"Wrote backup {path}")
+    return 0
+
+
+def _cmd_state_restore(args: argparse.Namespace) -> int:
+    from twinops.api.state_io import restore_sqlite
+
+    try:
+        path = restore_sqlite(args.db, args.from_path)
+    except (OSError, FileNotFoundError, ValueError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
+    print(f"Restored database {path}")
+    return 0
+
+
 def _cmd_openapi(args: argparse.Namespace) -> int:
     """Dump the live API OpenAPI schema without starting the server loop."""
     from twinops.api.app import create_app
@@ -681,7 +705,7 @@ def _cmd_openapi(args: argparse.Namespace) -> int:
 def _cmd_completion(args: argparse.Namespace) -> int:
     """Print shell completion script for twinopsctl."""
     commands = (
-        "build drift scene reconcile apply serve plm mqtt sso incident "
+        "build drift scene reconcile apply serve plm mqtt sso incident state "
         "streaming-sidecar doctor health ready timeline proposal metrics live "
         "openapi version completion"
     )
@@ -1348,6 +1372,24 @@ def build_parser() -> argparse.ArgumentParser:
     )
     streaming.add_argument("--kit-command", default=None)
     streaming.set_defaults(func=_cmd_streaming_sidecar)
+
+    state = sub.add_parser("state", help="backup / restore SQLite control-plane state")
+    state_sub = state.add_subparsers(dest="state_command", required=True)
+    state_backup = state_sub.add_parser("backup", help="copy SQLite DB to a backup file")
+    state_backup.add_argument("--db", required=True, help="source twinops.sqlite path")
+    state_backup.add_argument("--out", required=True, help="backup output path")
+    state_backup.set_defaults(func=_cmd_state_backup)
+    state_restore = state_sub.add_parser(
+        "restore", help="replace SQLite DB from a backup (stop writers first)"
+    )
+    state_restore.add_argument("--db", required=True, help="destination twinops.sqlite path")
+    state_restore.add_argument(
+        "--from",
+        dest="from_path",
+        required=True,
+        help="backup sqlite path",
+    )
+    state_restore.set_defaults(func=_cmd_state_restore)
 
     sso = sub.add_parser("sso", help="demo SSO JWT helpers (HS256, not a real IdP)")
     sso_sub = sso.add_subparsers(dest="sso_command", required=True)

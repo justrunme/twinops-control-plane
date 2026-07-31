@@ -2,7 +2,7 @@
 
 **GitOps Control Plane for Industrial Digital Twins**
 
-TwinOps is an experimental reference architecture that reconciles **PLM metadata**, **OpenUSD scene composition**, and **live telemetry** into a versioned, observable digital-twin runtime.
+TwinOps is a **stable reference architecture** that reconciles **PLM metadata**, **OpenUSD scene composition**, and **live telemetry** into a versioned, observable digital-twin runtime.
 
 ```text
 PLM / ERP / IoT data
@@ -16,7 +16,7 @@ OpenUSD layers + variants
 Runtime (optional): Omniverse Kit · web UI · lab WebRTC
 ```
 
-> Status: **experimental** (v0.11.0). TwinOps is a GitOps/Kubernetes control plane for digital twins; Omniverse Kit is an optional runtime. Not production-ready.
+> Status: **stable reference architecture** (v1.0.0). TwinOps is a GitOps/Kubernetes control plane for digital twins; Omniverse Kit is an optional runtime. Not a production industrial platform.
 
 [![CI](https://github.com/justrunme/twinops-control-plane/actions/workflows/ci.yml/badge.svg)](https://github.com/justrunme/twinops-control-plane/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/justrunme/twinops-control-plane?display_name=tag)](https://github.com/justrunme/twinops-control-plane/releases/latest)

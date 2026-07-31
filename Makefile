@@ -99,6 +99,9 @@ streaming-sidecar:
 streaming-sidecar-smoke:
 	bash scripts/streaming_sidecar_smoke.sh
 
+security-scan:
+	bash scripts/security_scan.sh
+
 mqtt-up:
 	docker compose -f deploy/demo/docker-compose.mqtt.yml up -d
 
@@ -185,7 +188,7 @@ version:
 	$(BIN)/twinopsctl version
 
 docker-live:
-	docker build -f Dockerfile.live -t twinops-live:0.11.0 .
+	docker build -f Dockerfile.live -t twinops-live:1.0.0 .
 
 docker-live-up:
 	docker compose -f deploy/demo/docker-compose.live.yml up --build -d
@@ -194,7 +197,7 @@ docker-live-down:
 	docker compose -f deploy/demo/docker-compose.live.yml down
 
 docker-operator:
-	docker build -f Dockerfile.operator -t twinops-operator:0.11.0 .
+	docker build -f Dockerfile.operator -t twinops-operator:1.0.0 .
 
 drift:
 	$(BIN)/twinopsctl build examples/assembly-line/twin.yaml --out examples/assembly-line/generated
