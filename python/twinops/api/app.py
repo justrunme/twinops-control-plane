@@ -10,7 +10,7 @@ from typing import Any
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
 from twinops import __version__
@@ -94,6 +94,11 @@ def create_app(
     @app.get("/api/drift/latest")
     def drift_latest() -> dict[str, Any]:
         return store.latest_drift or {}
+
+    @app.get("/api/drift/report", response_class=HTMLResponse)
+    def drift_report() -> HTMLResponse:
+        """Self-contained HTML drift dashboard from the latest evaluation."""
+        return HTMLResponse(runtime.drift_html())
 
     @app.get("/api/scene")
     def scene() -> dict[str, Any]:
