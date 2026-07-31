@@ -3,7 +3,7 @@ PIP ?= $(PYTHON) -m pip
 VENV ?= .venv
 BIN := $(VENV)/bin
 
-.PHONY: help venv install test lint build demo live-demo live-demo-smoke mqtt-up mqtt-down mqtt-smoke mqtt-topics mqtt-topics-sync mqtt-topics-check drift serve web web-dev operator-build operator-run operator-demo operator-demo-watch operator-demo-cleanup scene scene-live scene-highlight plm-demo verify-all doctor health ready wait-ready timeline proposal metrics live-status live-spike live-reconcile openapi version docker-live docker-operator docker-live-up docker-live-down go-test clean apply apply-live
+.PHONY: help venv install test lint build demo live-demo live-demo-smoke mqtt-up mqtt-down mqtt-smoke mqtt-topics mqtt-topics-sync mqtt-topics-check mqtt-acl-up mqtt-acl-down drift serve web web-dev operator-build operator-run operator-demo operator-demo-watch operator-demo-cleanup scene scene-live scene-highlight plm-demo verify-all doctor health ready wait-ready timeline proposal metrics live-status live-spike live-reconcile openapi version docker-live docker-operator docker-live-up docker-live-down go-test clean apply apply-live apply-verify
 
 help:
 	@echo "TwinOps targets:"
@@ -44,6 +44,8 @@ help:
 	@echo "  make drift           - build + drift against sample telemetry"
 	@echo "  make apply           - reconcile sample + local GitOps apply (no push)"
 	@echo "  make apply-live      - apply latest live proposal bundle from :8080"
+	@echo "  make apply-verify    - apply sample proposal then rebuild+re-drift"
+	@echo "  make mqtt-acl-up     - Mosquitto with password+ACL (lab only)"
 	@echo "  make serve           - live MQTT-style simulator + drift API"
 	@echo "  make web             - build web control plane into web/dist"
 	@echo "  make web-dev         - run Vite UI (proxies API on :8080)"
@@ -164,7 +166,7 @@ version:
 	$(BIN)/twinopsctl version
 
 docker-live:
-	docker build -f Dockerfile.live -t twinops-live:0.3.8 .
+	docker build -f Dockerfile.live -t twinops-live:0.5.0 .
 
 docker-live-up:
 	docker compose -f deploy/demo/docker-compose.live.yml up --build -d
@@ -173,7 +175,7 @@ docker-live-down:
 	docker compose -f deploy/demo/docker-compose.live.yml down
 
 docker-operator:
-	docker build -f Dockerfile.operator -t twinops-operator:0.3.8 .
+	docker build -f Dockerfile.operator -t twinops-operator:0.5.0 .
 
 drift:
 	$(BIN)/twinopsctl build examples/assembly-line/twin.yaml --out examples/assembly-line/generated
@@ -196,6 +198,26 @@ apply: drift
 
 apply-live:
 	$(BIN)/twinopsctl apply --from-url http://127.0.0.1:8080 --no-commit --print-pr
+
+apply-verify: drift
+	$(BIN)/twinopsctl reconcile \
+		--desired examples/assembly-line/desired.yaml \
+		--stage examples/assembly-line/generated/root.usda \
+		--observed examples/assembly-line/telemetry.json \
+		--manifest examples/assembly-line/twin.yaml \
+		--out examples/assembly-line/generated/proposal
+	-$(BIN)/twinopsctl apply examples/assembly-line/generated/proposal --no-commit --verify \
+		--manifest examples/assembly-line/twin.yaml \
+		--desired examples/assembly-line/desired.yaml \
+		--observed examples/assembly-line/telemetry.json \
+		--stage-out /tmp/twinops-apply-verify
+
+mqtt-acl-up:
+	@test -f deploy/demo/mosquitto.passwd || (echo "Create deploy/demo/mosquitto.passwd with mosquitto_passwd first" && exit 1)
+	docker compose -f deploy/demo/docker-compose.mqtt-acl.yml up -d
+
+mqtt-acl-down:
+	docker compose -f deploy/demo/docker-compose.mqtt-acl.yml down
 
 serve:
 	$(BIN)/twinopsctl serve --example examples/assembly-line --host 127.0.0.1 --port 8080

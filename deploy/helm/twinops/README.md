@@ -1,0 +1,28 @@
+# twinops (umbrella)
+
+Minimal umbrella chart that composes:
+
+| Subchart / stub | Purpose |
+| --- | --- |
+| `twinops-operator` | DigitalTwin controller |
+| `live` values stub | Documents intended live API Deployment (compose remains primary for demos) |
+
+## Install (operator only)
+
+```bash
+helm dependency update deploy/helm/twinops
+helm upgrade --install twinops deploy/helm/twinops \
+  --namespace twinops-system \
+  --create-namespace
+```
+
+## Enable sample twin + live probe
+
+```bash
+helm upgrade --install twinops deploy/helm/twinops \
+  --namespace twinops-system --create-namespace \
+  --set twinops-operator.sampleTwin.enabled=true \
+  --set twinops-operator.sampleTwin.liveAPIURL=http://twinops-live.twinops-system.svc:8080
+```
+
+Live API containers stay on `make docker-live-up` until a full Deployment lands under this umbrella.

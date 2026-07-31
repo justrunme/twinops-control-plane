@@ -86,10 +86,12 @@ twinopsctl drift \
 ## Milestone 9 — Industrial contour ✅ (stubs)
 
 - `PlmAdapter` protocol (mock implements it)
-- MQTT payload schema `schemas/twinops.mqtt.payload.v1.json`
+- Teamcenter/Windchill stub adapters (NotImplemented mutations)
+- MQTT payload schema `schemas/twinops.mqtt.payload.v1.json` + optional strict ingest
 - Grafana dashboard stub (`deploy/observability/grafana/`)
-- Helm umbrella notes (`deploy/helm/README.md`)
-- Remaining: second PLM stub, MQTT ACL/TLS, umbrella chart
+- Helm umbrella notes + optional `sampleTwin.liveAPIURL`
+- Mosquitto ACL demo profile + Helm umbrella skeleton (0.5.x)
+- Remaining: production TLS MQTT, full live Deployment in umbrella
 
 ## Milestone 10 — Demo credibility ✅ (docs)
 
@@ -115,8 +117,17 @@ twinopsctl drift \
 - [ADR-0008](adr/0008-live-api-token-auth.md) — Optional live API token
 - [ADR-0009](adr/0009-mqtt-payload-schema.md) — MQTT payload schema
 
+## Next focus (0.5.x)
+
+1. Apply → rebuild → re-drift verification loop (close the GitOps demo story)
+2. Mosquitto ACL demo profile (still lab-only, not production TLS)
+3. Kit highlight client WebSocket consume of `/ws/events` scene frames
+4. Minimal Helm umbrella chart (`operator` + optional `live` stubs)
+5. Recorded 5–7 minute demo using `docs/demo-script.md`
+
 ## Non-goals (for now)
 
 - Claiming production / enterprise readiness
 - Hard-coding a specific commercial PLM product
 - Requiring NVCF or cloud GPU to use the compiler
+- Remote GitHub App PR automation (local `--print-pr` is enough for now)

@@ -1,0 +1,22 @@
+operator:
+  enabled: true
+
+# Live API is still primarily docker-compose for demos.
+# This stub documents the intended umbrella shape without shipping a full Deployment yet.
+live:
+  enabled: false
+  image:
+    repository: ghcr.io/justrunme/twinops-live
+    tag: "0.5.0"
+  service:
+    port: 8080
+  apiToken: ""
+  mqtt:
+    host: ""
+    strictSchema: false
+
+# Forwarded into the operator subchart when using umbrella install.
+twinops-operator:
+  sampleTwin:
+    enabled: false
+    liveAPIURL: ""

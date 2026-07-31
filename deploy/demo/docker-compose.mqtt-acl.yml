@@ -1,0 +1,25 @@
+# Mosquitto with password + ACL (still lab/demo only — not production TLS).
+#
+#   docker compose -f deploy/demo/docker-compose.mqtt-acl.yml up -d
+#   # create passwd locally first:
+#   mosquitto_passwd -c deploy/demo/mosquitto.passwd twinops_rw
+#
+services:
+  mosquitto:
+    image: eclipse-mosquitto:2
+    ports:
+      - "1883:1883"
+    volumes:
+      - ./mosquitto.acl.conf:/mosquitto/config/acl.conf:ro
+      - ./mosquitto.passwd:/mosquitto/config/passwd:ro
+    command:
+      - /bin/sh
+      - -c
+      - |
+        cat >/mosquitto/config/mosquitto.conf <<'EOF'
+        listener 1883
+        allow_anonymous false
+        password_file /mosquitto/config/passwd
+        acl_file /mosquitto/config/acl.conf
+        EOF
+        exec mosquitto -c /mosquitto/config/mosquitto.conf
