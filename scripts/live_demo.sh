@@ -84,6 +84,15 @@ if ! curl -fsS "$BASE/api/health" >/dev/null 2>&1; then
   exit 1
 fi
 
+READY_JSON="$(curl -fsS "$BASE/api/ready")"
+printf '%s' "$READY_JSON" | "$PYTHON" -c "
+import json, sys
+payload = json.load(sys.stdin)
+if payload.get('status') != 'ready':
+    raise SystemExit(f\"expected ready, got {payload!r}\")
+print(f\"    ready: twin={payload.get('twin')} hasDriftReport={payload.get('hasDriftReport')}\")
+"
+
 echo "==> Demo flow: spike → scene highlight → reconcile → SYNCED"
 SPIKE_JSON="$(curl -fsS -X POST "$BASE/api/simulate/spike")"
 printf '%s' "$SPIKE_JSON" | "$PYTHON" -c "
@@ -105,6 +114,15 @@ if not lit:
 if not robot or not (robot.get('highlight') or {}).get('enabled'):
     raise SystemExit('expected Robot01 highlight after spike')
 print(f\"    scene: Robot01 status={robot.get('status')}\")
+"
+
+SCENE_HTML="$(curl -fsS "$BASE/api/scene/report")"
+printf '%s' "$SCENE_HTML" | "$PYTHON" -c "
+import sys
+html = sys.stdin.read()
+if 'Scene' not in html and 'highlight' not in html.lower():
+    raise SystemExit('expected HTML scene report after spike')
+print('    scene: HTML report OK')
 "
 
 RECON_JSON="$(curl -fsS -X POST "$BASE/api/reconcile")"
@@ -129,7 +147,11 @@ TwinOps live demo is ready.
 
   UI:         ${BASE}/
   Health:     ${BASE}/api/health
+  Ready:      ${BASE}/api/ready
   Twin:       ${BASE}/api/twin
+  Scene HTML: ${BASE}/api/scene/report
+  MQTT map:   ${BASE}/api/mqtt/topics
+  Swagger:    ${BASE}/docs
   Spike:      curl -X POST ${BASE}/api/simulate/spike
   Reconcile:  curl -X POST ${BASE}/api/reconcile
 

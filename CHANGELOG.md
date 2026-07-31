@@ -4,6 +4,11 @@ All notable TwinOps changes are listed here. Dates are UTC.
 
 ## Unreleased
 
+- CI Go toolchain 1.26.x (matches go.mod after controller-runtime bump)
+- Dependabot ignores isolated major bumps for k8s.io/* / controller-runtime
+- Live-demo smoke asserts `/api/ready` + `/api/scene/report`
+- `workflow_dispatch` for CI
+
 ## 0.3.1 — 2026-07-31
 
 - Live `GET /api/ready` readiness probe
