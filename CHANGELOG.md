@@ -4,6 +4,8 @@ All notable TwinOps changes are listed here. Dates are UTC.
 
 ## Unreleased
 
+- `twinopsctl drift --json` emits JSON-only stdout for scripts
+
 ## 0.3.6 — 2026-07-31
 
 - CONTRIBUTING documents `scene-live` in the docker-live path

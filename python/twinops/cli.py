@@ -61,7 +61,8 @@ def _cmd_drift(args: argparse.Namespace) -> int:
         print(f"error: {exc}", file=sys.stderr)
         return 2
 
-    print(render_drift_table(report))
+    if not args.json:
+        print(render_drift_table(report))
 
     if args.out:
         out = Path(args.out)
@@ -70,18 +71,21 @@ def _cmd_drift(args: argparse.Namespace) -> int:
         write_html_report(report, out / "drift-report.html")
         write_sarif_report(report, out / "drift-report.sarif")
         write_csv_report(report, out / "drift-report.csv")
-        print(f"\nWrote {out / 'drift-report.json'}")
-        print(f"Wrote {out / 'drift-report.html'}")
-        print(f"Wrote {out / 'drift-report.sarif'}")
-        print(f"Wrote {out / 'drift-report.csv'}")
+        if not args.json:
+            print(f"\nWrote {out / 'drift-report.json'}")
+            print(f"Wrote {out / 'drift-report.html'}")
+            print(f"Wrote {out / 'drift-report.sarif'}")
+            print(f"Wrote {out / 'drift-report.csv'}")
 
     if args.sarif:
         path = write_sarif_report(report, args.sarif)
-        print(f"Wrote {path}")
+        if not args.json:
+            print(f"Wrote {path}")
 
     if getattr(args, "csv", None):
         path = write_csv_report(report, args.csv)
-        print(f"Wrote {path}")
+        if not args.json:
+            print(f"Wrote {path}")
 
     if args.json:
         print(json.dumps(report.to_dict(), indent=2))
@@ -89,10 +93,11 @@ def _cmd_drift(args: argparse.Namespace) -> int:
     if args.propose:
         proposal_dir = Path(args.propose)
         proposal = propose_reconciliation(report, proposal_dir)
-        print(f"\nReconciliation proposal: {proposal.output_dir}")
-        print(f"  overlay: {proposal.overlay_path}")
-        print(f"  proposal: {proposal.proposal_path}")
-        print(f"  pr draft: {proposal.summary_path}")
+        if not args.json:
+            print(f"\nReconciliation proposal: {proposal.output_dir}")
+            print(f"  overlay: {proposal.overlay_path}")
+            print(f"  proposal: {proposal.proposal_path}")
+            print(f"  pr draft: {proposal.summary_path}")
 
     return report.exit_code
 
