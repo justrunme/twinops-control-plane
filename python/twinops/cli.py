@@ -252,6 +252,7 @@ def _cmd_apply(args: argparse.Namespace) -> int:
             target_dir=args.target_dir,
             branch=args.branch,
             commit=not args.no_commit,
+            checkout_branch=not getattr(args, "no_branch", False),
         )
         verify_payload = None
         if getattr(args, "verify", False):
@@ -1021,6 +1022,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--no-commit",
         action="store_true",
         help="copy artifacts only; do not git commit",
+    )
+    apply_cmd.add_argument(
+        "--no-branch",
+        action="store_true",
+        help="copy artifacts without checking out recommendedBranch",
     )
     apply_cmd.add_argument(
         "--print-pr",

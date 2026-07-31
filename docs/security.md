@@ -18,6 +18,7 @@
 | `docker-compose.live.yml` | Publishes `:8080` + anonymous MQTT | Local demos only; do not expose to the internet |
 | MQTT Mosquitto demo | Open publish/subscribe | Local compose only; no TLS; not for prod |
 | MQTT ACL profile | Shared lab passwords | `docker-compose.mqtt-acl.yml` still lab-only; do not reuse passwd files outside demos |
+| MQTT TLS lab stub | Self-signed cert + anonymous | `docker-compose.mqtt-tls.yml` on `:8883`; certs gitignored; not a CA/PKI story |
 | Kit / streaming mock | Fake viewport may be mistaken for real GPU stream | Docs mark mock / no NVCF claims |
 | PLM catalog | Accidental commit of vendor secrets | Mock JSON only; no proprietary SDKs |
 
@@ -29,7 +30,7 @@
 | Operator | RBAC-limited ServiceAccount, namespaced CRDs |
 | Object storage | Signed URLs / least-privilege IAM |
 | Streaming | Authenticated session API, idle timeout |
-| Telemetry | TLS MQTT, topic ACL, no secrets in USD layers |
+| Telemetry | Lab TLS+ACL demos shipped; production CA/client certs later; no secrets in USD layers |
 | Supply chain | CI checks, pinned Actions, SBOM later |
 | Live API | Optional bearer token shipped (ADR-0008); mTLS / SSO later |
 

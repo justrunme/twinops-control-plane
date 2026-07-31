@@ -76,6 +76,37 @@ def test_apply_proposal_commits_on_branch(tmp_path: Path) -> None:
     assert branch.stdout.strip() == "reconcile/twinops-auto"
 
 
+def test_apply_proposal_no_branch_keeps_head(tmp_path: Path) -> None:
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    _git(repo, "init")
+    _git(repo, "-c", "init.defaultBranch=main", "checkout", "-b", "main")
+    _git(repo, "config", "user.email", "test@example.com")
+    _git(repo, "config", "user.name", "Test")
+    (repo / "README").write_text("demo\n", encoding="utf-8")
+    _git(repo, "add", "README")
+    _git(repo, "commit", "-m", "init")
+
+    proposal = _write_proposal(tmp_path / "proposal")
+    result = apply_proposal(
+        proposal,
+        repo=repo,
+        target_dir=repo / "usd" / "generated" / "applied",
+        commit=False,
+        checkout_branch=False,
+    )
+    assert result.branch == "reconcile/twinops-auto"
+    assert (repo / "usd" / "generated" / "applied" / "reconcile-overlay.usda").is_file()
+    branch = subprocess.run(
+        ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+        cwd=repo,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    assert branch.stdout.strip() == "main"
+
+
 def test_apply_cli_json(tmp_path: Path, capsys) -> None:
     repo = tmp_path / "repo"
     repo.mkdir()

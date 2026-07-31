@@ -1,0 +1,28 @@
+# Mosquitto TLS listener on 8883 (lab/demo only — self-signed).
+#
+#   ./scripts/gen_mqtt_tls_certs.sh
+#   docker compose -f deploy/demo/docker-compose.mqtt-tls.yml up -d
+#
+# Clients must trust deploy/demo/certs/server.crt (or disable verify for lab smoke).
+services:
+  mosquitto:
+    image: eclipse-mosquitto:2
+    ports:
+      - "8883:8883"
+    volumes:
+      - ./certs/server.crt:/mosquitto/config/server.crt:ro
+      - ./certs/server.key:/mosquitto/config/server.key:ro
+    command:
+      - /bin/sh
+      - -c
+      - |
+        cat >/mosquitto/config/mosquitto.conf <<'EOF'
+        listener 8883
+        protocol mqtt
+        cafile /mosquitto/config/server.crt
+        certfile /mosquitto/config/server.crt
+        keyfile /mosquitto/config/server.key
+        require_certificate false
+        allow_anonymous true
+        EOF
+        exec mosquitto -c /mosquitto/config/mosquitto.conf

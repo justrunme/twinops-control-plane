@@ -48,5 +48,6 @@ web/dist/
 *.tfvars
 !*.tfvars.example
 
-# Mosquitto ACL demo secrets
+# Mosquitto ACL / TLS demo secrets
 deploy/demo/mosquitto.passwd
+deploy/demo/certs/
