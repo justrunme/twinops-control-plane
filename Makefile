@@ -3,7 +3,7 @@ PIP ?= $(PYTHON) -m pip
 VENV ?= .venv
 BIN := $(VENV)/bin
 
-.PHONY: help venv install test lint build demo live-demo live-demo-smoke mqtt-up mqtt-down mqtt-smoke mqtt-topics mqtt-topics-sync drift serve web web-dev operator-build operator-run operator-demo operator-demo-watch operator-demo-cleanup scene scene-highlight plm-demo verify-all doctor health openapi version docker-live docker-operator go-test clean
+.PHONY: help venv install test lint build demo live-demo live-demo-smoke mqtt-up mqtt-down mqtt-smoke mqtt-topics mqtt-topics-sync drift serve web web-dev operator-build operator-run operator-demo operator-demo-watch operator-demo-cleanup scene scene-highlight plm-demo verify-all doctor health timeline openapi version docker-live docker-operator go-test clean
 
 help:
 	@echo "TwinOps targets:"
@@ -19,6 +19,7 @@ help:
 	@echo "  make mqtt-topics     - print assembly-line MQTT topic catalog"
 	@echo "  make mqtt-topics-sync - rewrite examples/.../mqtt-topics.json from code"
 	@echo "  make health          - probe live API /api/health on :8080"
+	@echo "  make timeline        - print live API timeline on :8080"
 	@echo "  make openapi         - dump live API OpenAPI schema to /tmp"
 	@echo "  make scene-highlight - poll /api/scene and print Kit highlight plan"
 	@echo "  make scene           - offline highlight snapshot from sample drift"
@@ -84,6 +85,9 @@ mqtt-topics-sync:
 
 health:
 	$(BIN)/twinopsctl health --base-url http://127.0.0.1:8080
+
+timeline:
+	$(BIN)/twinopsctl timeline --base-url http://127.0.0.1:8080
 
 openapi:
 	$(BIN)/twinopsctl openapi --out /tmp/twinops-openapi.json

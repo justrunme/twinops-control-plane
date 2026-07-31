@@ -357,7 +357,8 @@ def _cmd_completion(args: argparse.Namespace) -> int:
         print(f"error: unsupported shell {args.shell!r} (only bash)", file=sys.stderr)
         return 2
     commands = (
-        "build drift scene reconcile serve plm mqtt doctor health openapi version completion"
+        "build drift scene reconcile serve plm mqtt doctor health timeline "
+        "openapi version completion"
     )
     script = f"""# twinopsctl bash completion — eval "$(twinopsctl completion bash)"
 _twinopsctl_completions() {{
@@ -405,6 +406,44 @@ def _cmd_mqtt_topics(args: argparse.Namespace) -> int:
     for binding in catalog["spec"]["bindings"]:
         print(f"  {binding['topic']} → {binding['prim']}#{binding['attribute']}")
     return 0
+
+
+def _cmd_timeline(args: argparse.Namespace) -> int:
+    """Fetch recent timeline events from a running live API."""
+    import urllib.error
+    import urllib.request
+
+    base = args.base_url.rstrip("/")
+    url = f"{base}/api/timeline?limit={args.limit}"
+    try:
+        with urllib.request.urlopen(url, timeout=args.timeout) as resp:
+            body = resp.read().decode("utf-8")
+            status = resp.status
+    except urllib.error.HTTPError as exc:
+        print(f"error: HTTP {exc.code} from {url}", file=sys.stderr)
+        return 1
+    except (urllib.error.URLError, TimeoutError, OSError) as exc:
+        print(f"error: cannot reach {url}: {exc}", file=sys.stderr)
+        return 1
+
+    if args.json:
+        print(body)
+        return 0 if status == 200 else 1
+    try:
+        payload = json.loads(body)
+    except json.JSONDecodeError:
+        print(body)
+        return 0 if status == 200 else 1
+    items = list(payload.get("items") or [])
+    if not items:
+        print("timeline: (empty)")
+        return 0
+    for item in items:
+        ts = str(item.get("timestamp") or "")
+        kind = str(item.get("type") or "?")
+        summary = str(item.get("summary") or "")
+        print(f"{ts}  {kind:<12}  {summary}")
+    return 0 if status == 200 else 1
 
 
 def _cmd_health(args: argparse.Namespace) -> int:
@@ -660,6 +699,13 @@ def build_parser() -> argparse.ArgumentParser:
     health.add_argument("--timeout", type=float, default=3.0, help="HTTP timeout seconds")
     health.add_argument("--json", action="store_true", help="print raw JSON body")
     health.set_defaults(func=_cmd_health)
+
+    timeline = sub.add_parser("timeline", help="fetch live API timeline events")
+    timeline.add_argument("--base-url", default="http://127.0.0.1:8080")
+    timeline.add_argument("--limit", type=int, default=20, help="max events to fetch")
+    timeline.add_argument("--timeout", type=float, default=3.0)
+    timeline.add_argument("--json", action="store_true")
+    timeline.set_defaults(func=_cmd_timeline)
 
     openapi = sub.add_parser("openapi", help="dump live API OpenAPI schema (no server)")
     openapi.add_argument("--example", default="examples/assembly-line")
