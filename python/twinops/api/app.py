@@ -10,6 +10,8 @@ from typing import Any
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 
 from twinops import __version__
 from twinops.api.live import LiveDriftRuntime
@@ -36,6 +38,7 @@ def create_app(
     mqtt_host: str | None = None,
     mqtt_port: int = 1883,
     autostart: bool = True,
+    web_dist: str | Path | None = None,
 ) -> FastAPI:
     store = TwinStore()
     runtime = LiveDriftRuntime(
@@ -110,5 +113,22 @@ def create_app(
             runtime.unregister_ws(client)
         finally:
             runtime.unregister_ws(client)
+
+    dist = Path(web_dist).resolve() if web_dist else None
+    if dist and dist.is_dir() and (dist / "index.html").is_file():
+        assets = dist / "assets"
+        if assets.is_dir():
+            app.mount("/assets", StaticFiles(directory=assets), name="assets")
+
+        @app.get("/")
+        def index() -> FileResponse:
+            return FileResponse(dist / "index.html")
+
+        @app.get("/{path:path}")
+        def spa_fallback(path: str) -> FileResponse:
+            candidate = dist / path
+            if candidate.is_file():
+                return FileResponse(candidate)
+            return FileResponse(dist / "index.html")
 
     return app

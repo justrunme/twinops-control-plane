@@ -25,6 +25,10 @@ vendor/
 *.test
 coverage.out
 
+# Web
+web/node_modules/
+web/dist/
+
 # IDE / OS
 .idea/
 .vscode/

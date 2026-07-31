@@ -3,7 +3,7 @@ PIP ?= $(PYTHON) -m pip
 VENV ?= .venv
 BIN := $(VENV)/bin
 
-.PHONY: help venv install test lint build demo drift serve clean
+.PHONY: help venv install test lint build demo drift serve web web-dev clean
 
 help:
 	@echo "TwinOps targets:"
@@ -14,6 +14,8 @@ help:
 	@echo "  make demo     - full self-healing drift demo"
 	@echo "  make drift    - build + drift against sample telemetry"
 	@echo "  make serve    - live MQTT-style simulator + drift API"
+	@echo "  make web      - build web control plane into web/dist"
+	@echo "  make web-dev  - run Vite UI (proxies API on :8080)"
 	@echo "  make build    - build sdist/wheel"
 	@echo "  make clean    - remove build artifacts"
 
@@ -48,6 +50,12 @@ drift:
 
 serve:
 	$(BIN)/twinopsctl serve --example examples/assembly-line --host 127.0.0.1 --port 8080
+
+web:
+	cd web && npm install && npm run build
+
+web-dev:
+	cd web && npm run dev -- --host 127.0.0.1 --port 5173
 
 clean:
 	rm -rf dist build *.egg-info python/*.egg-info .pytest_cache .ruff_cache .coverage
