@@ -86,3 +86,16 @@ def test_live_api_health_and_spike(tmp_path: Path) -> None:
         assert report.status_code == 200
         assert "text/html" in report.headers.get("content-type", "")
         assert "Drift" in report.text or "drift" in report.text
+
+        scene_html = client.get("/api/scene/report")
+        assert scene_html.status_code == 200
+        assert "text/html" in scene_html.headers.get("content-type", "")
+        assert "Scene" in scene_html.text or "highlight" in scene_html.text.lower()
+
+        topics = client.get("/api/mqtt/topics")
+        assert topics.status_code == 200
+        body = topics.json()
+        assert body["kind"] == "MqttTopicCatalog"
+        assert any(
+            b["topic"] == "factory/robot-01/temperature" for b in body["spec"]["bindings"]
+        )

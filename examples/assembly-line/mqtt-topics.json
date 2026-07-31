@@ -1,0 +1,43 @@
+{
+  "apiVersion": "twinops.io/v1alpha1",
+  "kind": "MqttTopicCatalog",
+  "metadata": {
+    "name": "assembly-line",
+    "description": "Demo MQTT topics for TwinOps live + mqtt-smoke"
+  },
+  "spec": {
+    "ignoreSources": ["twinops", "twinops-bus", "twinops-simulator"],
+    "bindings": [
+      {
+        "topic": "factory/robot-01/temperature",
+        "prim": "/World/Factory/LineA/Robot01",
+        "attribute": "twinops:temperature"
+      },
+      {
+        "topic": "factory/robot-01/status",
+        "prim": "/World/Factory/LineA/Robot01",
+        "attribute": "twinops:status"
+      },
+      {
+        "topic": "factory/robot-01/firmware",
+        "prim": "/World/Factory/LineA/Robot01",
+        "attribute": "twinops:firmware"
+      },
+      {
+        "topic": "factory/conveyor-01/speed",
+        "prim": "/World/Factory/LineA/Conveyor01",
+        "attribute": "twinops:speed"
+      },
+      {
+        "topic": "factory/conveyor-01/status",
+        "prim": "/World/Factory/LineA/Conveyor01",
+        "attribute": "twinops:status"
+      },
+      {
+        "topic": "factory/scanner-01/status",
+        "prim": "/World/Factory/LineA/Scanner01",
+        "attribute": "twinops:status"
+      }
+    ]
+  }
+}

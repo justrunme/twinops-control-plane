@@ -105,6 +105,23 @@ def create_app(
         """OpenUSD prim highlight snapshot (Omniverse-ready, GPU not required)."""
         return runtime.scene_snapshot()
 
+    @app.get("/api/scene/report", response_class=HTMLResponse)
+    def scene_report() -> HTMLResponse:
+        """Self-contained HTML scene highlight dashboard from the latest snapshot."""
+        return HTMLResponse(runtime.scene_html())
+
+    @app.get("/api/mqtt/topics")
+    def mqtt_topics() -> dict[str, Any]:
+        """Canonical demo MQTT topic catalog (+ live ingest status when enabled)."""
+        from twinops.telemetry.topics import topic_catalog
+
+        catalog = topic_catalog()
+        mqtt = runtime.mqtt_status()
+        catalog["status"] = {
+            "mqtt": mqtt,
+        }
+        return catalog
+
     @app.get("/api/metrics")
     def metrics() -> dict[str, Any]:
         """Compact control-plane metrics for demos / scrape adapters."""
