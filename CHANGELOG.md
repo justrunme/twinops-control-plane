@@ -4,6 +4,8 @@ All notable TwinOps changes are listed here. Dates are UTC.
 
 ## Unreleased
 
+- Web UI passes `VITE_TWINOPS_API_TOKEN`; WS accepts `?token=` for demos
+
 ## 0.4.5 — 2026-07-31
 
 - Prometheus Operator ServiceMonitor stub for twinops-live
