@@ -24,6 +24,8 @@ services:
     environment:
       # Entry point args appended via command override.
       TWINOPS_MQTT_HOST: mosquitto
+      # Optional: TWINOPS_API_TOKEN: demo-token
+      # Optional: TWINOPS_MQTT_STRICT_SCHEMA: "1"
     command:
       [
         "twinopsctl",
