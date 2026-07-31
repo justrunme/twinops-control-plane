@@ -3,7 +3,7 @@ PIP ?= $(PYTHON) -m pip
 VENV ?= .venv
 BIN := $(VENV)/bin
 
-.PHONY: help venv install test lint build demo live-demo live-demo-smoke mqtt-smoke drift serve web web-dev operator-build operator-run operator-demo operator-demo-watch operator-demo-cleanup scene scene-highlight plm-demo verify-all doctor go-test clean
+.PHONY: help venv install test lint build demo live-demo live-demo-smoke mqtt-up mqtt-down mqtt-smoke drift serve web web-dev operator-build operator-run operator-demo operator-demo-watch operator-demo-cleanup scene scene-highlight plm-demo verify-all doctor health go-test clean
 
 help:
 	@echo "TwinOps targets:"
@@ -13,7 +13,10 @@ help:
 	@echo "  make lint            - run ruff"
 	@echo "  make live-demo       - 2-minute UI demo on :8080"
 	@echo "  make live-demo-smoke - spike→reconcile smoke (no browser)"
+	@echo "  make mqtt-up         - start local Mosquitto (compose)"
+	@echo "  make mqtt-down       - stop local Mosquitto"
 	@echo "  make mqtt-smoke      - Mosquitto bridge smoke (compose + subscribe)"
+	@echo "  make health          - probe live API /api/health on :8080"
 	@echo "  make scene-highlight - poll /api/scene and print Kit highlight plan"
 	@echo "  make scene           - offline highlight snapshot from sample drift"
 	@echo "  make plm-demo        - mock PLM bump → compare → show drift"
@@ -58,8 +61,17 @@ live-demo:
 live-demo-smoke:
 	bash scripts/live_demo.sh --smoke
 
+mqtt-up:
+	docker compose -f deploy/demo/docker-compose.mqtt.yml up -d
+
+mqtt-down:
+	docker compose -f deploy/demo/docker-compose.mqtt.yml down
+
 mqtt-smoke:
 	bash scripts/mqtt_smoke.sh
+
+health:
+	$(BIN)/twinopsctl health --base-url http://127.0.0.1:8080
 
 scene-highlight:
 	$(PYTHON) extensions/twinops_highlight/twinops_highlight/client.py --base-url http://127.0.0.1:8080
