@@ -1,0 +1,10 @@
+{
+  "schema": "twinops.mqtt.payload.v1",
+  "topic": "factory/robot-01/temperature",
+  "value": 61.5,
+  "unit": "C",
+  "timestamp": "2026-07-31T10:00:00Z",
+  "source": "plc",
+  "prim": "/World/Factory/LineA/Robot01",
+  "attribute": "temperature"
+}

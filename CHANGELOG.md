@@ -4,7 +4,10 @@ All notable TwinOps changes are listed here. Dates are UTC.
 
 ## Unreleased
 
-- MQTT payload validator (`twinops.mqtt.payload.v1`) helpers
+## 0.4.1 — 2026-07-31
+
+- `twinopsctl mqtt validate` for `twinops.mqtt.payload.v1` JSON files
+- MQTT payload validator helpers + example payload
 - Teamcenter/Windchill PLM stub adapters (NotImplemented surface)
 - CRD/sample fields for `spec.liveAPIURL` / `status.live`
 
