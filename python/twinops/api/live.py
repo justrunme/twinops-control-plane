@@ -15,7 +15,11 @@ from twinops.drift.html_report import render_html_report
 from twinops.drift.loaders import load_desired_state
 from twinops.drift.model import ObservedState
 from twinops.drift.reconcile import propose_reconciliation
-from twinops.scene import build_scene_snapshot, render_scene_html
+from twinops.scene import (
+    assert_valid_scene_snapshot,
+    build_scene_snapshot,
+    render_scene_html,
+)
 from twinops.schema import load_manifest
 from twinops.telemetry.bus import TelemetryBus
 from twinops.telemetry.ingest import ObservationIngest
@@ -130,11 +134,14 @@ class LiveDriftRuntime:
         findings = list(status.get("findings") or [])
         meta = drift.get("metadata") or {}
         twin_name = str(self.store.twin_meta.get("name") or "unknown")
-        return build_scene_snapshot(
+        scene = build_scene_snapshot(
             twin_name=twin_name,
             findings=findings,
             generated_at=meta.get("generatedAt"),
         )
+        # Fail closed in demos/CI if the highlight contract regresses.
+        assert_valid_scene_snapshot(scene)
+        return scene
 
     def drift_html(self) -> str:
         if self._last_report is None:
