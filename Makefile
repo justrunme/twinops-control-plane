@@ -86,7 +86,8 @@ scene: drift
 		--stage examples/assembly-line/generated/root.usda \
 		--observed examples/assembly-line/telemetry.json \
 		--manifest examples/assembly-line/twin.yaml \
-		--out examples/assembly-line/generated/scene.json
+		--out examples/assembly-line/generated/scene.json \
+		--html examples/assembly-line/generated/scene.html
 
 plm-demo:
 	bash scripts/plm_change_demo.sh

@@ -4,6 +4,9 @@ All notable TwinOps changes are listed here. Dates are UTC.
 
 ## Unreleased
 
+- Offline scene HTML report (`twinopsctl scene --html`)
+- Bash completion (`eval "$(twinopsctl completion bash)"`)
+- `.editorconfig`
 - CI uploads sample drift SARIF artifact; web links to Swagger/OpenAPI
 - `twinopsctl openapi` offline schema dump
 - Drift SARIF export (`drift-report.sarif`, `--sarif`, ADR-0005)
