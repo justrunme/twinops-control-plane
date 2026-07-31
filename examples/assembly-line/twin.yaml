@@ -1,0 +1,72 @@
+apiVersion: twinops.io/v1alpha1
+kind: DigitalTwin
+metadata:
+  name: assembly-line-a
+  labels:
+    twinops.io/demo: "true"
+    twinops.io/line: line-a
+spec:
+  source:
+    baseStage: assets/root.usda
+
+  configuration:
+    variantSet: ops
+    variant: high-throughput
+    variantPrim: /World/Factory/LineA
+
+  telemetry:
+    provider: mqtt
+    endpoint: mqtt://factory-broker
+    mappings:
+      - topic: factory/robot-01/temperature
+        prim: /World/Factory/LineA/Robot01
+        attribute: twinops:temperature
+        default: 42.0
+      - topic: factory/robot-01/status
+        prim: /World/Factory/LineA/Robot01
+        attribute: twinops:status
+        default: running
+      - topic: factory/robot-01/firmware
+        prim: /World/Factory/LineA/Robot01
+        attribute: twinops:firmware
+        default: "4.14"
+      - topic: factory/conveyor-01/speed
+        prim: /World/Factory/LineA/Conveyor01
+        attribute: twinops:speed
+        default: 1.2
+      - topic: factory/scanner-01/status
+        prim: /World/Factory/LineA/Scanner01
+        attribute: twinops:status
+        default: online
+
+  plm:
+    provider: mock
+    mappings:
+      - itemId: "1004711"
+        revision: "C"
+        lifecycle: Released
+        prim: /World/Factory/LineA/Robot01
+      - itemId: "1004820"
+        revision: "A"
+        lifecycle: Released
+        prim: /World/Factory/LineA/Conveyor01
+      - itemId: "1004902"
+        revision: "B"
+        lifecycle: Released
+        prim: /World/Factory/LineA/Scanner01
+      - itemId: "1005011"
+        revision: "A"
+        lifecycle: Released
+        prim: /World/Factory/LineA/Packaging01
+
+  policy:
+    thresholds:
+      - prim: /World/Factory/LineA/Robot01
+        attribute: twinops:temperature
+        warnAbove: 75
+        criticalAbove: 85
+
+  streaming:
+    enabled: false
+    gpuClass: graphics
+    idleTimeout: 20m

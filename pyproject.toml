@@ -1,0 +1,62 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "twinops"
+version = "0.1.0"
+description = "GitOps control plane toolkit for industrial digital twins (OpenUSD compiler)"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "Apache-2.0" }
+authors = [{ name = "Andrey Lesnikov" }]
+keywords = [
+  "openusd",
+  "digital-twin",
+  "gitops",
+  "omniverse",
+  "platform-engineering",
+  "kubernetes",
+]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: Apache Software License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Scientific/Engineering",
+  "Topic :: Software Development :: Build Tools",
+]
+dependencies = [
+  "PyYAML>=6.0",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.0",
+  "ruff>=0.6",
+]
+
+[project.scripts]
+twinopsctl = "twinops.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/justrunme/twinops-control-plane"
+Repository = "https://github.com/justrunme/twinops-control-plane"
+Issues = "https://github.com/justrunme/twinops-control-plane/issues"
+
+[tool.setuptools.packages.find]
+where = ["python"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["python"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]

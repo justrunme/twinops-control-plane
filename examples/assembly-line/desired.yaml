@@ -1,0 +1,20 @@
+# Desired state snapshot used by the future drift engine (Milestone 2).
+apiVersion: twinops.io/v1alpha1
+kind: TwinDesiredState
+metadata:
+  name: assembly-line-a
+spec:
+  resources:
+    - prim: /World/Factory/LineA/Robot01
+      plmRevision: "C"
+      firmware: "4.14"
+      status: running
+    - prim: /World/Factory/LineA/Conveyor01
+      plmRevision: "A"
+      status: running
+    - prim: /World/Factory/LineA/Scanner01
+      plmRevision: "B"
+      status: online
+    - prim: /World/Factory/LineA/Packaging01
+      plmRevision: "A"
+      status: running

@@ -1,0 +1,104 @@
+#usda 1.0
+(
+    defaultPrim = "World"
+    metersPerUnit = 1
+    upAxis = "Y"
+    doc = """TwinOps assembly-line demo base stage.
+Robot → Conveyor → Scanner → Packaging"""
+)
+
+def Xform "World"
+{
+    def Xform "Factory"
+    {
+        def Xform "LineA" (
+            variants = {
+                string ops = "nominal"
+            }
+            prepend variantSets = ["ops"]
+        )
+        {
+            double3 xformOp:translate = (0, 0, 0)
+            uniform token[] xformOpOrder = ["xformOp:translate"]
+
+            variantSet "ops" = {
+                "nominal" {
+                    custom string twinops:opsMode = "nominal"
+                    custom float twinops:targetCycleTime = 12.0
+                }
+
+                "high-throughput" {
+                    custom string twinops:opsMode = "high-throughput"
+                    custom float twinops:targetCycleTime = 8.0
+                }
+
+                "maintenance" {
+                    custom string twinops:opsMode = "maintenance"
+                    custom float twinops:targetCycleTime = 0.0
+                }
+            }
+
+            def Xform "Robot01"
+            {
+                double3 xformOp:translate = (0, 0, 0)
+                uniform token[] xformOpOrder = ["xformOp:translate"]
+
+                custom string twinops:assetClass = "robot"
+                custom string twinops:role = "pick-and-place"
+
+                def Cube "Body"
+                {
+                    double size = 1.2
+                    color3f[] primvars:displayColor = [(0.2, 0.55, 0.85)]
+                }
+            }
+
+            def Xform "Conveyor01"
+            {
+                double3 xformOp:translate = (3, 0, 0)
+                uniform token[] xformOpOrder = ["xformOp:translate"]
+
+                custom string twinops:assetClass = "conveyor"
+                custom string twinops:role = "transport"
+
+                def Cube "Belt"
+                {
+                    double size = 1
+                    float3 xformOp:scale = (3, 0.2, 1)
+                    uniform token[] xformOpOrder = ["xformOp:scale"]
+                    color3f[] primvars:displayColor = [(0.35, 0.35, 0.38)]
+                }
+            }
+
+            def Xform "Scanner01"
+            {
+                double3 xformOp:translate = (6, 0.8, 0)
+                uniform token[] xformOpOrder = ["xformOp:translate"]
+
+                custom string twinops:assetClass = "scanner"
+                custom string twinops:role = "quality"
+
+                def Cube "Head"
+                {
+                    double size = 0.6
+                    color3f[] primvars:displayColor = [(0.9, 0.75, 0.2)]
+                }
+            }
+
+            def Xform "Packaging01"
+            {
+                double3 xformOp:translate = (9, 0, 0)
+                uniform token[] xformOpOrder = ["xformOp:translate"]
+
+                custom string twinops:assetClass = "packaging"
+                custom string twinops:role = "pack"
+
+                def Cube "Cell"
+                {
+                    double size = 1.4
+                    color3f[] primvars:displayColor = [(0.25, 0.7, 0.4)]
+                }
+            }
+        }
+    }
+}

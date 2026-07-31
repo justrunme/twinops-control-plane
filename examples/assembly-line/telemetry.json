@@ -1,0 +1,27 @@
+{
+  "timestamp": "2026-07-31T08:00:00Z",
+  "source": "mqtt-simulator",
+  "observations": [
+    {
+      "prim": "/World/Factory/LineA/Robot01",
+      "attributes": {
+        "twinops:temperature": 86.0,
+        "twinops:status": "degraded",
+        "twinops:firmware": "4.12"
+      }
+    },
+    {
+      "prim": "/World/Factory/LineA/Conveyor01",
+      "attributes": {
+        "twinops:speed": 1.8,
+        "twinops:status": "running"
+      }
+    },
+    {
+      "prim": "/World/Factory/LineA/Scanner01",
+      "attributes": {
+        "twinops:status": "online"
+      }
+    }
+  ]
+}
