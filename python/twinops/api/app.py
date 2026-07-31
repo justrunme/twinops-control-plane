@@ -40,6 +40,9 @@ def create_app(
     mqtt_host: str | None = None,
     mqtt_port: int = 1883,
     mqtt_ingest: bool = True,
+    mqtt_tls: bool = False,
+    mqtt_ca_certs: str | None = None,
+    mqtt_tls_insecure: bool = False,
     autostart: bool = True,
     web_dist: str | Path | None = None,
     api_token: str | None = None,
@@ -53,6 +56,9 @@ def create_app(
         mqtt_host=mqtt_host,
         mqtt_port=mqtt_port,
         mqtt_ingest=mqtt_ingest,
+        mqtt_tls=mqtt_tls,
+        mqtt_ca_certs=mqtt_ca_certs,
+        mqtt_tls_insecure=mqtt_tls_insecure,
     )
 
     @asynccontextmanager

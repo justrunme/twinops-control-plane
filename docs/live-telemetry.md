@@ -6,6 +6,16 @@ Milestone 4 starter: an in-process MQTT-style simulator feeds observed twin stat
 
 Optional API token: set `TWINOPS_API_TOKEN` or `twinopsctl serve --api-token …` (health/ready stay public). Validate MQTT JSON with `twinopsctl mqtt validate examples/assembly-line/mqtt-payload.example.json`. Optional ingest gate: `TWINOPS_MQTT_STRICT_SCHEMA=1` rejects JSON objects that declare a non-`twinops.mqtt.payload.v1` schema.
 
+Lab MQTT TLS (`make mqtt-tls-up` on `:8883`):
+
+```bash
+twinopsctl serve --example examples/assembly-line \
+  --mqtt-host 127.0.0.1 --mqtt-port 8883 \
+  --mqtt-tls --mqtt-ca deploy/demo/certs/server.crt
+# or: --mqtt-tls-insecure  (lab smoke only)
+```
+
+
 
 ```bash
 make install
