@@ -1,13 +1,18 @@
 [package]
-title = "TwinOps Drift Highlight"
-description = "Poll TwinOps /api/scene and highlight drifted OpenUSD prims"
-version = "0.1.0"
+title = "TwinOps Scene Runtime"
+description = "Consume twinops.highlight.v1 and highlight drifted OpenUSD prims in Kit"
+version = "0.7.0"
 category = "Simulation"
-keywords = ["twinops", "digital twin", "gitops", "drift"]
+keywords = ["twinops", "digital twin", "gitops", "drift", "openusd"]
 
 [dependencies]
-# Declared for Kit packaging; this stub also runs outside Omniverse.
+# Soft dependencies — extension still loads when Kit packages vary by build.
+# "omni.usd" = {}
 # "omni.kit.commands" = {}
 
 [[python.module]]
 name = "twinops_highlight"
+
+[settings]
+exts."twinops_highlight".api_url = "http://127.0.0.1:8080"
+exts."twinops_highlight".poll_interval = 1.0

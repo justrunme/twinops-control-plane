@@ -1,5 +1,8 @@
 # Roadmap
 
+TwinOps is a **GitOps / Kubernetes control plane for industrial digital twins**.
+Omniverse Kit is an optional OpenUSD runtime — not the product center.
+
 ## Milestone 0 — Repository foundation ✅
 
 - README, license, architecture docs
@@ -18,96 +21,65 @@
 
 ## Milestone 2 — Drift engine ✅
 
-```bash
-twinopsctl drift \
-  --desired examples/assembly-line/desired.yaml \
-  --stage examples/assembly-line/generated/root.usda \
-  --observed examples/assembly-line/telemetry.json \
-  --manifest examples/assembly-line/twin.yaml \
-  --out examples/assembly-line/generated/drift \
-  --propose examples/assembly-line/generated/proposal
-```
-
 - Desired / rendered / observed model
 - Policy thresholds (warning / critical)
 - ASCII table + JSON + HTML dashboard
 - Reconciliation proposal (USD overlay + PR draft)
 - Self-healing demo script (`make demo`)
-- Tests
 
 ## Milestone 3 — Kubernetes operator ✅ (foundation)
 
 - `DigitalTwin` CRD + Go types
-- controller-runtime reconcile loop (`build` + optional `drift`)
-- Status phases / conditions / finalizer
+- controller-runtime reconcile loop
 - Helm chart + sample CR
-- Local `make operator-run`
 
 ## Milestone 4 — Live telemetry ✅ (API foundation)
 
-- In-process MQTT-style simulator for assembly line
-- Optional Mosquitto bridge (`deploy/demo/docker-compose.mqtt.yml`)
-- Bidirectional MQTT: publish + ingest (external PLC → observed state)
-- Live drift evaluation loop
-- HTTP + WebSocket control API (`twinopsctl serve`)
-- Timeline event store for the web control plane
+- MQTT-style simulator + optional Mosquitto
+- Bidirectional MQTT ingest
+- HTTP + WebSocket control API
 
 ## Milestone 5 — Web control plane ✅ (foundation)
 
 - React + Vite UI with live WebSocket updates
-- Drift findings table
-- Event timeline
-- Heat-spike + reconcile demo actions
-- Optional static hosting from `twinopsctl serve`
 - One-command live demo (`make live-demo`)
 
-## Milestone 6 — Omniverse / GPU streaming ✅ (foundation)
+## Milestone 6 — Runtime contracts ✅ (foundation)
 
-- `GET /api/scene` highlight contract (`twinops.highlight.v1`)
-- Web scene inspector (drift-colored prim tree, no GPU)
-- Kit extension stub that polls TwinOps without Omniverse installed
-- GPU Operator / Kit App Streaming notes (`docs/omniverse.md`)
-- Mock Kit streaming viewport in web UI (GPU placeholder)
-- `GET /api/streaming/session` mock session descriptor
-- Remaining: real Kit App Streaming session + browser WebRTC client
+- `twinops.highlight.v1` + web scene inspector
+- Lab WebRTC signaling + browser MediaStream
+- HTTPS / mTLS / demo SSO JWT
+- Local GitOps apply `--verify`
 
-## Milestone 7 — GitOps apply loop ✅ (foundation)
+## v0.7 — Omniverse Kit scene runtime 🚧
 
-- `twinopsctl apply` local branch + artifact copy (no remote push)
-- Apply receipt + ADR-0007
-- Remaining: GitHub App / remote PR automation
+- [x] Pluggable highlight appliers (`plan` / `overlay` / `kit`)
+- [x] `TwinOpsSceneRuntime` poll/WS loop
+- [x] Kit extension starts runtime + applies displayColor/selection
+- [ ] Kit App Streaming sidecar (GPU frames → browser) — follows lab WebRTC
 
-## Milestone 8 — Live API auth + operator sync ✅ (foundation)
+## v0.8 — Incident history / timeline / replay ⏳
 
-- Optional bearer token (`TWINOPS_API_TOKEN` / `--api-token`) — ADR-0008
-- Operator `spec.liveAPIURL` → `status.live` probe
-- Helm live Deployment mounts `TWINOPS_API_TOKEN` from Secret (umbrella)
-- Operator `spec.liveAPITokenSecretRef` resolves bearer token from Secret
-- Remaining: mTLS
+- Persist twin timeline as incident records
+- `record.json` export of spike → proposal → apply → recover
+- Replay engine to re-run an incident against the twin
+- Richer timeline visualization in the web UI
 
-## Milestone 9 — Industrial contour ✅ (stubs)
+## v0.9 — Generic PLM adapters ⏳
 
-- `PlmAdapter` protocol (mock implements it)
-- Teamcenter/Windchill stub adapters (NotImplemented mutations)
-- MQTT payload schema `schemas/twinops.mqtt.payload.v1.json` + optional strict ingest
-- Grafana dashboard stub (`deploy/observability/grafana/`)
-- Helm umbrella notes + optional `sampleTwin.liveAPIURL`
-- Mosquitto ACL demo profile + Helm umbrella skeleton (0.5.x)
-- Lab MQTT TLS compose stub (`:8883`, self-signed) + Secret-backed live token
-- Umbrella `Chart.lock` + `make helm-deps` / `make helm-template`
-- Remaining: production-grade MQTT (CA, client certs), published GHCR images
+- File adapter (JSON catalog — today's mock shape)
+- Generic REST adapter (`GET /items/{id}` → id/revision/lifecycle/metadata)
+- Adapter SDK docs so others can add Teamcenter/Windchill later
+- **No** proprietary PLM SDK in-tree
 
-## Milestone 10 — Demo credibility ✅ (docs)
+## v1.0 — Reference demo complete ⏳
 
-- [Demo script](demo-script.md) for 5–7 minute walkthrough
-- Portfolio sync for public narrative
+When all of the following exist:
 
-## PLM adapter ✅ (mock)
-
-- JSON catalog (`examples/assembly-line/plm-catalog.json`)
-- `twinopsctl plm show|compare|bump|sync|desired`
-- Vendor-neutral mock only — no proprietary PLM SDK
-- `PlmAdapter` protocol for future vendor stubs
+- Kit scene runtime + optional streaming sidecar
+- Incident replay + history
+- Generic PLM adapters
+- Recorded 5–7 minute walkthrough (owner)
 
 ## Architecture decisions
 
@@ -125,17 +97,12 @@ twinopsctl drift \
 - [ADR-0012](adr/0012-kit-streaming-mock-contract.md) — Kit streaming mock contract
 - [ADR-0013](adr/0013-live-mtls-and-sso.md) — Live API mTLS and demo SSO JWT
 - [ADR-0014](adr/0014-lab-webrtc-streaming.md) — Lab WebRTC streaming path
-
-## Next focus (0.6.x)
-
-Done in 0.5.x–0.6.0: GHCR publish, apply `--verify`, MQTT ACL/TLS lab, Kit `--ws`, Helm umbrella,
-Secret-backed tokens, `make demo-gitops`, lab WebRTC + HTTPS/mTLS + SSO JWT.
-
-1. Optional Kit App Streaming sidecar that answers WebRTC with GPU frames (beyond lab echo)
+- [ADR-0015](adr/0015-kit-scene-runtime.md) — Kit scene runtime backends
 
 ## Non-goals (for now)
 
 - Claiming production / enterprise readiness
-- Hard-coding a specific commercial PLM product
+- Hard-coding a specific commercial PLM product / proprietary SDK
 - Requiring NVCF or cloud GPU to use the compiler
-- Remote GitHub App PR automation (local `--print-pr` is enough for now)
+- Remote GitHub App PR automation (local `--print-pr` is enough)
+- Exploding CLI surface / micro-releases around the product
