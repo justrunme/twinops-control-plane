@@ -13,6 +13,7 @@ from twinops.drift.engine import DriftReport, detect_drift
 from twinops.drift.loaders import load_desired_state
 from twinops.drift.model import ObservedState
 from twinops.drift.reconcile import propose_reconciliation
+from twinops.scene import build_scene_snapshot
 from twinops.schema import load_manifest
 from twinops.telemetry.bus import TelemetryBus
 from twinops.telemetry.simulator import AssemblyLineSimulator, SimulatorConfig
@@ -103,6 +104,19 @@ class LiveDriftRuntime:
             "port": self._mqtt_port if self._mqtt_host else None,
             "endpoint": endpoint,
         }
+
+    def scene_snapshot(self) -> dict[str, Any]:
+        """Prim highlight tree for web UI / Omniverse Kit consumers."""
+        drift = self.store.latest_drift or {}
+        status = drift.get("status") or {}
+        findings = list(status.get("findings") or [])
+        meta = drift.get("metadata") or {}
+        twin_name = str(self.store.twin_meta.get("name") or "unknown")
+        return build_scene_snapshot(
+            twin_name=twin_name,
+            findings=findings,
+            generated_at=meta.get("generatedAt"),
+        )
 
     def stop(self) -> None:
         self._stop.set()

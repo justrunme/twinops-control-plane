@@ -231,9 +231,18 @@ button:disabled {
   min-height: 420px;
 }
 
+.scene-panel {
+  min-height: 0;
+  margin-bottom: 14px;
+}
+
 .panel-head {
   padding: 14px 16px;
   border-bottom: 1px solid var(--line);
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: baseline;
 }
 
 .panel-head h2 {
@@ -241,6 +250,52 @@ button:disabled {
   font-size: 0.95rem;
   letter-spacing: 0.04em;
   text-transform: uppercase;
+}
+
+.panel-head small {
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.scene-tree {
+  padding: 14px 16px 18px;
+  display: grid;
+  gap: 8px;
+}
+
+.scene-empty {
+  margin: 0;
+  color: var(--muted);
+}
+
+.scene-node {
+  display: grid;
+  grid-template-columns: 12px auto 1fr auto;
+  gap: 10px;
+  align-items: center;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(8, 20, 15, 0.45);
+  transition: box-shadow 180ms ease, border-color 180ms ease;
+}
+
+.scene-node.lit {
+  background: rgba(20, 28, 18, 0.72);
+}
+
+.scene-node code {
+  font-size: 0.72rem;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.scene-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
 }
 
 .table-wrap {

@@ -60,12 +60,13 @@ twinopsctl drift \
 - Optional static hosting from `twinopsctl serve`
 - One-command live demo (`make live-demo`)
 
-## Milestone 6 — Omniverse / GPU streaming
+## Milestone 6 — Omniverse / GPU streaming ✅ (foundation)
 
-- Kit extension with scene highlighting
-- GPU Operator notes / Helm values
-- Kit App Streaming session lifecycle
-- Browser streaming client
+- `GET /api/scene` highlight contract (`twinops.highlight.v1`)
+- Web scene inspector (drift-colored prim tree, no GPU)
+- Kit extension stub that polls TwinOps without Omniverse installed
+- GPU Operator / Kit App Streaming notes (`docs/omniverse.md`)
+- Remaining: real Kit App Streaming session + browser client
 
 ## Non-goals (for now)
 

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
-import { connectEvents, fetchTwin, triggerReconcile, triggerSpike } from './api'
-import type { TwinSnapshot } from './types'
+import { connectEvents, fetchScene, fetchTwin, triggerReconcile, triggerSpike } from './api'
+import type { SceneSnapshot, TwinSnapshot } from './types'
 
 const STATUS_COLOR: Record<string, string> = {
   SYNCED: '#1f9d55',
@@ -21,6 +21,7 @@ function display(value: unknown): string {
 
 export default function App() {
   const [snap, setSnap] = useState<TwinSnapshot | null>(null)
+  const [scene, setScene] = useState<SceneSnapshot | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [connected, setConnected] = useState(false)
   const [busy, setBusy] = useState<'spike' | 'reconcile' | null>(null)
@@ -30,11 +31,22 @@ export default function App() {
     let ws: WebSocket | null = null
     let closed = false
 
+    const refreshScene = () => {
+      fetchScene()
+        .then((data) => {
+          if (!closed) setScene(data)
+        })
+        .catch(() => {
+          /* scene is optional while API boots */
+        })
+    }
+
     fetchTwin()
       .then((data) => {
         if (!closed) setSnap(data)
       })
       .catch((err: Error) => setError(err.message))
+    refreshScene()
 
     ws = connectEvents((message) => {
       const payload = message as {
@@ -46,6 +58,7 @@ export default function App() {
         setSnap(payload.snapshot)
         setConnected(true)
         setError(null)
+        refreshScene()
         return
       }
       if (payload.event) {
@@ -58,6 +71,9 @@ export default function App() {
           return { ...prev, timeline }
         })
         setConnected(true)
+        if (payload.event?.type === 'drift' || payload.event?.type === 'reconcile') {
+          refreshScene()
+        }
       }
     })
     ws.onopen = () => setConnected(true)
@@ -93,6 +109,7 @@ export default function App() {
     try {
       await triggerSpike()
       setFlash('Heat spike injected — critical drift should appear')
+      setScene(await fetchScene())
     } catch (err) {
       setError(err instanceof Error ? err.message : 'spike failed')
     } finally {
@@ -113,6 +130,7 @@ export default function App() {
       )
       const refreshed = await fetchTwin()
       setSnap(refreshed)
+      setScene(await fetchScene())
     } catch (err) {
       setError(err instanceof Error ? err.message : 'reconcile failed')
     } finally {
@@ -188,6 +206,43 @@ export default function App() {
           </span>
         ))}
       </div>
+
+      <section className="panel scene-panel">
+        <div className="panel-head">
+          <h2>Scene inspector</h2>
+          <small>{scene?.protocol?.name ?? 'twinops.highlight.v1'} · no GPU required</small>
+        </div>
+        <div className="scene-tree">
+          {(scene?.prims ?? []).length === 0 ? (
+            <p className="scene-empty">Waiting for scene snapshot…</p>
+          ) : (
+            (scene?.prims ?? []).map((prim) => {
+              const color = STATUS_COLOR[prim.status] ?? '#64748b'
+              const depth = Math.max(0, prim.prim.split('/').filter(Boolean).length - 3)
+              return (
+                <div
+                  key={prim.prim}
+                  className={`scene-node ${prim.highlight.enabled ? 'lit' : ''}`}
+                  style={{
+                    marginLeft: `${depth * 16}px`,
+                    borderColor: color,
+                    boxShadow: prim.highlight.enabled
+                      ? `0 0 ${10 + prim.highlight.intensity * 18}px ${color}55`
+                      : 'none',
+                  }}
+                >
+                  <span className="scene-dot" style={{ background: color }} />
+                  <strong>{prim.label}</strong>
+                  <code>{prim.prim}</code>
+                  <span className="pill" style={{ background: color }}>
+                    {prim.status}
+                  </span>
+                </div>
+              )
+            })
+          )}
+        </div>
+      </section>
 
       <div className="grid">
         <section className="panel">
