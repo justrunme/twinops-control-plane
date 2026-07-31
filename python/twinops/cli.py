@@ -15,6 +15,7 @@ from twinops.drift.loaders import DriftLoadError
 from twinops.drift.reconcile import propose_reconciliation
 from twinops.drift.table import render_drift_table
 from twinops.plm.mock import load_adapter_for_example
+from twinops.scene import build_scene_snapshot
 from twinops.schema import ManifestError, load_manifest
 
 
@@ -79,6 +80,54 @@ def _cmd_drift(args: argparse.Namespace) -> int:
         print(f"  pr draft: {proposal.summary_path}")
 
     return report.exit_code
+
+
+def _cmd_scene(args: argparse.Namespace) -> int:
+    """Build twinops.highlight.v1 from a drift report or by evaluating drift."""
+    try:
+        if args.from_report:
+            payload = json.loads(Path(args.from_report).read_text(encoding="utf-8"))
+            twin_name = str((payload.get("metadata") or {}).get("name") or "twin")
+            findings = list((payload.get("status") or {}).get("findings") or [])
+            generated_at = (payload.get("metadata") or {}).get("generatedAt")
+        else:
+            if not args.desired or not args.stage or not args.observed:
+                print(
+                    "error: --desired/--stage/--observed required unless --from-report is set",
+                    file=sys.stderr,
+                )
+                return 2
+            report = detect_drift(
+                desired=args.desired,
+                stage=args.stage,
+                observed=args.observed,
+                manifest=args.manifest,
+            )
+            payload = report.to_dict()
+            twin_name = report.name
+            findings = list((payload.get("status") or {}).get("findings") or [])
+            generated_at = report.generated_at
+    except (DriftLoadError, ManifestError, OSError, ValueError, json.JSONDecodeError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
+
+    scene = build_scene_snapshot(
+        twin_name=twin_name,
+        findings=findings,
+        generated_at=generated_at,
+    )
+    lit = [prim for prim in scene["prims"] if prim["highlight"]["enabled"]]
+    print(f"Scene {scene['twin']} protocol={scene['protocol']['name']} lit={len(lit)}")
+    for prim in lit:
+        print(f"  HIGHLIGHT {prim['prim']} status={prim['status']}")
+    if args.out:
+        out = Path(args.out)
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(json.dumps(scene, indent=2) + "\n", encoding="utf-8")
+        print(f"Wrote {out}")
+    if args.json:
+        print(json.dumps(scene, indent=2))
+    return 0 if not scene["hasDrift"] else 1
 
 
 def _cmd_reconcile(args: argparse.Namespace) -> int:
@@ -302,6 +351,23 @@ def build_parser() -> argparse.ArgumentParser:
     )
     drift.add_argument("--json", action="store_true", help="print drift report JSON")
     drift.set_defaults(func=_cmd_drift)
+
+    scene = sub.add_parser(
+        "scene",
+        help="build twinops.highlight.v1 snapshot from drift (offline)",
+    )
+    scene.add_argument("--desired", default=None, help="desired state YAML")
+    scene.add_argument("--stage", default=None, help="composed root.usda stage")
+    scene.add_argument("--observed", default=None, help="observed telemetry JSON")
+    scene.add_argument("--manifest", default=None, help="optional DigitalTwin manifest")
+    scene.add_argument(
+        "--from-report",
+        default=None,
+        help="build scene from an existing drift-report.json",
+    )
+    scene.add_argument("--out", default=None, help="write scene JSON to this path")
+    scene.add_argument("--json", action="store_true", help="print full scene JSON")
+    scene.set_defaults(func=_cmd_scene)
 
     reconcile = sub.add_parser(
         "reconcile",
