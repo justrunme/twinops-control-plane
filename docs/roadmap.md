@@ -116,6 +116,7 @@ twinopsctl drift \
 - [ADR-0007](adr/0007-local-gitops-apply.md) — Local GitOps apply
 - [ADR-0008](adr/0008-live-api-token-auth.md) — Optional live API token
 - [ADR-0009](adr/0009-mqtt-payload-schema.md) — MQTT payload schema
+- [ADR-0010](adr/0010-apply-verify-loop.md) — Apply verification loop
 
 ## Next focus (0.5.x)
 
