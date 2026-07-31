@@ -124,8 +124,9 @@ See [docs/plm-adapter.md](docs/plm-adapter.md).
 ```bash
 make serve
 # other terminal:
-make scene-highlight
-make scene   # offline JSON + HTML highlight report
+make scene-live      # fetch + validate /api/scene
+make scene-highlight # Kit stub client
+make scene           # offline JSON + HTML highlight report
 ```
 
 See [docs/omniverse.md](docs/omniverse.md).
@@ -134,11 +135,12 @@ See [docs/omniverse.md](docs/omniverse.md).
 
 ```bash
 make doctor
-make health
+make live-status
 make timeline
 twinopsctl proposal
 twinopsctl live spike
 twinopsctl live reconcile
+make scene-live
 twinopsctl openapi --out /tmp/twinops-openapi.json
 make verify-all
 ```
