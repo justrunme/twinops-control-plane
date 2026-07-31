@@ -3,7 +3,7 @@ PIP ?= $(PYTHON) -m pip
 VENV ?= .venv
 BIN := $(VENV)/bin
 
-.PHONY: help venv install test lint build demo live-demo live-demo-smoke mqtt-up mqtt-down mqtt-smoke mqtt-topics mqtt-topics-sync mqtt-topics-check drift serve web web-dev operator-build operator-run operator-demo operator-demo-watch operator-demo-cleanup scene scene-live scene-highlight plm-demo verify-all doctor health ready wait-ready timeline proposal metrics live-status live-spike live-reconcile openapi version docker-live docker-operator docker-live-up docker-live-down go-test clean
+.PHONY: help venv install test lint build demo live-demo live-demo-smoke mqtt-up mqtt-down mqtt-smoke mqtt-topics mqtt-topics-sync mqtt-topics-check drift serve web web-dev operator-build operator-run operator-demo operator-demo-watch operator-demo-cleanup scene scene-live scene-highlight plm-demo verify-all doctor health ready wait-ready timeline proposal metrics live-status live-spike live-reconcile openapi version docker-live docker-operator docker-live-up docker-live-down go-test clean apply
 
 help:
 	@echo "TwinOps targets:"
@@ -42,6 +42,7 @@ help:
 	@echo "  make docker-operator - build operator manager container image"
 	@echo "  make demo            - offline self-healing drift demo"
 	@echo "  make drift           - build + drift against sample telemetry"
+	@echo "  make apply           - reconcile sample + local GitOps apply (no push)"
 	@echo "  make serve           - live MQTT-style simulator + drift API"
 	@echo "  make web             - build web control plane into web/dist"
 	@echo "  make web-dev         - run Vite UI (proxies API on :8080)"
@@ -181,6 +182,15 @@ drift:
 		--manifest examples/assembly-line/twin.yaml \
 		--out examples/assembly-line/generated/drift \
 		--propose examples/assembly-line/generated/proposal
+
+apply: drift
+	$(BIN)/twinopsctl reconcile \
+		--desired examples/assembly-line/desired.yaml \
+		--stage examples/assembly-line/generated/root.usda \
+		--observed examples/assembly-line/telemetry.json \
+		--manifest examples/assembly-line/twin.yaml \
+		--out examples/assembly-line/generated/proposal
+	$(BIN)/twinopsctl apply examples/assembly-line/generated/proposal --no-commit
 
 serve:
 	$(BIN)/twinopsctl serve --example examples/assembly-line --host 127.0.0.1 --port 8080

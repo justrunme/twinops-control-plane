@@ -55,6 +55,7 @@ func (in *DigitalTwinList) DeepCopyObject() runtime.Object {
 func (in *DigitalTwinStatus) DeepCopyInto(out *DigitalTwinStatus) {
 	*out = *in
 	in.Drift.DeepCopyInto(&out.Drift)
+	in.Live.DeepCopyInto(&out.Live)
 	if in.Conditions != nil {
 		in, out := &in.Conditions, &out.Conditions
 		*out = make([]metav1.Condition, len(*in))
@@ -68,6 +69,14 @@ func (in *DriftStatus) DeepCopyInto(out *DriftStatus) {
 	*out = *in
 	if in.LastChecked != nil {
 		in, out := &in.LastChecked, &out.LastChecked
+		*out = (*in).DeepCopy()
+	}
+}
+
+func (in *LiveStatus) DeepCopyInto(out *LiveStatus) {
+	*out = *in
+	if in.LastSynced != nil {
+		in, out := &in.LastSynced, &out.LastSynced
 		*out = (*in).DeepCopy()
 	}
 }

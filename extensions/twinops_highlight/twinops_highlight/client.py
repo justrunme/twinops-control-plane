@@ -23,20 +23,51 @@ class HighlightTarget:
 
 
 class TwinOpsHighlightClient:
-    def __init__(self, base_url: str = "http://127.0.0.1:8080", *, timeout: float = 5.0) -> None:
+    def __init__(
+        self,
+        base_url: str = "http://127.0.0.1:8080",
+        *,
+        timeout: float = 5.0,
+        token: str | None = None,
+    ) -> None:
         self.base_url = base_url.rstrip("/")
         self.timeout = timeout
+        self.token = (token or "").strip() or None
 
-    def fetch_scene(self) -> dict[str, Any]:
+    def _headers(self) -> dict[str, str]:
+        headers = {"Accept": "application/json"}
+        if self.token:
+            headers["Authorization"] = f"Bearer {self.token}"
+        return headers
+
+    def _get_json(self, path: str) -> dict[str, Any]:
         request = urllib.request.Request(
-            f"{self.base_url}/api/scene",
-            headers={"Accept": "application/json"},
+            f"{self.base_url}{path}",
+            headers=self._headers(),
         )
         try:
             with urllib.request.urlopen(request, timeout=self.timeout) as response:
                 return json.loads(response.read().decode("utf-8"))
         except urllib.error.URLError as exc:
-            raise RuntimeError(f"failed to fetch TwinOps scene: {exc}") from exc
+            raise RuntimeError(f"failed to fetch TwinOps {path}: {exc}") from exc
+
+    def fetch_scene(self) -> dict[str, Any]:
+        return self._get_json("/api/scene")
+
+    def fetch_streaming_session(self) -> dict[str, Any]:
+        """Fetch mock (or future real) Kit App Streaming session descriptor."""
+        return self._get_json("/api/streaming/session")
+
+    def watch_scene(self, *, interval_seconds: float = 1.0, ticks: int = 1) -> list[dict[str, Any]]:
+        """Poll scene snapshots (WS client optional; poll works without extra deps)."""
+        import time
+
+        frames: list[dict[str, Any]] = []
+        for index in range(max(1, ticks)):
+            if index:
+                time.sleep(max(0.0, interval_seconds))
+            frames.append(self.fetch_scene())
+        return frames
 
     def highlight_targets(self, scene: dict[str, Any] | None = None) -> list[HighlightTarget]:
         payload = scene if scene is not None else self.fetch_scene()

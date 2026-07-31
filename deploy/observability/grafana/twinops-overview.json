@@ -1,0 +1,80 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "type": "stat",
+      "title": "TwinOps hasDrift",
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 0 },
+      "id": 1,
+      "targets": [
+        {
+          "expr": "twinops_drift_has_drift",
+          "legendFormat": "hasDrift",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "Highlighted prims",
+      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 0 },
+      "id": 2,
+      "targets": [
+        {
+          "expr": "twinops_scene_highlighted_prims",
+          "legendFormat": "prims",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "MQTT ingest total",
+      "gridPos": { "h": 4, "w": 6, "x": 12, "y": 0 },
+      "id": 3,
+      "targets": [
+        {
+          "expr": "twinops_mqtt_ingest_received_total",
+          "legendFormat": "ingest",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Robot temperature + drift",
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 4 },
+      "id": 4,
+      "targets": [
+        {
+          "expr": "twinops_robot_temperature_celsius",
+          "legendFormat": "tempC",
+          "refId": "A"
+        },
+        {
+          "expr": "twinops_drift_has_drift",
+          "legendFormat": "hasDrift",
+          "refId": "B"
+        },
+        {
+          "expr": "twinops_scene_highlighted_prims",
+          "legendFormat": "highlightedPrims",
+          "refId": "C"
+        }
+      ]
+    }
+  ],
+  "schemaVersion": 39,
+  "tags": ["twinops", "digital-twin"],
+  "templating": { "list": [] },
+  "time": { "from": "now-15m", "to": "now" },
+  "timezone": "browser",
+  "title": "TwinOps Live Overview",
+  "uid": "twinops-live-overview",
+  "version": 1
+}

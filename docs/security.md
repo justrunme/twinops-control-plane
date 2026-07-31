@@ -13,7 +13,7 @@
 
 | Surface | Risk | Mitigation in this repo |
 | --- | --- | --- |
-| Live HTTP API | Unauthenticated control actions (spike/reconcile) | Bind localhost; do not expose publicly |
+| Live HTTP API | Unauthenticated control actions (spike/reconcile) | Bind localhost; set `TWINOPS_API_TOKEN` / `--api-token` before shared binds |
 | `Dockerfile.live` | Image entrypoint binds `0.0.0.0:8080` | Local/demo compose only; put a proxy/auth in front if shared |
 | `docker-compose.live.yml` | Publishes `:8080` + anonymous MQTT | Local demos only; do not expose to the internet |
 | MQTT Mosquitto demo | Open publish/subscribe | Local compose only; no TLS; not for prod |
@@ -30,7 +30,7 @@
 | Streaming | Authenticated session API, idle timeout |
 | Telemetry | TLS MQTT, topic ACL, no secrets in USD layers |
 | Supply chain | CI checks, pinned Actions, SBOM later |
-| Live API | Optional authn/authz before any public bind |
+| Live API | Optional bearer token shipped (ADR-0008); mTLS / SSO later |
 
 ## Explicit non-goals for now
 
