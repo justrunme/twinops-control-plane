@@ -71,26 +71,55 @@ class UsdOverlayApplier:
 
 
 class KitUsdApplier:
-    """Apply highlights inside Omniverse Kit via omni.usd (optional dependency)."""
+    """Apply highlights inside Omniverse Kit via session-layer overrides.
+
+    Source USDA assets on disk are never rewritten. Overrides live in
+    ``SessionHighlightLayer`` and, when Kit is present, as in-memory
+    displayColor clears/sets on the opened stage (session scope).
+    """
 
     def __init__(self) -> None:
+        from twinops_highlight.session import SessionHighlightLayer
+
+        self.session = SessionHighlightLayer()
         self._last_prims: list[str] = []
 
     def apply(self, targets: list[HighlightTarget]) -> list[str]:
+        payload = [
+            {
+                "prim": t.prim,
+                "color": t.color,
+                "intensity": t.intensity,
+                "status": t.status,
+            }
+            for t in targets
+        ]
         try:
             import omni.usd  # type: ignore
             from pxr import Gf, Sdf, UsdGeom  # type: ignore
         except ImportError:
-            return PlanApplier().apply(targets)
+            notes = self.session.apply(payload)
+            return notes + PlanApplier().apply(targets)
 
         ctx = omni.usd.get_context()
         stage = ctx.get_stage() if ctx is not None else None
         if stage is None:
-            return ["KIT — no stage open; falling back to plan"] + PlanApplier().apply(
-                targets
-            )
+            notes = self.session.apply(payload)
+            return ["KIT — no stage open; session layer only"] + notes
 
-        notes: list[str] = []
+        root = stage.GetRootLayer()
+        self.session.source_path = getattr(root, "realPath", None) or getattr(
+            root, "identifier", None
+        )
+
+        valid: set[str] = set()
+        for target in targets:
+            prim = stage.GetPrimAtPath(target.prim)
+            if prim and prim.IsValid():
+                valid.add(target.prim)
+        notes = self.session.apply(payload, valid_prims=valid or None)
+
+        # Clear previous session overrides (attribute Clear — not file write).
         for prim_path in self._last_prims:
             prim = stage.GetPrimAtPath(prim_path)
             if prim and prim.IsValid():
@@ -101,23 +130,22 @@ class KitUsdApplier:
                         attr.Clear()
 
         selection: list[str] = []
-        for target in targets:
-            prim = stage.GetPrimAtPath(target.prim)
+        for override in self.session.overrides.values():
+            prim = stage.GetPrimAtPath(override.prim)
             if not prim or not prim.IsValid():
-                notes.append(f"KIT MISS {target.prim}")
                 continue
             imageable = UsdGeom.Gprim(prim)
             if imageable:
-                color = Gf.Vec3f(*((target.color + [0.86, 0.15, 0.15])[:3]))
+                color = Gf.Vec3f(*override.color)
                 imageable.GetDisplayColorAttr().Set([color])
             prim.CreateAttribute(
                 "twinops:driftStatus", Sdf.ValueTypeNames.String
-            ).Set(target.status)
+            ).Set(override.status)
             prim.CreateAttribute(
                 "twinops:highlightIntensity", Sdf.ValueTypeNames.Float
-            ).Set(float(target.intensity))
-            selection.append(target.prim)
-            notes.append(f"KIT SET {target.prim} status={target.status}")
+            ).Set(float(override.intensity))
+            selection.append(override.prim)
+            notes.append(f"KIT SET {override.prim} status={override.status}")
 
         self._last_prims = selection
         try:
@@ -132,10 +160,34 @@ class KitUsdApplier:
                 )
         except Exception:  # noqa: BLE001 - selection is optional
             notes.append("KIT — selection command unavailable")
+        notes.append("KIT — source asset not written (session overrides only)")
         return notes or ["KIT — no valid prims"]
 
     def clear(self) -> list[str]:
-        return self.apply([])
+        notes = list(self.session.clear())
+        try:
+            import omni.usd  # type: ignore
+            from pxr import UsdGeom  # type: ignore
+        except ImportError:
+            return notes
+        ctx = omni.usd.get_context()
+        stage = ctx.get_stage() if ctx is not None else None
+        if stage is None:
+            return notes
+        for prim_path in self._last_prims:
+            prim = stage.GetPrimAtPath(prim_path)
+            if prim and prim.IsValid():
+                imageable = UsdGeom.Gprim(prim)
+                if imageable:
+                    attr = imageable.GetDisplayColorAttr()
+                    if attr:
+                        attr.Clear()
+        self._last_prims = []
+        notes.append("KIT — session highlights cleared")
+        return notes
+
+    def restore_after_reconnect(self) -> list[str]:
+        return self.session.restore_after_reconnect()
 
 
 def _minimal_overlay(targets: list[HighlightTarget]) -> str:

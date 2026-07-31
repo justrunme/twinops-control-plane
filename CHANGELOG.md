@@ -4,6 +4,13 @@ All notable TwinOps changes are listed here. Dates are UTC.
 
 ## Unreleased
 
+## 0.10.0 — 2026-07-31
+
+- Productization: `make portfolio-demo` canonical E2E lifecycle (ADR-0018)
+- SQLite persistence for timeline / proposals / audit (`serve --db`)
+- `incident replay --verify` with expectedFinalState / expectedCriticalDrifts
+- PLM File/REST contract tests; Kit session-layer highlight state machine
+
 ## 0.9.0 — 2026-07-31
 
 - Generic File + REST PLM adapters (`FilePlmAdapter`, `RestPlmAdapter`) — ADR-0017

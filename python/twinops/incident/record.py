@@ -13,6 +13,8 @@ def timeline_to_incident(
     timeline: list[dict[str, Any]],
     *,
     twin: str = "",
+    expected_final_state: str = "",
+    expected_critical_drifts: int | None = None,
 ) -> IncidentRecord:
     """Build an incident from newest-first or oldest-first timeline events."""
     events = list(timeline)
@@ -32,11 +34,24 @@ def timeline_to_incident(
     ]
     started = steps[0].at if steps else ""
     ended = steps[-1].at if steps else ""
+    final_state = expected_final_state
+    critical = expected_critical_drifts
+    if not final_state:
+        for step in reversed(steps):
+            payload = step.payload
+            if "hasDrift" in payload:
+                final_state = "DRIFT" if payload.get("hasDrift") else "SYNCED"
+                summary = payload.get("summary") or {}
+                if isinstance(summary, dict) and critical is None:
+                    critical = int(summary.get("CRITICAL") or 0)
+                break
     return IncidentRecord(
         twin=twin,
         started_at=started,
         ended_at=ended,
         steps=steps,
+        expected_final_state=final_state,
+        expected_critical_drifts=critical,
     )
 
 

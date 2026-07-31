@@ -19,11 +19,14 @@ stub into a real runtime loop with pluggable apply backends.
    - `overlay` — write highlight USDA without Kit/pxr
    - `kit` — `omni.usd` displayColor + selection inside Kit
 3. Kit extension starts a background poll/WS loop and applies via `KitUsdApplier`.
-4. Kit App Streaming (GPU frames to browser) remains a later sidecar on top of
+4. Highlights live in a session layer (`SessionHighlightLayer`): source USDA
+   assets are never rewritten; apply/clear/reconnect are idempotent; runtime
+   exposes states (`connected`, `reconnecting`, `stale`, `invalid_prim`, …).
+5. Kit App Streaming (GPU frames to browser) remains a later sidecar on top of
    the lab WebRTC signaling path (ADR-0014).
 
 ## Consequences
 
 - Demos and CI stay GPU-free
-- Real Kit installs get live prim highlighting
+- Real Kit installs get live prim highlighting without dirtying source assets
 - Omniverse stays optional; Kubernetes/GitOps story stays primary

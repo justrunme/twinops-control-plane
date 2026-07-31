@@ -21,6 +21,7 @@ from __future__ import annotations
 import json
 import urllib.error
 import urllib.request
+from http.client import RemoteDisconnected
 from pathlib import Path
 from typing import Any
 from urllib.parse import quote, urljoin
@@ -97,6 +98,10 @@ class RestPlmAdapter:
             raise RuntimeError(f"PLM REST {method} {url} → HTTP {exc.code}: {detail}") from exc
         except urllib.error.URLError as exc:
             raise RuntimeError(f"PLM REST {method} {url} failed: {exc.reason}") from exc
+        except TimeoutError as exc:
+            raise RuntimeError(f"PLM REST {method} {url} timed out") from exc
+        except RemoteDisconnected as exc:
+            raise RuntimeError(f"PLM REST {method} {url} failed: {exc}") from exc
         if not raw:
             return None
         parsed = json.loads(raw.decode("utf-8"))

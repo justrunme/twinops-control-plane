@@ -35,6 +35,9 @@ make plm-demo
 echo "==> make live-demo-smoke"
 make live-demo-smoke
 
+echo "==> make portfolio-demo"
+make portfolio-demo
+
 if [[ "$WITH_MQTT" -eq 1 ]]; then
   echo "==> make mqtt-smoke"
   make mqtt-smoke
