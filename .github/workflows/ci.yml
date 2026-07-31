@@ -53,7 +53,7 @@ jobs:
           test -f /tmp/twinops-drift/drift-report.sarif
 
       - name: Upload drift SARIF artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: drift-sarif-py${{ matrix.python-version }}
           path: /tmp/twinops-drift/drift-report.sarif
