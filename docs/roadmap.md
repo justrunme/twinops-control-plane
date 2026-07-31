@@ -65,11 +65,11 @@ Omniverse Kit is an optional OpenUSD runtime — not the product center.
 - Sample `incident-heat-spike.json` fixture
 - Richer web timeline visualization — follow-up polish
 
-## v0.9 — Generic PLM adapters ⏳
+## v0.9 — Generic PLM adapters ✅
 
-- File adapter (JSON catalog — today's mock shape)
-- Generic REST adapter (`GET /items/{id}` → id/revision/lifecycle/metadata)
-- Adapter SDK docs so others can add Teamcenter/Windchill later
+- FilePlmAdapter (JSON catalog)
+- RestPlmAdapter (`GET /items`, `GET /items/{id}`, optional PUT)
+- Adapter SDK docs (`docs/plm-adapters.md`)
 - **No** proprietary PLM SDK in-tree
 
 ## v1.0 — Reference demo complete ⏳
@@ -99,6 +99,7 @@ When all of the following exist:
 - [ADR-0014](adr/0014-lab-webrtc-streaming.md) — Lab WebRTC streaming path
 - [ADR-0015](adr/0015-kit-scene-runtime.md) — Kit scene runtime backends
 - [ADR-0016](adr/0016-incident-replay.md) — Twin incident history and replay
+- [ADR-0017](adr/0017-generic-plm-adapters.md) — Generic File and REST PLM adapters
 
 ## Non-goals (for now)
 
