@@ -67,6 +67,7 @@ twinopsctl drift \
 - Web scene inspector (drift-colored prim tree, no GPU)
 - Kit extension stub that polls TwinOps without Omniverse installed
 - GPU Operator / Kit App Streaming notes (`docs/omniverse.md`)
+- Mock Kit streaming viewport in web UI (GPU placeholder)
 - Remaining: real Kit App Streaming session + browser client
 
 ## Non-goals (for now)

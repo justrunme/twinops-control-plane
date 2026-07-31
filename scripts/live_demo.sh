@@ -84,7 +84,7 @@ if ! curl -fsS "$BASE/api/health" >/dev/null 2>&1; then
   exit 1
 fi
 
-echo "==> Demo flow: spike → reconcile → SYNCED"
+echo "==> Demo flow: spike → scene highlight → reconcile → SYNCED"
 SPIKE_JSON="$(curl -fsS -X POST "$BASE/api/simulate/spike")"
 printf '%s' "$SPIKE_JSON" | "$PYTHON" -c "
 import json, sys
@@ -93,14 +93,30 @@ status = payload.get('drift', {}).get('status', {})
 print(f\"    spike: hasDrift={status.get('hasDrift')} summary={status.get('summary')}\")
 "
 
+SCENE_JSON="$(curl -fsS "$BASE/api/scene")"
+printf '%s' "$SCENE_JSON" | "$PYTHON" -c "
+import json, sys
+scene = json.load(sys.stdin)
+lit = [p for p in scene.get('prims', []) if (p.get('highlight') or {}).get('enabled')]
+robot = next((p for p in scene.get('prims', []) if p.get('label') == 'Robot01'), None)
+print(f\"    scene: protocol={scene.get('protocol', {}).get('name')} lit={len(lit)}\")
+if not lit:
+    raise SystemExit('expected highlighted prims after spike')
+if not robot or not (robot.get('highlight') or {}).get('enabled'):
+    raise SystemExit('expected Robot01 highlight after spike')
+print(f\"    scene: Robot01 status={robot.get('status')}\")
+"
+
 RECON_JSON="$(curl -fsS -X POST "$BASE/api/reconcile")"
 printf '%s' "$RECON_JSON" | "$PYTHON" -c "
 import json, sys
 payload = json.load(sys.stdin)
 status = payload.get('drift', {}).get('status', {})
+scene = payload.get('scene') or {}
+lit = [p for p in scene.get('prims', []) if (p.get('highlight') or {}).get('enabled')]
 print(
     f\"    reconcile: changes={payload.get('changes')} \"
-    f\"hasDrift={status.get('hasDrift')} summary={status.get('summary')}\"
+    f\"hasDrift={status.get('hasDrift')} summary={status.get('summary')} lit={len(lit)}\"
 )
 if status.get('hasDrift'):
     raise SystemExit('expected SYNCED after reconcile')
