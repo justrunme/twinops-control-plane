@@ -18,7 +18,7 @@ from twinops.drift.reconcile import propose_reconciliation
 from twinops.drift.sarif import write_sarif_report
 from twinops.drift.table import render_drift_table
 from twinops.plm.mock import load_adapter_for_example
-from twinops.scene import build_scene_snapshot, write_scene_html
+from twinops.scene import assert_valid_scene_snapshot, build_scene_snapshot, write_scene_html
 from twinops.schema import ManifestError, load_manifest
 
 
@@ -131,6 +131,12 @@ def _cmd_scene(args: argparse.Namespace) -> int:
         findings=findings,
         generated_at=generated_at,
     )
+    if getattr(args, "strict", False):
+        try:
+            assert_valid_scene_snapshot(scene)
+        except ValueError as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return 2
     lit = [prim for prim in scene["prims"] if prim["highlight"]["enabled"]]
     print(f"Scene {scene['twin']} protocol={scene['protocol']['name']} lit={len(lit)}")
     for prim in lit:
@@ -599,6 +605,11 @@ def build_parser() -> argparse.ArgumentParser:
     )
     scene.add_argument("--out", default=None, help="write scene JSON to this path")
     scene.add_argument("--html", default=None, help="write offline scene HTML report")
+    scene.add_argument(
+        "--strict",
+        action="store_true",
+        help="validate snapshot against twinops.highlight.v1 shape",
+    )
     scene.add_argument("--json", action="store_true", help="print full scene JSON")
     scene.set_defaults(func=_cmd_scene)
 
