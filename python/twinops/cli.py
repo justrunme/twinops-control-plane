@@ -9,6 +9,7 @@ from pathlib import Path
 
 from twinops import __version__
 from twinops.composer import compose_digital_twin
+from twinops.doctor import run_doctor
 from twinops.drift.engine import detect_drift, save_drift_report
 from twinops.drift.html_report import write_html_report
 from twinops.drift.loaders import DriftLoadError
@@ -250,6 +251,21 @@ def _cmd_version(_: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_doctor(args: argparse.Namespace) -> int:
+    checks = run_doctor(mqtt_host=args.mqtt_host, mqtt_port=args.mqtt_port)
+    failed_required = [item for item in checks if item.required and not item.ok]
+    for item in checks:
+        mark = "OK" if item.ok else ("MISSING" if item.required else "WARN")
+        print(f"[{mark}] {item.name}: {item.detail}")
+    if args.json:
+        print(json.dumps({"checks": [item.to_dict() for item in checks]}, indent=2))
+    if failed_required:
+        print("doctor: required checks failed", file=sys.stderr)
+        return 1
+    print("doctor: environment looks ready for local demos")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="twinopsctl",
@@ -398,6 +414,12 @@ def build_parser() -> argparse.ArgumentParser:
     plm_desired.add_argument("--example", default="examples/assembly-line")
     plm_desired.add_argument("--out", default=None, help="optional output YAML path")
     plm_desired.set_defaults(func=_cmd_plm_desired)
+
+    doctor = sub.add_parser("doctor", help="check local demo prerequisites")
+    doctor.add_argument("--mqtt-host", default="127.0.0.1")
+    doctor.add_argument("--mqtt-port", type=int, default=1883)
+    doctor.add_argument("--json", action="store_true")
+    doctor.set_defaults(func=_cmd_doctor)
 
     version = sub.add_parser("version", help="print version")
     version.set_defaults(func=_cmd_version)
