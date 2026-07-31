@@ -10,7 +10,8 @@ Minimal umbrella chart that composes:
 ## Install (operator only)
 
 ```bash
-helm dependency update deploy/helm/twinops
+make helm-deps          # refreshes charts/ from Chart.lock (gitignored packages)
+make helm-template      # optional render smoke (live stub + demo token)
 helm upgrade --install twinops deploy/helm/twinops \
   --namespace twinops-system \
   --create-namespace
