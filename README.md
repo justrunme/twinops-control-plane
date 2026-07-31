@@ -15,10 +15,10 @@ OpenUSD layers + variants
         ↓
 Omniverse Kit (optional)
         ↓
-Browser streaming (planned)
+Browser streaming (mock viewport now; Kit App Streaming later)
 ```
 
-> Status: **experimental**. Mock PLM adapter. Optional Omniverse runtime. Streaming integration planned. Not production-ready.
+> Status: **experimental**. Mock PLM adapter. Bidirectional MQTT. Optional Omniverse highlight contract. Not production-ready.
 
 [![CI](https://github.com/justrunme/twinops-control-plane/actions/workflows/ci.yml/badge.svg)](https://github.com/justrunme/twinops-control-plane/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
@@ -74,9 +74,9 @@ make live-demo
 Open **http://127.0.0.1:8080/**
 
 ```text
-1. Trigger heat spike      → CRITICAL / DRIFT
+1. Trigger heat spike      → CRITICAL / DRIFT + scene highlight
 2. Apply reconciliation    → USD overlay + healed telemetry
-3. Twin returns to SYNCED  → timeline shows reconcile event
+3. Twin returns to SYNCED  → timeline + mock Kit viewport calm
 ```
 
 Smoke check without a browser:
@@ -99,6 +99,33 @@ make demo
 
 Produces composed USDA layers, a drift HTML report, and a GitOps reconciliation proposal.
 
+### MQTT publish + ingest
+
+```bash
+make mqtt-smoke
+```
+
+Starts Mosquitto, publishes simulator telemetry, injects an external PLC heat spike, and asserts CRITICAL drift.
+
+### Mock PLM adapter
+
+```bash
+twinopsctl plm show
+twinopsctl plm compare
+```
+
+See [docs/plm-adapter.md](docs/plm-adapter.md).
+
+### Omniverse highlight contract (no GPU)
+
+```bash
+make serve
+# other terminal:
+make scene-highlight
+```
+
+See [docs/omniverse.md](docs/omniverse.md).
+
 ### Dev UI (Vite hot reload)
 
 ```bash
@@ -109,6 +136,10 @@ make web-dev    # terminal 2 — UI  :5173
 ### Kubernetes operator
 
 ```bash
+make operator-demo          # k3d preferred, kind fallback
+make operator-demo-cleanup
+
+# or against an existing kubeconfig:
 make operator-build
 # kubectl apply -f config/crd/bases/twinops.io_digitaltwins.yaml
 # make operator-run
@@ -168,17 +199,17 @@ The compiler turns this into OpenUSD overlay layers with `twinops:*` custom attr
 
 ```text
 twinops-control-plane/
-├── python/twinops/          # Compiler + drift engine + CLI
-├── examples/assembly-line/  # Demo factory line + sample USDA
-├── scripts/                 # End-to-end demo scripts
+├── python/twinops/          # Compiler, drift, live API, PLM mock, CLI
+├── examples/assembly-line/  # Demo factory line + sample USDA + PLM catalog
+├── scripts/                 # live-demo / mqtt-smoke / operator-demo
 ├── docs/                    # Architecture, USD model, ADRs, roadmap
 ├── api/                     # DigitalTwin CRD types (Go)
 ├── controllers/             # Kubernetes operator controllers
 ├── cmd/manager/             # Operator manager entrypoint
 ├── deploy/helm/             # Helm chart for the operator
+├── extensions/              # Omniverse Kit highlight stub
 ├── usd/                     # Generated / shared USD workspace
-├── web/                     # Live control-plane UI
-└── kit-app/                 # Planned Omniverse Kit extension
+└── web/                     # Live control-plane UI + mock Kit viewport
 ```
 
 About **70% of the platform** (compiler, drift engine, operator, GitOps, observability, mock adapters) can be built **without an NVIDIA GPU**. GPU is required only for Kit rendering and streaming.
@@ -211,7 +242,8 @@ Milestones 1–2 deliver composition, drift detection, HTML report, and a reconc
 | 3         | Kubernetes operator + DigitalTwin CRD      | **done**    |
 | 4         | Live MQTT telemetry + drift API            | **done**    |
 | 5         | Web control plane + one-command live demo  | **done**    |
-| 6         | Omniverse highlight contract + Kit stub    | **foundation** |
+| 6         | Omniverse highlight + mock Kit viewport    | **foundation** |
+| —         | Mock PLM adapter CLI                       | **done**    |
 
 See [docs/roadmap.md](docs/roadmap.md) and [docs/architecture.md](docs/architecture.md).
 
