@@ -18,6 +18,7 @@ sequenceDiagram
   UI->>API: GET /api/proposal/latest/bundle
   UI->>Git: twinopsctl apply --from-url (no push)
   Note over Git: optional --print-pr (manual gh pr create)
+  UI->>Git: twinopsctl apply --verify (rebuild + re-drift)
 ```
 
 ## Operator live probe
