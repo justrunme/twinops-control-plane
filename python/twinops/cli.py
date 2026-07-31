@@ -300,6 +300,41 @@ def _cmd_version(_: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_health(args: argparse.Namespace) -> int:
+    """Probe a running live API `/api/health` endpoint."""
+    import urllib.error
+    import urllib.request
+
+    base = args.base_url.rstrip("/")
+    url = f"{base}/api/health"
+    try:
+        with urllib.request.urlopen(url, timeout=args.timeout) as resp:
+            body = resp.read().decode("utf-8")
+            status = resp.status
+    except urllib.error.HTTPError as exc:
+        print(f"error: HTTP {exc.code} from {url}", file=sys.stderr)
+        return 1
+    except (urllib.error.URLError, TimeoutError, OSError) as exc:
+        print(f"error: cannot reach {url}: {exc}", file=sys.stderr)
+        return 1
+
+    if args.json:
+        print(body)
+    else:
+        try:
+            payload = json.loads(body)
+        except json.JSONDecodeError:
+            print(body)
+            return 0 if status == 200 else 1
+        print(f"status:  {payload.get('status')}")
+        print(f"version: {payload.get('version')}")
+        print(f"service: {payload.get('service')}")
+        mqtt = payload.get("mqtt") or {}
+        if mqtt:
+            print(f"mqtt:    {json.dumps(mqtt, sort_keys=True)}")
+    return 0 if status == 200 else 1
+
+
 def _cmd_doctor(args: argparse.Namespace) -> int:
     checks = run_doctor(mqtt_host=args.mqtt_host, mqtt_port=args.mqtt_port)
     failed_required = [item for item in checks if item.required and not item.ok]
@@ -486,6 +521,16 @@ def build_parser() -> argparse.ArgumentParser:
     doctor.add_argument("--mqtt-port", type=int, default=1883)
     doctor.add_argument("--json", action="store_true")
     doctor.set_defaults(func=_cmd_doctor)
+
+    health = sub.add_parser("health", help="probe a running live API /api/health")
+    health.add_argument(
+        "--base-url",
+        default="http://127.0.0.1:8080",
+        help="live API base URL",
+    )
+    health.add_argument("--timeout", type=float, default=3.0, help="HTTP timeout seconds")
+    health.add_argument("--json", action="store_true", help="print raw JSON body")
+    health.set_defaults(func=_cmd_health)
 
     version = sub.add_parser("version", help="print version")
     version.set_defaults(func=_cmd_version)
