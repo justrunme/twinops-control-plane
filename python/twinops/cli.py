@@ -363,7 +363,7 @@ def _cmd_completion(args: argparse.Namespace) -> int:
         print(f"error: unsupported shell {args.shell!r} (only bash)", file=sys.stderr)
         return 2
     commands = (
-        "build drift scene reconcile serve plm mqtt doctor health timeline "
+        "build drift scene reconcile serve plm mqtt doctor health ready timeline "
         "proposal metrics live openapi version completion"
     )
     script = f"""# twinopsctl bash completion — eval "$(twinopsctl completion bash)"
@@ -591,6 +591,32 @@ def _cmd_health(args: argparse.Namespace) -> int:
         if mqtt:
             print(f"mqtt:    {json.dumps(mqtt, sort_keys=True)}")
     return 0 if status == 200 else 1
+
+
+def _cmd_ready(args: argparse.Namespace) -> int:
+    """Probe a running live API `/api/ready` endpoint."""
+    base = args.base_url.rstrip("/")
+    url = f"{base}/api/ready"
+    status, body = _fetch_json(url, timeout=args.timeout)
+    if not body:
+        return 1
+    if args.json:
+        print(body)
+        try:
+            payload = json.loads(body)
+        except json.JSONDecodeError:
+            return 0 if status == 200 else 1
+        return 0 if status == 200 and payload.get("status") == "ready" else 1
+    try:
+        payload = json.loads(body)
+    except json.JSONDecodeError:
+        print(body)
+        return 0 if status == 200 else 1
+    print(f"status:         {payload.get('status')}")
+    print(f"version:        {payload.get('version')}")
+    print(f"twin:           {payload.get('twin')}")
+    print(f"hasDriftReport: {payload.get('hasDriftReport')}")
+    return 0 if status == 200 and payload.get("status") == "ready" else 1
 
 
 def _cmd_doctor(args: argparse.Namespace) -> int:
@@ -829,6 +855,12 @@ def build_parser() -> argparse.ArgumentParser:
     health.add_argument("--timeout", type=float, default=3.0, help="HTTP timeout seconds")
     health.add_argument("--json", action="store_true", help="print raw JSON body")
     health.set_defaults(func=_cmd_health)
+
+    ready = sub.add_parser("ready", help="probe a running live API /api/ready")
+    ready.add_argument("--base-url", default="http://127.0.0.1:8080")
+    ready.add_argument("--timeout", type=float, default=3.0)
+    ready.add_argument("--json", action="store_true")
+    ready.set_defaults(func=_cmd_ready)
 
     timeline = sub.add_parser("timeline", help="fetch live API timeline events")
     timeline.add_argument("--base-url", default="http://127.0.0.1:8080")
