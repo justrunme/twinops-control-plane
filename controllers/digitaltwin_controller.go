@@ -134,7 +134,10 @@ func (r *DigitalTwinReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		driftStatus = twinopsv1alpha1.DriftStatus{
 			Status:      "Synced",
 			Findings:    result.Findings,
+			Critical:    result.Critical,
+			Warning:     result.Warning,
 			Summary:     result.Summary,
+			ReportPath:  result.ReportPath,
 			LastChecked: &now,
 		}
 		if result.HasDrift {
