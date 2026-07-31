@@ -4,8 +4,11 @@ All notable TwinOps changes are listed here. Dates are UTC.
 
 ## Unreleased
 
+## 0.5.1 — 2026-07-31
+
 - Helm umbrella optional twinops-live Deployment/Service stub
 - Demo script documents apply --verify close-out
+- ADR-0010 apply verification loop
 
 ## 0.5.0 — 2026-07-31
 
