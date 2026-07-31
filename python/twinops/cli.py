@@ -19,7 +19,9 @@ from twinops.drift.reconcile import propose_reconciliation
 from twinops.drift.sarif import write_sarif_report
 from twinops.drift.table import render_drift_table
 from twinops.drift.verify import verify_apply
+from twinops.plm.file import FilePlmAdapter
 from twinops.plm.mock import load_adapter_for_example
+from twinops.plm.rest import RestPlmAdapter
 from twinops.scene import assert_valid_scene_snapshot, build_scene_snapshot, write_scene_html
 from twinops.schema import ManifestError, load_manifest
 
@@ -305,20 +307,51 @@ def _cmd_apply(args: argparse.Namespace) -> int:
     return 0
 
 
+def _resolve_plm_adapter(args: argparse.Namespace):
+    """Return (adapter, source_label, example_root|None)."""
+    url = getattr(args, "url", None)
+    catalog = getattr(args, "catalog", None)
+    if url:
+        token = getattr(args, "token", None) or None
+        timeout = float(getattr(args, "timeout", 5.0) or 5.0)
+        return RestPlmAdapter(url, token=token, timeout=timeout), url, None
+    if catalog:
+        path = Path(catalog)
+        return FilePlmAdapter.from_catalog(path), str(path), path.parent
+    adapter, path = load_adapter_for_example(args.example)
+    return adapter, str(path), Path(args.example)
+
+
+def _add_plm_source_flags(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("--example", default="examples/assembly-line")
+    parser.add_argument("--catalog", default=None, help="JSON catalog path (FilePlmAdapter)")
+    parser.add_argument("--url", default=None, help="REST PLM base URL (RestPlmAdapter)")
+    parser.add_argument("--token", default=None, help="Bearer token for --url")
+    parser.add_argument("--timeout", type=float, default=5.0, help="REST timeout seconds")
+
+
+def _plm_manifest_path(args: argparse.Namespace, root: Path | None) -> Path:
+    if getattr(args, "manifest", None):
+        return Path(args.manifest)
+    base = root or Path(args.example)
+    return base / "twin.yaml"
+
+
 def _cmd_plm_show(args: argparse.Namespace) -> int:
     try:
-        adapter, catalog = load_adapter_for_example(args.example)
-    except (OSError, ValueError, FileNotFoundError) as exc:
+        adapter, source, _root = _resolve_plm_adapter(args)
+    except (OSError, ValueError, FileNotFoundError, RuntimeError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2
     if args.json:
         payload = {
-            "catalog": str(catalog),
+            "source": source,
+            "provider": getattr(adapter, "provider", "mock"),
             "items": [item.to_dict() for item in adapter.items],
         }
         print(json.dumps(payload, indent=2))
         return 0
-    print(f"Mock PLM catalog: {catalog}")
+    print(f"PLM source: {source}")
     for item in adapter.items:
         label = f" ({item.name})" if item.name else ""
         print(
@@ -328,11 +361,28 @@ def _cmd_plm_show(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_plm_get(args: argparse.Namespace) -> int:
+    try:
+        adapter, source, _root = _resolve_plm_adapter(args)
+        item = adapter.get(args.item_id)
+    except (OSError, ValueError, FileNotFoundError, RuntimeError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
+    if item is None:
+        print(f"error: item not found: {args.item_id}", file=sys.stderr)
+        return 1
+    if args.json:
+        print(json.dumps({"source": source, **item.to_dict()}, indent=2))
+        return 0
+    print(f"{item.item_id}: rev={item.revision} lifecycle={item.lifecycle} prim={item.prim}")
+    return 0
+
+
 def _cmd_plm_compare(args: argparse.Namespace) -> int:
     try:
-        adapter, catalog = load_adapter_for_example(args.example)
-        manifest = load_manifest(Path(args.example) / "twin.yaml")
-    except (OSError, ValueError, FileNotFoundError, ManifestError) as exc:
+        adapter, source, root = _resolve_plm_adapter(args)
+        manifest = load_manifest(_plm_manifest_path(args, root))
+    except (OSError, ValueError, FileNotFoundError, ManifestError, RuntimeError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2
     diffs = adapter.compare_manifest(manifest)
@@ -340,7 +390,7 @@ def _cmd_plm_compare(args: argparse.Namespace) -> int:
     if args.json:
         print(json.dumps({"diffs": diffs, "hasDrift": bool(drifted)}, indent=2))
         return 1 if drifted else 0
-    print(f"PLM compare catalog={catalog} manifest={manifest.source_path}")
+    print(f"PLM compare source={source} manifest={manifest.source_path}")
     for item in diffs:
         status = item["status"]
         if status == "SYNCED":
@@ -357,16 +407,18 @@ def _cmd_plm_compare(args: argparse.Namespace) -> int:
 
 def _cmd_plm_bump(args: argparse.Namespace) -> int:
     try:
-        adapter, catalog = load_adapter_for_example(args.example)
+        adapter, source, root = _resolve_plm_adapter(args)
         updated = adapter.bump_revision(args.item_id, to=args.revision)
-        adapter.write_catalog(catalog)
-    except (OSError, ValueError, FileNotFoundError, KeyError) as exc:
+        if hasattr(adapter, "write_catalog") and not getattr(args, "url", None):
+            catalog_path = Path(args.catalog) if args.catalog else Path(source)
+            adapter.write_catalog(catalog_path)
+    except (OSError, ValueError, FileNotFoundError, KeyError, RuntimeError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2
     print(f"Bumped {updated.item_id} → revision {updated.revision}")
-    print(f"  catalog: {catalog}")
+    print(f"  source: {source}")
     if args.sync_manifest:
-        report = adapter.sync_manifest(Path(args.example) / "twin.yaml", write=True)
+        report = adapter.sync_manifest(_plm_manifest_path(args, root), write=True)
         print(f"  synced manifest changes: {len(report['changed'])}")
     if args.json:
         print(json.dumps(updated.to_dict(), indent=2))
@@ -375,13 +427,16 @@ def _cmd_plm_bump(args: argparse.Namespace) -> int:
 
 def _cmd_plm_sync(args: argparse.Namespace) -> int:
     try:
-        adapter, catalog = load_adapter_for_example(args.example)
-        report = adapter.sync_manifest(Path(args.example) / "twin.yaml", write=not args.dry_run)
-    except (OSError, ValueError, FileNotFoundError) as exc:
+        adapter, source, root = _resolve_plm_adapter(args)
+        report = adapter.sync_manifest(
+            _plm_manifest_path(args, root),
+            write=not args.dry_run,
+        )
+    except (OSError, ValueError, FileNotFoundError, RuntimeError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2
     mode = "dry-run" if args.dry_run else "wrote"
-    print(f"PLM sync ({mode}) catalog={catalog}")
+    print(f"PLM sync ({mode}) source={source}")
     print(f"  items={report['items']} changed={len(report['changed'])}")
     for change in report["changed"]:
         print(f"  {change['itemId']}: {change['from']} → {change['to']}")
@@ -392,8 +447,8 @@ def _cmd_plm_sync(args: argparse.Namespace) -> int:
 
 def _cmd_plm_desired(args: argparse.Namespace) -> int:
     try:
-        adapter, _catalog = load_adapter_for_example(args.example)
-    except (OSError, ValueError, FileNotFoundError) as exc:
+        adapter, _source, _root = _resolve_plm_adapter(args)
+    except (OSError, ValueError, FileNotFoundError, RuntimeError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2
     fragment = adapter.desired_fragment()
@@ -1273,39 +1328,48 @@ def build_parser() -> argparse.ArgumentParser:
     incident_replay.add_argument("--json", action="store_true")
     incident_replay.set_defaults(func=_cmd_incident_replay)
 
-    plm = sub.add_parser("plm", help="mock PLM adapter (catalog sync / compare / bump)")
+    plm = sub.add_parser("plm", help="PLM adapters (file / REST / example catalog)")
     plm_sub = plm.add_subparsers(dest="plm_command", required=True)
 
-    plm_show = plm_sub.add_parser("show", help="list mock PLM catalog items")
-    plm_show.add_argument("--example", default="examples/assembly-line")
+    plm_show = plm_sub.add_parser("show", help="list PLM items")
+    _add_plm_source_flags(plm_show)
     plm_show.add_argument("--json", action="store_true")
     plm_show.set_defaults(func=_cmd_plm_show)
 
-    plm_compare = plm_sub.add_parser("compare", help="compare catalog vs twin.yaml PLM mappings")
-    plm_compare.add_argument("--example", default="examples/assembly-line")
+    plm_get = plm_sub.add_parser("get", help="fetch one PLM item by id")
+    plm_get.add_argument("item_id", help="PLM item id, e.g. 1004711")
+    _add_plm_source_flags(plm_get)
+    plm_get.add_argument("--json", action="store_true")
+    plm_get.set_defaults(func=_cmd_plm_get)
+
+    plm_compare = plm_sub.add_parser("compare", help="compare PLM vs twin.yaml mappings")
+    _add_plm_source_flags(plm_compare)
+    plm_compare.add_argument("--manifest", default=None, help="DigitalTwin manifest path")
     plm_compare.add_argument("--json", action="store_true")
     plm_compare.set_defaults(func=_cmd_plm_compare)
 
-    plm_bump = plm_sub.add_parser("bump", help="bump an item revision in the catalog")
+    plm_bump = plm_sub.add_parser("bump", help="bump an item revision")
     plm_bump.add_argument("item_id", help="PLM item id, e.g. 1004711")
-    plm_bump.add_argument("--example", default="examples/assembly-line")
+    _add_plm_source_flags(plm_bump)
     plm_bump.add_argument("--revision", default=None, help="explicit revision (default: A→B→C)")
     plm_bump.add_argument(
         "--sync-manifest",
         action="store_true",
         help="also write catalog revisions into twin.yaml",
     )
+    plm_bump.add_argument("--manifest", default=None, help="DigitalTwin manifest path")
     plm_bump.add_argument("--json", action="store_true")
     plm_bump.set_defaults(func=_cmd_plm_bump)
 
-    plm_sync = plm_sub.add_parser("sync", help="write catalog PLM mappings into twin.yaml")
-    plm_sync.add_argument("--example", default="examples/assembly-line")
+    plm_sync = plm_sub.add_parser("sync", help="write PLM mappings into twin.yaml")
+    _add_plm_source_flags(plm_sync)
+    plm_sync.add_argument("--manifest", default=None, help="DigitalTwin manifest path")
     plm_sync.add_argument("--dry-run", action="store_true")
     plm_sync.add_argument("--json", action="store_true")
     plm_sync.set_defaults(func=_cmd_plm_sync)
 
     plm_desired = plm_sub.add_parser("desired", help="emit PLM-only desired-state fragment")
-    plm_desired.add_argument("--example", default="examples/assembly-line")
+    _add_plm_source_flags(plm_desired)
     plm_desired.add_argument("--out", default=None, help="optional output YAML path")
     plm_desired.set_defaults(func=_cmd_plm_desired)
 

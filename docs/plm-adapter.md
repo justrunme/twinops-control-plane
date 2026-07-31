@@ -1,8 +1,11 @@
 # Mock PLM adapter
 
 TwinOps keeps PLM integration **vendor-neutral**. Milestone demos use a JSON
-catalog + CLI instead of Teamcenter / Windchill / etc. New adapters should
-implement the `PlmAdapter` protocol in `python/twinops/plm/base.py`.
+catalog + CLI instead of Teamcenter / Windchill / etc.
+
+For the File + REST adapter SDK, see [plm-adapters.md](plm-adapters.md) and
+[ADR-0017](adr/0017-generic-plm-adapters.md). New adapters should implement the
+`PlmAdapter` protocol in `python/twinops/plm/base.py`.
 
 ## Catalog
 

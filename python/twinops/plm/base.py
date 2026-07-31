@@ -1,7 +1,7 @@
 """Vendor-neutral PLM adapter protocol.
 
-MockPlmAdapter implements this today. Future Teamcenter/Windchill stubs should
-satisfy the same surface without leaking proprietary SDKs into the core.
+FilePlmAdapter and RestPlmAdapter implement this for demos. Vendor stubs
+(Teamcenter/Windchill) show the shape only — no proprietary SDKs in-tree.
 """
 
 from __future__ import annotations
