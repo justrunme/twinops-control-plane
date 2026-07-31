@@ -75,6 +75,12 @@ def test_live_api_health_and_spike(tmp_path: Path) -> None:
         assert proposal.status_code == 200
         assert proposal.json()["status"]["applied"] is True
 
+        bundle = client.get("/api/proposal/latest/bundle")
+        assert bundle.status_code == 200
+        bundle_body = bundle.json()
+        assert bundle_body["available"] is True
+        assert "usda" in bundle_body["overlay"]
+
         timeline = client.get("/api/timeline")
         assert timeline.status_code == 200
         types = {item["type"] for item in timeline.json()["items"]}

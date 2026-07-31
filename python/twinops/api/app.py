@@ -182,6 +182,25 @@ def create_app(
     def proposal_latest() -> dict[str, Any]:
         return store.latest_proposal or {}
 
+    @app.get("/api/proposal/latest/bundle")
+    def proposal_latest_bundle() -> dict[str, Any]:
+        """Downloadable proposal artifacts for local `twinopsctl apply --from-url`."""
+        proposal = store.latest_proposal or {}
+        if not proposal:
+            return {"proposal": {}, "overlay": "", "pullRequest": "", "available": False}
+        overlay_path = Path((proposal.get("spec") or {}).get("overlay") or "")
+        pr_path = overlay_path.parent / "PULL_REQUEST.md" if overlay_path.name else Path()
+        overlay_text = (
+            overlay_path.read_text(encoding="utf-8") if overlay_path.is_file() else ""
+        )
+        pr_text = pr_path.read_text(encoding="utf-8") if pr_path.is_file() else ""
+        return {
+            "available": bool(overlay_text),
+            "proposal": proposal,
+            "overlay": overlay_text,
+            "pullRequest": pr_text,
+        }
+
     @app.get("/api/streaming/session")
     def streaming_session(request: Request) -> dict[str, Any]:
         """Mock Kit App Streaming session descriptor (GPU-free placeholder)."""
