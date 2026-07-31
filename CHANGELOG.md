@@ -4,6 +4,7 @@ All notable TwinOps changes are listed here. Dates are UTC.
 
 ## Unreleased
 
+- Live demo / docs use `twinopsctl live status`
 - `twinopsctl live status` / `make live-status`
 - `make mqtt-topics-check` + web link to `/api/ready`
 - `twinopsctl doctor` checks MQTT topic catalog sync
