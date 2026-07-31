@@ -22,3 +22,14 @@ resources:
   limits:
     cpu: 500m
     memory: 256Mi
+
+# Live API metrics (twinopsctl serve) are scraped separately from the operator.
+# When co-locating a live demo Deployment, annotate the Pod with:
+#   prometheus.io/scrape: "true"
+#   prometheus.io/port: "8080"
+#   prometheus.io/path: "/metrics"
+# JSON form: GET /api/metrics
+liveMetrics:
+  path: /metrics
+  port: 8080
+  enabled: false
