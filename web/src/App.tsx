@@ -256,6 +256,8 @@ export default function App() {
           report{' '}
           <a href="/api/drift/report" target="_blank" rel="noreferrer">drift</a>
           {' · '}
+          <a href="/api/drift/csv" target="_blank" rel="noreferrer">csv</a>
+          {' · '}
           <a href="/api/scene/report" target="_blank" rel="noreferrer">scene</a>
         </span>
         <span>
