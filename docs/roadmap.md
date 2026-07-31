@@ -94,7 +94,8 @@ twinopsctl drift \
 - Helm umbrella notes + optional `sampleTwin.liveAPIURL`
 - Mosquitto ACL demo profile + Helm umbrella skeleton (0.5.x)
 - Lab MQTT TLS compose stub (`:8883`, self-signed) + Secret-backed live token
-- Remaining: production-grade MQTT (CA, client certs), Chart.lock / published images
+- Umbrella `Chart.lock` + `make helm-deps` / `make helm-template`
+- Remaining: production-grade MQTT (CA, client certs), published GHCR images
 
 ## Milestone 10 — Demo credibility ✅ (docs)
 
@@ -125,10 +126,11 @@ twinopsctl drift \
 ## Next focus (0.5.x → 0.6)
 
 Done in 0.5.x: apply `--verify`, MQTT ACL, Kit `--ws`, Helm umbrella + live stub,
-lab MQTT TLS compose, Secret-mounted live API token, `make demo-gitops`.
+lab MQTT TLS compose, Secret-mounted live API token, `liveAPITokenSecretRef`,
+`Chart.lock` / `make helm-deps`, `make demo-gitops`.
 
 1. Real Kit App Streaming session + browser WebRTC (still mock today)
-2. Helm `dependency update` / Chart.lock + published GHCR image tags
+2. Published GHCR image tags for operator/live (local Docker tags already exist)
 3. Recorded 5–7 minute demo using `docs/demo-script.md` / `make demo-gitops`
 4. Live API mTLS / SSO (token + SecretRef remain the demo auth path)
 

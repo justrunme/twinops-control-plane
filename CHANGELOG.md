@@ -4,6 +4,11 @@ All notable TwinOps changes are listed here. Dates are UTC.
 
 ## Unreleased
 
+## 0.5.5 — 2026-07-31
+
+- Helm umbrella `Chart.lock` + `make helm-deps` / `make helm-template`
+- Doctor check for Chart.lock; charts/ packages gitignored
+
 ## 0.5.4 — 2026-07-31
 
 - Operator `spec.liveAPITokenSecretRef` (Secret-backed live API token)
