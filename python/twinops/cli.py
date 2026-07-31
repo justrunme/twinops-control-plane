@@ -307,6 +307,28 @@ def _cmd_version(_: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_openapi(args: argparse.Namespace) -> int:
+    """Dump the live API OpenAPI schema without starting the server loop."""
+    from twinops.api.app import create_app
+
+    app = create_app(
+        example_dir=args.example,
+        work_dir=args.work_dir or "usd/generated/openapi-dump",
+        interval_seconds=60,
+        autostart=False,
+    )
+    schema = app.openapi()
+    text = json.dumps(schema, indent=2)
+    if args.out:
+        path = Path(args.out)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text + "\n", encoding="utf-8")
+        print(f"Wrote {path}")
+    else:
+        print(text)
+    return 0
+
+
 def _cmd_health(args: argparse.Namespace) -> int:
     """Probe a running live API `/api/health` endpoint."""
     import urllib.error
@@ -543,6 +565,12 @@ def build_parser() -> argparse.ArgumentParser:
     health.add_argument("--timeout", type=float, default=3.0, help="HTTP timeout seconds")
     health.add_argument("--json", action="store_true", help="print raw JSON body")
     health.set_defaults(func=_cmd_health)
+
+    openapi = sub.add_parser("openapi", help="dump live API OpenAPI schema (no server)")
+    openapi.add_argument("--example", default="examples/assembly-line")
+    openapi.add_argument("--work-dir", default=None)
+    openapi.add_argument("--out", default=None, help="write schema JSON to this path")
+    openapi.set_defaults(func=_cmd_openapi)
 
     version = sub.add_parser("version", help="print version")
     version.set_defaults(func=_cmd_version)
