@@ -4,6 +4,7 @@ All notable TwinOps changes are listed here. Dates are UTC.
 
 ## Unreleased
 
+- `.gitattributes` + CODEOWNERS for schemas/scene/telemetry
 - Docs mention `/tmp` artifacts from `make scene-live`
 - `make scene-live` also writes /tmp scene JSON + HTML
 - README documents `scene-live` / `live-status` DX path

@@ -1,0 +1,10 @@
+# Normalize text files
+* text=auto eol=lf
+
+# Treat generated / binary-ish paths as binary when present
+*.woff binary
+*.woff2 binary
+*.png binary
+*.jpg binary
+*.usda linguist-language=Python
+schemas/*.json linguist-detectable=true
