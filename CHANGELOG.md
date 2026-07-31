@@ -4,6 +4,7 @@ All notable TwinOps changes are listed here. Dates are UTC.
 
 ## Unreleased
 
+- `make scene-live` also writes /tmp scene JSON + HTML
 - README documents `scene-live` / `live-status` DX path
 
 ## 0.3.5 — 2026-07-31

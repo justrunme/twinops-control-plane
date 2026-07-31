@@ -128,7 +128,12 @@ openapi:
 	$(BIN)/twinopsctl openapi --out /tmp/twinops-openapi.json
 
 scene-live:
-	$(BIN)/twinopsctl scene --from-url http://127.0.0.1:8080 --strict
+	$(BIN)/twinopsctl scene \
+		--from-url http://127.0.0.1:8080 \
+		--strict \
+		--out /tmp/twinops-scene.json \
+		--html /tmp/twinops-scene.html || true
+	@echo "Wrote /tmp/twinops-scene.json and /tmp/twinops-scene.html (exit 1 means hasDrift)"
 
 scene-highlight: scene-live
 	$(PYTHON) extensions/twinops_highlight/twinops_highlight/client.py --base-url http://127.0.0.1:8080
