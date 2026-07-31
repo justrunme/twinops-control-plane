@@ -3,7 +3,7 @@ PIP ?= $(PYTHON) -m pip
 VENV ?= .venv
 BIN := $(VENV)/bin
 
-.PHONY: help venv install test lint build demo live-demo live-demo-smoke mqtt-up mqtt-down mqtt-smoke mqtt-topics mqtt-topics-sync drift serve web web-dev operator-build operator-run operator-demo operator-demo-watch operator-demo-cleanup scene scene-highlight plm-demo verify-all doctor health openapi version go-test clean
+.PHONY: help venv install test lint build demo live-demo live-demo-smoke mqtt-up mqtt-down mqtt-smoke mqtt-topics mqtt-topics-sync drift serve web web-dev operator-build operator-run operator-demo operator-demo-watch operator-demo-cleanup scene scene-highlight plm-demo verify-all doctor health openapi version docker-live docker-operator go-test clean
 
 help:
 	@echo "TwinOps targets:"
@@ -26,6 +26,8 @@ help:
 	@echo "  make verify-all      - local gate: test/lint/go/plm/live-smoke"
 	@echo "  make doctor          - check local demo prerequisites"
 	@echo "  make version         - print twinopsctl version"
+	@echo "  make docker-live     - build demo live API container image"
+	@echo "  make docker-operator - build operator manager container image"
 	@echo "  make demo            - offline self-healing drift demo"
 	@echo "  make drift           - build + drift against sample telemetry"
 	@echo "  make serve           - live MQTT-style simulator + drift API"
@@ -109,6 +111,12 @@ doctor:
 
 version:
 	$(BIN)/twinopsctl version
+
+docker-live:
+	docker build -f Dockerfile.live -t twinops-live:0.3.1 .
+
+docker-operator:
+	docker build -f Dockerfile.operator -t twinops-operator:0.3.1 .
 
 drift:
 	$(BIN)/twinopsctl build examples/assembly-line/twin.yaml --out examples/assembly-line/generated
