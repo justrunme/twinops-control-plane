@@ -4,6 +4,8 @@ All notable TwinOps changes are listed here. Dates are UTC.
 
 ## Unreleased
 
+## 0.3.10 — 2026-07-31
+
 - `twinopsctl completion zsh` shell completion script
 
 ## 0.3.9 — 2026-07-31
