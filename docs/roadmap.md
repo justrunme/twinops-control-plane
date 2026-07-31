@@ -122,6 +122,7 @@ twinopsctl drift \
 - [ADR-0009](adr/0009-mqtt-payload-schema.md) — MQTT payload schema
 - [ADR-0010](adr/0010-apply-verify-loop.md) — Apply verification loop
 - [ADR-0011](adr/0011-lab-mqtt-tls.md) — Lab MQTT TLS stub
+- [ADR-0012](adr/0012-kit-streaming-mock-contract.md) — Kit streaming mock contract
 
 ## Next focus (0.5.x → 0.6)
 
