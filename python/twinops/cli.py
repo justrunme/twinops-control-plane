@@ -205,6 +205,13 @@ def _cmd_plm_show(args: argparse.Namespace) -> int:
     except (OSError, ValueError, FileNotFoundError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2
+    if args.json:
+        payload = {
+            "catalog": str(catalog),
+            "items": [item.to_dict() for item in adapter.items],
+        }
+        print(json.dumps(payload, indent=2))
+        return 0
     print(f"Mock PLM catalog: {catalog}")
     for item in adapter.items:
         label = f" ({item.name})" if item.name else ""
@@ -212,12 +219,6 @@ def _cmd_plm_show(args: argparse.Namespace) -> int:
             f"  {item.item_id}{label}: rev={item.revision} "
             f"lifecycle={item.lifecycle} prim={item.prim}"
         )
-    if args.json:
-        payload = {
-            "catalog": str(catalog),
-            "items": [item.to_dict() for item in adapter.items],
-        }
-        print(json.dumps(payload, indent=2))
     return 0
 
 
@@ -230,6 +231,9 @@ def _cmd_plm_compare(args: argparse.Namespace) -> int:
         return 2
     diffs = adapter.compare_manifest(manifest)
     drifted = [item for item in diffs if item["status"] != "SYNCED"]
+    if args.json:
+        print(json.dumps({"diffs": diffs, "hasDrift": bool(drifted)}, indent=2))
+        return 1 if drifted else 0
     print(f"PLM compare catalog={catalog} manifest={manifest.source_path}")
     for item in diffs:
         status = item["status"]
@@ -242,8 +246,6 @@ def _cmd_plm_compare(args: argparse.Namespace) -> int:
             )
         else:
             print(f"  [{status}] {item['itemId']} catalog={item['catalogRevision']}")
-    if args.json:
-        print(json.dumps({"diffs": diffs, "hasDrift": bool(drifted)}, indent=2))
     return 1 if drifted else 0
 
 
