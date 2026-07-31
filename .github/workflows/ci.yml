@@ -74,6 +74,17 @@ jobs:
           npm --prefix web run build
           bash scripts/live_demo.sh --smoke
 
+      - name: Portfolio end-to-end demo
+        run: bash scripts/portfolio_demo.sh
+
+      - name: Upload portfolio artifacts
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: portfolio-demo-py${{ matrix.python-version }}
+          path: /tmp/twinops-portfolio-demo/out
+          if-no-files-found: ignore
+
   mqtt:
     name: MQTT publish+ingest smoke
     runs-on: ubuntu-latest

@@ -16,7 +16,7 @@ OpenUSD layers + variants
 Runtime (optional): Omniverse Kit · web UI · lab WebRTC
 ```
 
-> Status: **experimental** (v0.9.0). TwinOps is a GitOps/Kubernetes control plane for digital twins; Omniverse Kit is an optional runtime. Not production-ready.
+> Status: **experimental** (v0.10.0). TwinOps is a GitOps/Kubernetes control plane for digital twins; Omniverse Kit is an optional runtime. Not production-ready.
 
 [![CI](https://github.com/justrunme/twinops-control-plane/actions/workflows/ci.yml/badge.svg)](https://github.com/justrunme/twinops-control-plane/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/justrunme/twinops-control-plane?display_name=tag)](https://github.com/justrunme/twinops-control-plane/releases/latest)
@@ -89,7 +89,13 @@ Smoke check without a browser:
 make live-demo-smoke
 ```
 
-Full walkthrough: [docs/demo.md](docs/demo.md)
+Canonical productization scenario (persist + replay + artifacts):
+
+```bash
+make portfolio-demo
+```
+
+Full walkthrough: [docs/demo.md](docs/demo.md) · [docs/portfolio-demo.md](docs/portfolio-demo.md)
 
 ---
 

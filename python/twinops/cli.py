@@ -504,6 +504,7 @@ def _cmd_serve(args: argparse.Namespace) -> int:
         api_token=api_token,
         sso_secret=sso_secret,
         webrtc=webrtc,
+        db_path=getattr(args, "db", None),
     )
     tls_cert = getattr(args, "tls_cert", None)
     tls_key = getattr(args, "tls_key", None)
@@ -616,14 +617,21 @@ def _cmd_incident_replay(args: argparse.Namespace) -> int:
         stage=args.stage,
         observed=args.observed,
         manifest=args.manifest,
+        verify=bool(getattr(args, "verify", False)),
     )
     if args.json:
         print(json.dumps(result.to_dict(), indent=2))
     else:
         print(f"replay twin={result.twin} steps={result.steps_played}")
         for tick in result.ticks:
-            flag = "DRIFT" if tick.get("hasDrift") else "OK"
+            flag = tick.get("transition") or ("DRIFT" if tick.get("hasDrift") else "OK")
             print(f"  {tick.get('at')} [{tick.get('kind')}] {flag} — {tick.get('summary')}")
+        if result.verified is not None:
+            print(f"verify: {'PASS' if result.verified else 'FAIL'}")
+            for err in result.verify_errors:
+                print(f"  - {err}")
+    if result.verified is False:
+        return 1
     return 0
 
 
@@ -1283,6 +1291,11 @@ def build_parser() -> argparse.ArgumentParser:
     serve.add_argument("--tls-cert", default=None, help="PEM server certificate for HTTPS")
     serve.add_argument("--tls-key", default=None, help="PEM server private key for HTTPS")
     serve.add_argument(
+        "--db",
+        default=None,
+        help="SQLite path for persisted timeline/proposals/audit (optional)",
+    )
+    serve.add_argument(
         "--tls-client-ca",
         default=None,
         help="PEM CA for client certificates (mTLS)",
@@ -1325,6 +1338,11 @@ def build_parser() -> argparse.ArgumentParser:
     incident_replay.add_argument("--stage", required=True)
     incident_replay.add_argument("--observed", required=True, help="base observed JSON")
     incident_replay.add_argument("--manifest", default=None)
+    incident_replay.add_argument(
+        "--verify",
+        action="store_true",
+        help="check status.expectedFinalState / expectedCriticalDrifts",
+    )
     incident_replay.add_argument("--json", action="store_true")
     incident_replay.set_defaults(func=_cmd_incident_replay)
 

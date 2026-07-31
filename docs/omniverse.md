@@ -64,5 +64,6 @@ See [ADR-0015](adr/0015-kit-scene-runtime.md).
 
 - ✅ Highlight API + web inspector + lab WebRTC
 - ✅ Kit extension runtime loop + apply backends
+- ✅ Session-layer highlights (source assets untouched; reconnect/idempotent)
 - ⏳ Kit App Streaming browser session with RTX frames
 - ❌ NVCF / cloud GPU product claims

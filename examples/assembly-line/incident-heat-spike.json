@@ -13,9 +13,16 @@
         "kind": "telemetry",
         "summary": "Robot healthy",
         "payload": {
-          "prim": "/World/Factory/LineA/Robot01",
-          "attribute": "twinops:temperature",
-          "value": 42.0
+          "observations": [
+            {
+              "prim": "/World/Factory/LineA/Robot01",
+              "attributes": {
+                "twinops:temperature": 42.0,
+                "twinops:status": "running",
+                "twinops:firmware": "4.14"
+              }
+            }
+          ]
         }
       },
       {
@@ -40,26 +47,58 @@
       },
       {
         "at": "2026-07-31T10:44:00Z",
-        "kind": "drift",
-        "summary": "Drift detected — proposal ready",
-        "payload": {}
-      },
-      {
-        "at": "2026-07-31T10:45:00Z",
-        "kind": "reconcile",
-        "summary": "Proposal applied",
-        "payload": {}
-      },
-      {
-        "at": "2026-07-31T10:46:00Z",
-        "kind": "telemetry",
-        "summary": "Recovered",
+        "kind": "highlight",
+        "summary": "Kit highlight applied for Robot01",
         "payload": {
           "prim": "/World/Factory/LineA/Robot01",
           "attribute": "twinops:temperature",
-          "value": 48.0
+          "value": 91.5
+        }
+      },
+      {
+        "at": "2026-07-31T10:45:00Z",
+        "kind": "proposal",
+        "summary": "Reconciliation proposal ready",
+        "payload": {
+          "prim": "/World/Factory/LineA/Robot01",
+          "attribute": "twinops:temperature",
+          "value": 91.5
+        }
+      },
+      {
+        "at": "2026-07-31T10:46:00Z",
+        "kind": "reconcile",
+        "summary": "Recovered — SYNCED",
+        "payload": {
+          "observations": [
+            {
+              "prim": "/World/Factory/LineA/Robot01",
+              "attributes": {
+                "twinops:temperature": 48.0,
+                "twinops:status": "running",
+                "twinops:firmware": "4.14"
+              }
+            },
+            {
+              "prim": "/World/Factory/LineA/Conveyor01",
+              "attributes": {
+                "twinops:speed": 1.2,
+                "twinops:status": "running"
+              }
+            },
+            {
+              "prim": "/World/Factory/LineA/Scanner01",
+              "attributes": {
+                "twinops:status": "online"
+              }
+            }
+          ]
         }
       }
     ]
+  },
+  "status": {
+    "expectedFinalState": "RECOVERED",
+    "expectedCriticalDrifts": 0
   }
 }

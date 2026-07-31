@@ -8,6 +8,7 @@ Navigation index for the control plane docs.
 | --- | --- |
 | Architecture overview | [architecture.md](architecture.md) |
 | 2-minute live demo | [demo.md](demo.md) |
+| Portfolio E2E demo | [portfolio-demo.md](portfolio-demo.md) |
 | 5–7 minute demo script | [demo-script.md](demo-script.md) |
 | Sequence diagrams | [sequences.md](sequences.md) |
 | Local prerequisites | `make doctor` / [CONTRIBUTING.md](../CONTRIBUTING.md) |
@@ -48,6 +49,7 @@ Navigation index for the control plane docs.
 | [0015](adr/0015-kit-scene-runtime.md) | Kit scene runtime backends |
 | [0016](adr/0016-incident-replay.md) | Twin incident history and replay |
 | [0017](adr/0017-generic-plm-adapters.md) | Generic File and REST PLM adapters |
+| [0018](adr/0018-productization-e2e.md) | Productization end-to-end scenario |
 
 ## Schemas
 
