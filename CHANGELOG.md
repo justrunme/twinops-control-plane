@@ -4,6 +4,7 @@ All notable TwinOps changes are listed here. Dates are UTC.
 
 ## Unreleased
 
+- `twinopsctl doctor` checks MQTT topic catalog sync
 - `RELEASING.md` checklist
 - Live API asserts highlight schema on every `/api/scene` snapshot
 - Live-demo smoke validates `/api/scene` against twinops.highlight.v1
