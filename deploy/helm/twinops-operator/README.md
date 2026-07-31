@@ -29,6 +29,7 @@ Apply a sample CR after install (see `docs/operator.md` and `make operator-demo`
 | `liveMetrics.enabled` | `false` | Scrape notes for co-located live API |
 | `sampleTwin.enabled` | `false` | Optionally install a demo DigitalTwin CR |
 | `sampleTwin.liveAPIURL` | `""` | Populate `status.live` via live API probe |
+| `sampleTwin.liveAPITokenSecretRef` | `name: ""` | Prefer Secret over plaintext `liveAPIToken` |
 
 Enable a sample twin that also probes a live API:
 
@@ -36,7 +37,8 @@ Enable a sample twin that also probes a live API:
 helm upgrade --install twinops-operator deploy/helm/twinops-operator \
   --namespace twinops-system --create-namespace \
   --set sampleTwin.enabled=true \
-  --set sampleTwin.liveAPIURL=http://twinops-live.twinops-system.svc:8080
+  --set sampleTwin.liveAPIURL=http://twinops-live.twinops-system.svc:8080 \
+  --set sampleTwin.liveAPITokenSecretRef.name=twinops-live-api
 ```
 
 ## Metrics
