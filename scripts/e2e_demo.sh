@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# TwinOps portfolio end-to-end scenario (v0.10).
+# TwinOps end-to-end operational scenario (v0.10).
 #
 # PLM → compose → spike → CRITICAL → highlight → incident → proposal →
 # apply/verify → SYNCED → incident replay --verify
 #
 # Usage:
-#   ./scripts/portfolio_demo.sh
-#   ARTIFACTS=/tmp/twinops-portfolio ./scripts/portfolio_demo.sh
+#   ./scripts/e2e_demo.sh
+#   ARTIFACTS=/tmp/twinops-e2e ./scripts/e2e_demo.sh
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -16,7 +16,7 @@ HOST="${TWINOPS_HOST:-127.0.0.1}"
 PORT="${TWINOPS_PORT:-18080}"
 BASE="http://${HOST}:${PORT}"
 EXAMPLE="${EXAMPLE:-examples/assembly-line}"
-ARTIFACTS="${ARTIFACTS:-/tmp/twinops-portfolio-demo}"
+ARTIFACTS="${ARTIFACTS:-/tmp/twinops-e2e-demo}"
 LOG="${ARTIFACTS}/server.log"
 TWINOPSCTL="${TWINOPSCTL:-${ROOT}/.venv/bin/twinopsctl}"
 PYTHON="${PYTHON:-${ROOT}/.venv/bin/python}"
@@ -258,7 +258,7 @@ done
 
 cat <<EOF
 
-portfolio-demo OK
+e2e-demo OK
 
   artifacts: ${ARTIFACTS}/out
   sqlite:    ${ARTIFACTS}/out/twinops.sqlite

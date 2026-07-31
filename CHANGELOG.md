@@ -4,9 +4,17 @@ All notable TwinOps changes are listed here. Dates are UTC.
 
 ## Unreleased
 
+## 0.11.0 — 2026-07-31
+
+- Rename `make portfolio-demo` → `make e2e-demo`
+- Single-session Kit streaming sidecar (`twinopsctl streaming-sidecar`) — ADR-0019
+- Session create/delete, idle timeout, health/ready, GPU metrics, mock frames
+- Live API `kit-sidecar` mode via `TWINOPS_STREAMING_SIDECAR_URL`
+- Ops checklist toward 1.0 (`docs/ops-checklist-1.0.md`)
+
 ## 0.10.0 — 2026-07-31
 
-- Productization: `make portfolio-demo` canonical E2E lifecycle (ADR-0018)
+- Productization: `make e2e-demo` canonical E2E lifecycle (ADR-0018)
 - SQLite persistence for timeline / proposals / audit (`serve --db`)
 - `incident replay --verify` with expectedFinalState / expectedCriticalDrifts
 - PLM File/REST contract tests; Kit session-layer highlight state machine

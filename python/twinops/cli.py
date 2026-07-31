@@ -489,6 +489,7 @@ def _cmd_serve(args: argparse.Namespace) -> int:
     api_token = resolve_api_token(getattr(args, "api_token", None))
     sso_secret = resolve_sso_secret(getattr(args, "sso_jwt_secret", None))
     webrtc = True if getattr(args, "webrtc", False) else None
+    sidecar = getattr(args, "streaming_sidecar", None)
     app = create_app(
         example_dir=example_dir,
         work_dir=work_dir,
@@ -505,6 +506,7 @@ def _cmd_serve(args: argparse.Namespace) -> int:
         sso_secret=sso_secret,
         webrtc=webrtc,
         db_path=getattr(args, "db", None),
+        streaming_sidecar_url=sidecar,
     )
     tls_cert = getattr(args, "tls_cert", None)
     tls_key = getattr(args, "tls_key", None)
@@ -526,6 +528,7 @@ def _cmd_serve(args: argparse.Namespace) -> int:
         auth_bits.append("sso-jwt")
     print(f"  auth:    {','.join(auth_bits) if auth_bits else 'disabled (demo)'}")
     print(f"  webrtc:  {'lab' if webrtc else 'mock'}")
+    print(f"  sidecar: {sidecar or 'disabled'}")
     if getattr(args, "open", False):
         import threading
         import webbrowser
@@ -635,6 +638,24 @@ def _cmd_incident_replay(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_streaming_sidecar(args: argparse.Namespace) -> int:
+    """Run the single-session Kit streaming sidecar."""
+    from twinops.streaming_sidecar.__main__ import main as sidecar_main
+
+    argv: list[str] = []
+    if args.host:
+        argv.extend(["--host", args.host])
+    if args.port is not None:
+        argv.extend(["--port", str(args.port)])
+    if args.idle_timeout is not None:
+        argv.extend(["--idle-timeout", str(args.idle_timeout)])
+    if args.frame_source:
+        argv.extend(["--frame-source", args.frame_source])
+    if args.kit_command:
+        argv.extend(["--kit-command", args.kit_command])
+    return sidecar_main(argv)
+
+
 def _cmd_openapi(args: argparse.Namespace) -> int:
     """Dump the live API OpenAPI schema without starting the server loop."""
     from twinops.api.app import create_app
@@ -661,7 +682,8 @@ def _cmd_completion(args: argparse.Namespace) -> int:
     """Print shell completion script for twinopsctl."""
     commands = (
         "build drift scene reconcile apply serve plm mqtt sso incident "
-        "doctor health ready timeline proposal metrics live openapi version completion"
+        "streaming-sidecar doctor health ready timeline proposal metrics live "
+        "openapi version completion"
     )
     if args.shell == "bash":
         script = f"""# twinopsctl bash completion — eval "$(twinopsctl completion bash)"
@@ -1288,6 +1310,11 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="enable lab WebRTC session + signaling (or TWINOPS_WEBRTC=1)",
     )
+    serve.add_argument(
+        "--streaming-sidecar",
+        default=None,
+        help="Kit streaming sidecar base URL (or TWINOPS_STREAMING_SIDECAR_URL)",
+    )
     serve.add_argument("--tls-cert", default=None, help="PEM server certificate for HTTPS")
     serve.add_argument("--tls-key", default=None, help="PEM server private key for HTTPS")
     serve.add_argument(
@@ -1306,6 +1333,21 @@ def build_parser() -> argparse.ArgumentParser:
         help="require client certificates when --tls-client-ca is set",
     )
     serve.set_defaults(func=_cmd_serve)
+
+    streaming = sub.add_parser(
+        "streaming-sidecar",
+        help="run single-session Kit streaming sidecar (mock frames / Kit supervisor)",
+    )
+    streaming.add_argument("--host", default=None)
+    streaming.add_argument("--port", type=int, default=None)
+    streaming.add_argument("--idle-timeout", type=float, default=None)
+    streaming.add_argument(
+        "--frame-source",
+        choices=("mock", "kit"),
+        default=None,
+    )
+    streaming.add_argument("--kit-command", default=None)
+    streaming.set_defaults(func=_cmd_streaming_sidecar)
 
     sso = sub.add_parser("sso", help="demo SSO JWT helpers (HS256, not a real IdP)")
     sso_sub = sso.add_subparsers(dest="sso_command", required=True)

@@ -1,0 +1,28 @@
+# TwinOps live API + single-session Kit streaming sidecar (mock frames).
+# Usage:
+#   docker compose -f deploy/demo/docker-compose.streaming.yml up --build
+services:
+  live:
+    build:
+      context: ../..
+      dockerfile: Dockerfile.live
+    ports:
+      - "8080:8080"
+    environment:
+      TWINOPS_STREAMING_SIDECAR_URL: http://sidecar:8091
+      TWINOPS_WEBRTC: "1"
+    depends_on:
+      - sidecar
+
+  sidecar:
+    build:
+      context: ../..
+      dockerfile: Dockerfile.streaming-sidecar
+    ports:
+      - "8091:8091"
+    environment:
+      TWINOPS_SIDECAR_HOST: 0.0.0.0
+      TWINOPS_SIDECAR_PORT: "8091"
+      TWINOPS_SIDECAR_FRAME_SOURCE: mock
+      TWINOPS_SIDECAR_IDLE_TIMEOUT: "300"
+      TWINOPS_API_URL: http://live:8080

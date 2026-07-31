@@ -1,4 +1,4 @@
-"""Kit App Streaming session descriptors (mock + lab WebRTC)."""
+"""Kit App Streaming session descriptors (mock / lab WebRTC / kit sidecar)."""
 
 from __future__ import annotations
 
@@ -15,23 +15,67 @@ def webrtc_lab_enabled(explicit: bool | None = None) -> bool:
     return flag in {"1", "true", "yes", "on", "lab"}
 
 
+def sidecar_url(explicit: str | None = None) -> str | None:
+    if explicit is not None:
+        value = explicit.strip()
+        return value or None
+    env = (os.environ.get("TWINOPS_STREAMING_SIDECAR_URL") or "").strip()
+    return env or None
+
+
 def build_streaming_session(
     *,
     base_url: str = "http://127.0.0.1:8080",
     webrtc: bool | None = None,
+    sidecar: str | None = None,
 ) -> dict[str, Any]:
     """Return a Kit streaming session contract.
 
+    Modes:
     - mock: highlight-driven CSS viewport (default)
-    - lab-webrtc: browser WebRTC + signaling endpoints (no NVCF/GPU required)
-    Real Kit App Streaming later swaps provider/streamUrl to NVIDIA signaling.
+    - lab-webrtc: browser WebRTC + TwinOps signaling (no GPU)
+    - kit-sidecar: single-session streaming sidecar (mock or Kit process)
     """
     session_id = str(uuid4())
     now = datetime.now(UTC).isoformat().replace("+00:00", "Z")
     base = base_url.rstrip("/")
     ws_base = base.replace("https://", "wss://").replace("http://", "ws://")
-    enabled = webrtc_lab_enabled(webrtc)
-    mode = "lab-webrtc" if enabled else "mock"
+    side = sidecar_url(sidecar)
+    enabled = webrtc_lab_enabled(webrtc) or bool(side)
+
+    if side:
+        mode = "kit-sidecar"
+        provider = "twinops-kit-sidecar"
+        stream_url = f"{side.rstrip('/')}/v1/status"
+        signaling = f"{side.rstrip('/')}/v1/sessions"
+        phase = "SidecarReady"
+        message = (
+            "Kit streaming sidecar ready — create a single session at /v1/sessions"
+        )
+        notes = (
+            "Single-session sidecar (mock frames or Kit supervisor). "
+            "Not multi-tenant NVCF; WebRTC answer remains lab-echo until encoder lands."
+        )
+    elif enabled:
+        mode = "lab-webrtc"
+        provider = "twinops-lab-webrtc"
+        stream_url = f"{base}/api/streaming/webrtc"
+        signaling = f"{base}/api/streaming/webrtc/signal"
+        phase = "WebRTCLabReady"
+        message = "Lab WebRTC signaling ready — browser attaches scene MediaStream"
+        notes = (
+            "Lab WebRTC: browser MediaStream from scene canvas + REST signaling. "
+            "Point TWINOPS_STREAMING_SIDECAR_URL at the sidecar for kit-sidecar mode."
+        )
+    else:
+        mode = "mock"
+        provider = "twinops-mock"
+        stream_url = None
+        signaling = None
+        phase = "MockReady"
+        message = "GPU stream not provisioned — use highlight contract + mock viewport"
+        notes = "Placeholder until TWINOPS_WEBRTC=1 / --webrtc or streaming sidecar URL"
+
     return {
         "apiVersion": "twinops.io/v1alpha1",
         "kind": "KitStreamingSession",
@@ -41,30 +85,24 @@ def build_streaming_session(
             "mode": mode,
         },
         "spec": {
-            "provider": "twinops-lab-webrtc" if enabled else "twinops-mock",
+            "provider": provider,
             "protocol": "twinops.highlight.v1",
             "sceneUrl": f"{base}/api/scene",
             "eventsUrl": f"{ws_base}/ws/events",
-            "streamUrl": f"{base}/api/streaming/webrtc" if enabled else None,
+            "streamUrl": stream_url,
+            "sidecarUrl": side,
             "webrtc": {
                 "enabled": enabled,
-                "signalingUrl": f"{base}/api/streaming/webrtc/signal" if enabled else None,
-                "iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}] if enabled else [],
-                "notes": (
-                    "Lab WebRTC: browser MediaStream from scene canvas + REST signaling. "
-                    "Replace provider with Kit App Streaming for GPU frames."
-                    if enabled
-                    else "Placeholder until TWINOPS_WEBRTC=1 / --webrtc"
+                "signalingUrl": signaling,
+                "iceServers": (
+                    [{"urls": ["stun:stun.l.google.com:19302"]}] if enabled else []
                 ),
+                "notes": notes,
             },
         },
         "status": {
-            "phase": "WebRTCLabReady" if enabled else "MockReady",
-            "message": (
-                "Lab WebRTC signaling ready — browser attaches scene MediaStream"
-                if enabled
-                else "GPU stream not provisioned — use highlight contract + mock viewport"
-            ),
+            "phase": phase,
+            "message": message,
             "sessionId": session_id,
         },
     }
@@ -72,4 +110,4 @@ def build_streaming_session(
 
 def mock_streaming_session(*, base_url: str = "http://127.0.0.1:8080") -> dict[str, Any]:
     """Backward-compatible alias (mock mode)."""
-    return build_streaming_session(base_url=base_url, webrtc=False)
+    return build_streaming_session(base_url=base_url, webrtc=False, sidecar=None)
