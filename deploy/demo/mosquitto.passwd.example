@@ -1,0 +1,6 @@
+# Example password file for Mosquitto ACL demos.
+# Generate real hashes with: mosquitto_passwd -c mosquitto.passwd twinops_rw
+# Do NOT commit real password hashes for shared environments.
+#
+# Placeholder format reminder (not usable as-is):
+# twinops_rw:$7$...

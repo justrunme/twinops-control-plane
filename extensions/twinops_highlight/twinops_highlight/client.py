@@ -69,6 +69,48 @@ class TwinOpsHighlightClient:
             frames.append(self.fetch_scene())
         return frames
 
+    def watch_scene_ws(self, *, frames: int = 1, timeout: float = 5.0) -> list[dict[str, Any]]:
+        """Consume scene snapshots from `/ws/events` when `websockets` is installed.
+
+        Falls back to a single HTTP poll when the optional dependency is missing.
+        """
+        try:
+            import asyncio
+
+            import websockets
+        except ImportError:
+            return self.watch_scene(ticks=max(1, frames))
+
+        ws_base = self.base_url.replace("https://", "wss://").replace("http://", "ws://")
+        url = f"{ws_base}/ws/events"
+        if self.token:
+            url = f"{url}?token={self.token}"
+
+        async def _collect() -> list[dict[str, Any]]:
+            out: list[dict[str, Any]] = []
+            async with websockets.connect(url, open_timeout=timeout) as socket:
+                while len(out) < max(1, frames):
+                    raw = await asyncio.wait_for(socket.recv(), timeout=timeout)
+                    if isinstance(raw, bytes):
+                        raw = raw.decode("utf-8")
+                    message = json.loads(raw)
+                    scene = message.get("scene")
+                    if isinstance(scene, dict):
+                        out.append(scene)
+                    elif message.get("type") == "snapshot" and isinstance(
+                        message.get("snapshot"), dict
+                    ):
+                        # Snapshot frames always include scene in TwinOps live API.
+                        maybe = message.get("scene")
+                        if isinstance(maybe, dict):
+                            out.append(maybe)
+            return out
+
+        try:
+            return asyncio.run(_collect())
+        except Exception:
+            return self.watch_scene(ticks=max(1, frames))
+
     def highlight_targets(self, scene: dict[str, Any] | None = None) -> list[HighlightTarget]:
         payload = scene if scene is not None else self.fetch_scene()
         targets: list[HighlightTarget] = []
@@ -135,6 +177,11 @@ def main() -> None:
         default=1.0,
         help="seconds between --watch polls",
     )
+    parser.add_argument(
+        "--ws",
+        action="store_true",
+        help="prefer /ws/events scene frames (falls back to HTTP poll)",
+    )
     args = parser.parse_args()
 
     client = TwinOpsHighlightClient(args.base_url, token=args.token)
@@ -146,7 +193,10 @@ def main() -> None:
                 f"phase={session.get('status', {}).get('phase')} "
                 f"streamUrl={session.get('spec', {}).get('streamUrl')}"
             )
-        frames = client.watch_scene(interval_seconds=args.interval, ticks=args.watch)
+        if args.ws:
+            frames = client.watch_scene_ws(frames=args.watch)
+        else:
+            frames = client.watch_scene(interval_seconds=args.interval, ticks=args.watch)
     except RuntimeError as exc:
         print(exc, file=sys.stderr)
         raise SystemExit(1) from exc

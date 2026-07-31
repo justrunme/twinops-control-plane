@@ -47,3 +47,6 @@ web/dist/
 *.tfstate*
 *.tfvars
 !*.tfvars.example
+
+# Mosquitto ACL demo secrets
+deploy/demo/mosquitto.passwd

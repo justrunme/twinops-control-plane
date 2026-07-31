@@ -4,6 +4,15 @@ All notable TwinOps changes are listed here. Dates are UTC.
 
 ## Unreleased
 
+## 0.5.0 — 2026-07-31
+
+- `twinopsctl apply --verify` rebuilds stage with overlay and re-runs drift
+- Mosquitto ACL demo compose profile (password file, lab-only)
+- Helm umbrella chart skeleton (`deploy/helm/twinops`)
+- Kit highlight client `--ws` for /ws/events scene frames
+- Roadmap Next focus (0.5.x) + Milestone 9 status corrected
+- Docker image tags aligned to current release line
+
 ## 0.4.9 — 2026-07-31
 
 - DigitalTwin kubectl printcolumn for status.live.ready
