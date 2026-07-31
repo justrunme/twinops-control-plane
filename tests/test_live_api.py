@@ -74,3 +74,10 @@ def test_live_api_health_and_spike(tmp_path: Path) -> None:
         types = {item["type"] for item in timeline.json()["items"]}
         assert "reconcile" in types
         assert len(timeline.json()["items"]) >= 1
+
+        metrics = client.get("/api/metrics")
+        assert metrics.status_code == 200
+        assert "hasDrift" in metrics.json()
+        prom = client.get("/metrics")
+        assert prom.status_code == 200
+        assert "twinops_drift_has_drift" in prom.text

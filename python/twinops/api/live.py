@@ -134,6 +134,60 @@ class LiveDriftRuntime:
             generated_at=meta.get("generatedAt"),
         )
 
+    def metrics(self) -> dict[str, Any]:
+        drift = self.store.latest_drift or {}
+        status = drift.get("status") or {}
+        summary = status.get("summary") or {}
+        scene = self.scene_snapshot()
+        lit = sum(
+            1
+            for prim in scene.get("prims") or []
+            if (prim.get("highlight") or {}).get("enabled")
+        )
+        mqtt = self.mqtt_status()
+        ingest = mqtt.get("ingest") or {}
+        return {
+            "twin": self.store.twin_meta.get("name"),
+            "hasDrift": bool(status.get("hasDrift")),
+            "summary": summary,
+            "highlightedPrims": lit,
+            "timelineEvents": len(self.store.timeline(limit=200)),
+            "reconciled": bool(self.store.twin_meta.get("reconciled")),
+            "mqttPublishEnabled": bool(mqtt.get("enabled")),
+            "mqttIngestReceived": int(ingest.get("received") or 0),
+            "robotTemp": self.simulator.state.get("robot_temp"),
+        }
+
+    def metrics_prometheus(self) -> str:
+        m = self.metrics()
+        summary = m.get("summary") or {}
+        lines = [
+            "# HELP twinops_drift_has_drift Whether the latest evaluation has drift (1/0).",
+            "# TYPE twinops_drift_has_drift gauge",
+            f"twinops_drift_has_drift {1 if m.get('hasDrift') else 0}",
+            "# HELP twinops_drift_findings Drift findings by status.",
+            "# TYPE twinops_drift_findings gauge",
+        ]
+        for key in ("SYNCED", "WARNING", "MISSING", "DRIFT", "CRITICAL"):
+            lines.append(
+                f'twinops_drift_findings{{status="{key}"}} {int(summary.get(key) or 0)}'
+            )
+        lines.extend(
+            [
+                "# HELP twinops_scene_highlighted_prims Prim count with highlight.enabled.",
+                "# TYPE twinops_scene_highlighted_prims gauge",
+                f"twinops_scene_highlighted_prims {int(m.get('highlightedPrims') or 0)}",
+                "# HELP twinops_mqtt_ingest_received_total External MQTT messages applied.",
+                "# TYPE twinops_mqtt_ingest_received_total counter",
+                f"twinops_mqtt_ingest_received_total {int(m.get('mqttIngestReceived') or 0)}",
+                "# HELP twinops_robot_temperature_celsius Latest Robot01 temperature.",
+                "# TYPE twinops_robot_temperature_celsius gauge",
+                f"twinops_robot_temperature_celsius {float(m.get('robotTemp') or 0)}",
+                "",
+            ]
+        )
+        return "\n".join(lines)
+
     def stop(self) -> None:
         self._stop.set()
         if self._thread:
