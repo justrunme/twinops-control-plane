@@ -38,8 +38,17 @@ type DriftStatus struct {
 	Status string `json:"status,omitempty"`
 	// Findings is the number of non-SYNCED findings.
 	Findings int `json:"findings,omitempty"`
+	// Critical is the CRITICAL finding count from the drift summary.
+	// +optional
+	Critical int `json:"critical,omitempty"`
+	// Warning is the WARNING finding count from the drift summary.
+	// +optional
+	Warning int `json:"warning,omitempty"`
 	// Summary is a compact counter map encoded as string for CR readability.
 	Summary string `json:"summary,omitempty"`
+	// ReportPath is the filesystem path to drift-report.json when available.
+	// +optional
+	ReportPath string `json:"reportPath,omitempty"`
 	// LastChecked is the last successful drift evaluation time.
 	LastChecked *metav1.Time `json:"lastChecked,omitempty"`
 }
@@ -65,6 +74,8 @@ type DigitalTwinStatus struct {
 // +kubebuilder:resource:shortName=dtwin
 // +kubebuilder:printcolumn:name="Phase",type=string,JSONPath=`.status.phase`
 // +kubebuilder:printcolumn:name="Drift",type=string,JSONPath=`.status.drift.status`
+// +kubebuilder:printcolumn:name="Critical",type=integer,JSONPath=`.status.drift.critical`
+// +kubebuilder:printcolumn:name="Findings",type=integer,JSONPath=`.status.drift.findings`
 // +kubebuilder:printcolumn:name="Age",type=date,JSONPath=`.metadata.creationTimestamp`
 
 // DigitalTwin is the Schema for industrial digital twin reconciliation.

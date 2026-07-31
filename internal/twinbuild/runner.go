@@ -13,11 +13,14 @@ import (
 
 // Result captures twinopsctl build/drift outputs used by the operator.
 type Result struct {
-	StagePath string
-	HasDrift  bool
-	Findings  int
-	Summary   string
-	RawDrift  map[string]any
+	StagePath  string
+	HasDrift   bool
+	Findings   int
+	Critical   int
+	Warning    int
+	Summary    string
+	ReportPath string
+	RawDrift   map[string]any
 }
 
 // Runner executes twinopsctl commands.
@@ -97,13 +100,23 @@ func (r Runner) Drift(ctx context.Context, desired, stage, observed, manifest, o
 	findings, _ := status["findings"].([]any)
 
 	nonSynced := 0
+	critical := 0
+	warning := 0
 	parts := make([]string, 0, len(summaryMap))
 	for key, value := range summaryMap {
 		parts = append(parts, fmt.Sprintf("%s=%v", key, value))
+		n := 0
+		if f, ok := value.(float64); ok {
+			n = int(f)
+		}
 		if key != "SYNCED" {
-			if n, ok := value.(float64); ok {
-				nonSynced += int(n)
-			}
+			nonSynced += n
+		}
+		switch key {
+		case "CRITICAL":
+			critical = n
+		case "WARNING":
+			warning = n
 		}
 	}
 	if nonSynced == 0 && hasDrift {
@@ -111,10 +124,13 @@ func (r Runner) Drift(ctx context.Context, desired, stage, observed, manifest, o
 	}
 
 	return &Result{
-		StagePath: stage,
-		HasDrift:  hasDrift,
-		Findings:  nonSynced,
-		Summary:   strings.Join(parts, ", "),
-		RawDrift:  payload,
+		StagePath:  stage,
+		HasDrift:   hasDrift,
+		Findings:   nonSynced,
+		Critical:   critical,
+		Warning:    warning,
+		Summary:    strings.Join(parts, ", "),
+		ReportPath: reportPath,
+		RawDrift:   payload,
 	}, nil
 }
