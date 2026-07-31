@@ -100,6 +100,20 @@ def create_app(
         """OpenUSD prim highlight snapshot (Omniverse-ready, GPU not required)."""
         return runtime.scene_snapshot()
 
+    @app.get("/api/metrics")
+    def metrics() -> dict[str, Any]:
+        """Compact control-plane metrics for demos / scrape adapters."""
+        return runtime.metrics()
+
+    @app.get("/metrics")
+    def metrics_prometheus() -> Any:
+        from fastapi.responses import PlainTextResponse
+
+        return PlainTextResponse(
+            runtime.metrics_prometheus(),
+            media_type="text/plain; version=0.0.4; charset=utf-8",
+        )
+
     @app.get("/api/timeline")
     def timeline(limit: int = 50) -> dict[str, Any]:
         return {"items": store.timeline(limit=limit)}
