@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import threading
 from pathlib import Path
 from typing import Any
@@ -92,7 +93,16 @@ class LiveDriftRuntime:
                 "reconciled": False,
             }
         )
-        self.ingest = ObservationIngest.from_manifest_mappings(manifest.telemetry_mappings)
+        strict_schema = os.environ.get("TWINOPS_MQTT_STRICT_SCHEMA", "").strip().lower() in {
+            "1",
+            "true",
+            "yes",
+            "on",
+        }
+        self.ingest = ObservationIngest.from_manifest_mappings(
+            manifest.telemetry_mappings,
+            strict_schema=strict_schema,
+        )
         if self._mqtt_host:
             self.bus.enable_mqtt(self._mqtt_host, self._mqtt_port)
             if self._mqtt_ingest and self.ingest.topics:

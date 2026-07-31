@@ -25,17 +25,29 @@ class TopicBinding:
 class ObservationIngest:
     """Maps inbound MQTT topics onto observed twin attributes."""
 
-    def __init__(self, bindings: list[TopicBinding] | None = None) -> None:
+    def __init__(
+        self,
+        bindings: list[TopicBinding] | None = None,
+        *,
+        strict_schema: bool = False,
+    ) -> None:
         self._bindings = {item.topic: item for item in (bindings or [])}
         self._overrides: dict[str, dict[str, Any]] = {}
         self._lock = threading.RLock()
+        self.strict_schema = strict_schema
         self.received = 0
         self.ignored = 0
+        self.rejected = 0
         self.last_topic: str | None = None
         self.last_value: Any = None
 
     @classmethod
-    def from_manifest_mappings(cls, mappings: list[Any]) -> ObservationIngest:
+    def from_manifest_mappings(
+        cls,
+        mappings: list[Any],
+        *,
+        strict_schema: bool = False,
+    ) -> ObservationIngest:
         bindings = [
             TopicBinding(
                 topic=str(item.topic),
@@ -45,7 +57,7 @@ class ObservationIngest:
             for item in mappings
             if getattr(item, "topic", None) and getattr(item, "prim", None)
         ]
-        return cls(bindings)
+        return cls(bindings, strict_schema=strict_schema)
 
     @property
     def topics(self) -> list[str]:
@@ -61,6 +73,8 @@ class ObservationIngest:
                 "topics": self.topics,
                 "received": self.received,
                 "ignored": self.ignored,
+                "rejected": self.rejected,
+                "strictSchema": self.strict_schema,
                 "lastTopic": self.last_topic,
                 "lastValue": self.last_value,
                 "overridePrims": sorted(self._overrides),
@@ -75,6 +89,11 @@ class ObservationIngest:
             return False
 
         raw = payload.decode("utf-8") if isinstance(payload, bytes) else payload
+        if self.strict_schema and not self._payload_schema_ok(raw):
+            with self._lock:
+                self.rejected += 1
+            logger.warning("mqtt ingest rejected invalid payload on %s", topic)
+            return False
         value, source = self._parse_payload(raw)
         if source in IGNORE_SOURCES:
             with self._lock:
@@ -123,6 +142,25 @@ class ObservationIngest:
     def clear(self) -> None:
         with self._lock:
             self._overrides.clear()
+
+    @staticmethod
+    def _payload_schema_ok(raw: str) -> bool:
+        """When payload is a JSON object with `schema`, require twinops.mqtt.payload.v1."""
+        from twinops.telemetry.payload import validate_mqtt_payload
+
+        text = raw.strip()
+        if not text:
+            return False
+        try:
+            data = json.loads(text)
+        except json.JSONDecodeError:
+            # Scalar legacy payloads are allowed even in strict mode.
+            return True
+        if not isinstance(data, dict):
+            return True
+        if "schema" not in data:
+            return True
+        return not validate_mqtt_payload(data)
 
     @staticmethod
     def _parse_payload(raw: str) -> tuple[Any, str | None]:
