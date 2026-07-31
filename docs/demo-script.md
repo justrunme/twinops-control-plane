@@ -53,3 +53,12 @@ twinopsctl apply /tmp/twinops-proposal --no-commit --verify \
 - Experimental reference architecture, not a product claim
 - Highlight protocol works without Omniverse/GPU
 - Live API token via `TWINOPS_API_TOKEN` before any shared bind
+- Operator can resolve the token from `liveAPITokenSecretRef` (not plaintext CR)
+- MQTT ACL / TLS compose profiles are lab stubs — not production PKI
+
+## Recording tips
+
+1. Start with `make docker-live-up` already warm (UI open).
+2. Keep terminal font large; use `make demo-gitops` for the offline GitOps close.
+3. Say the non-goals out loud: no enterprise PLM SDK, no forced GPU, no remote PR automation.
+4. End on GitHub release tag + portfolio blurb (v0.5.x line).
