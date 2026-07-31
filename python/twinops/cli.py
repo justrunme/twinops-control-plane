@@ -358,7 +358,7 @@ def _cmd_completion(args: argparse.Namespace) -> int:
         return 2
     commands = (
         "build drift scene reconcile serve plm mqtt doctor health timeline "
-        "openapi version completion"
+        "proposal openapi version completion"
     )
     script = f"""# twinopsctl bash completion — eval "$(twinopsctl completion bash)"
 _twinopsctl_completions() {{
@@ -408,22 +408,27 @@ def _cmd_mqtt_topics(args: argparse.Namespace) -> int:
     return 0
 
 
-def _cmd_timeline(args: argparse.Namespace) -> int:
-    """Fetch recent timeline events from a running live API."""
+def _fetch_json(url: str, *, timeout: float) -> tuple[int, str]:
     import urllib.error
     import urllib.request
 
-    base = args.base_url.rstrip("/")
-    url = f"{base}/api/timeline?limit={args.limit}"
     try:
-        with urllib.request.urlopen(url, timeout=args.timeout) as resp:
-            body = resp.read().decode("utf-8")
-            status = resp.status
+        with urllib.request.urlopen(url, timeout=timeout) as resp:
+            return resp.status, resp.read().decode("utf-8")
     except urllib.error.HTTPError as exc:
         print(f"error: HTTP {exc.code} from {url}", file=sys.stderr)
-        return 1
+        return exc.code, ""
     except (urllib.error.URLError, TimeoutError, OSError) as exc:
         print(f"error: cannot reach {url}: {exc}", file=sys.stderr)
+        return 0, ""
+
+
+def _cmd_timeline(args: argparse.Namespace) -> int:
+    """Fetch recent timeline events from a running live API."""
+    base = args.base_url.rstrip("/")
+    url = f"{base}/api/timeline?limit={args.limit}"
+    status, body = _fetch_json(url, timeout=args.timeout)
+    if not body:
         return 1
 
     if args.json:
@@ -446,22 +451,42 @@ def _cmd_timeline(args: argparse.Namespace) -> int:
     return 0 if status == 200 else 1
 
 
+def _cmd_proposal(args: argparse.Namespace) -> int:
+    """Fetch the latest reconciliation proposal from a running live API."""
+    base = args.base_url.rstrip("/")
+    url = f"{base}/api/proposal/latest"
+    status, body = _fetch_json(url, timeout=args.timeout)
+    if not body:
+        return 1
+    if args.json:
+        print(body)
+        return 0 if status == 200 else 1
+    try:
+        payload = json.loads(body)
+    except json.JSONDecodeError:
+        print(body)
+        return 0 if status == 200 else 1
+    if not payload:
+        print("proposal: (none yet — run spike + reconcile first)")
+        return 0
+    meta = payload.get("metadata") or {}
+    status_block = payload.get("status") or {}
+    print(f"proposal: {meta.get('name') or 'latest'}")
+    print(f"  applied: {status_block.get('applied')}")
+    print(f"  changes: {status_block.get('changes')}")
+    if status_block.get("overlayPath"):
+        print(f"  overlay: {status_block.get('overlayPath')}")
+    if status_block.get("summaryPath"):
+        print(f"  summary: {status_block.get('summaryPath')}")
+    return 0 if status == 200 else 1
+
+
 def _cmd_health(args: argparse.Namespace) -> int:
     """Probe a running live API `/api/health` endpoint."""
-    import urllib.error
-    import urllib.request
-
     base = args.base_url.rstrip("/")
     url = f"{base}/api/health"
-    try:
-        with urllib.request.urlopen(url, timeout=args.timeout) as resp:
-            body = resp.read().decode("utf-8")
-            status = resp.status
-    except urllib.error.HTTPError as exc:
-        print(f"error: HTTP {exc.code} from {url}", file=sys.stderr)
-        return 1
-    except (urllib.error.URLError, TimeoutError, OSError) as exc:
-        print(f"error: cannot reach {url}: {exc}", file=sys.stderr)
+    status, body = _fetch_json(url, timeout=args.timeout)
+    if not body:
         return 1
 
     if args.json:
@@ -706,6 +731,12 @@ def build_parser() -> argparse.ArgumentParser:
     timeline.add_argument("--timeout", type=float, default=3.0)
     timeline.add_argument("--json", action="store_true")
     timeline.set_defaults(func=_cmd_timeline)
+
+    proposal = sub.add_parser("proposal", help="fetch latest live API reconciliation proposal")
+    proposal.add_argument("--base-url", default="http://127.0.0.1:8080")
+    proposal.add_argument("--timeout", type=float, default=3.0)
+    proposal.add_argument("--json", action="store_true")
+    proposal.set_defaults(func=_cmd_proposal)
 
     openapi = sub.add_parser("openapi", help="dump live API OpenAPI schema (no server)")
     openapi.add_argument("--example", default="examples/assembly-line")
