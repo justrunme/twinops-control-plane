@@ -22,6 +22,7 @@ export type TwinSnapshot = {
     name?: string
     variant?: string
     stage?: string
+    reconciled?: boolean
   }
   simulator: Record<string, unknown>
   observed: Record<string, unknown> | null
@@ -33,6 +34,15 @@ export type TwinSnapshot = {
     }
     metadata?: {
       generatedAt?: string
+    }
+  } | null
+  proposal: {
+    spec?: {
+      changes?: Array<Record<string, unknown>>
+    }
+    status?: {
+      applied?: boolean
+      driftAfter?: Record<string, number>
     }
   } | null
   timeline: TimelineItem[]

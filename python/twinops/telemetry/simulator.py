@@ -13,7 +13,8 @@ from twinops.telemetry.bus import TelemetryBus, TelemetryEvent
 @dataclass
 class SimulatorConfig:
     interval_seconds: float = 1.0
-    base_temperature: float = 48.0
+    # Keep aligned with examples/assembly-line telemetry default.
+    base_temperature: float = 42.0
     spike_temperature: float = 88.0
     spike_every_cycles: int = 12
 
@@ -35,6 +36,7 @@ class AssemblyLineSimulator:
         self._thread: threading.Thread | None = None
         self._cycle = 0
         self._force_spike = False
+        self._cooldown_cycles = 0
         self._state: dict[str, Any] = {
             "robot_temp": self.config.base_temperature,
             "robot_status": "running",
@@ -42,6 +44,7 @@ class AssemblyLineSimulator:
             "conveyor_speed": 1.2,
             "conveyor_status": "running",
             "scanner_status": "online",
+            "packaging_status": "running",
         }
 
     @property
@@ -50,6 +53,24 @@ class AssemblyLineSimulator:
 
     def trigger_spike(self) -> None:
         self._force_spike = True
+        self._cooldown_cycles = 0
+
+    def heal(self, *, firmware: str = "4.14", cooldown_cycles: int = 20) -> dict[str, Any]:
+        """Restore line to a healthy observed state after reconciliation."""
+        self._force_spike = False
+        self._cooldown_cycles = max(0, cooldown_cycles)
+        self._state.update(
+            {
+                "robot_temp": self.config.base_temperature,
+                "robot_status": "running",
+                "robot_firmware": firmware,
+                "conveyor_speed": 1.2,
+                "conveyor_status": "running",
+                "scanner_status": "online",
+                "packaging_status": "running",
+            }
+        )
+        return self.state
 
     def start(self) -> None:
         if self._thread and self._thread.is_alive():
@@ -67,6 +88,59 @@ class AssemblyLineSimulator:
     def tick(self) -> list[TelemetryEvent]:
         """Advance one simulation step and publish events."""
         self._cycle += 1
+        if self._cooldown_cycles > 0:
+            self._cooldown_cycles -= 1
+            self._force_spike = False
+            # Keep the line stable while cooldown is active.
+            self._state["robot_temp"] = max(
+                self.config.base_temperature - 1.0,
+                float(self._state["robot_temp"]) * 0.9
+                + self.config.base_temperature * 0.1,
+            )
+            self._state["robot_status"] = "running"
+            self._state["conveyor_speed"] = 1.2
+            events = [
+                self._event(
+                    "factory/robot-01/temperature",
+                    "/World/Factory/LineA/Robot01",
+                    "twinops:temperature",
+                    round(float(self._state["robot_temp"]), 2),
+                ),
+                self._event(
+                    "factory/robot-01/status",
+                    "/World/Factory/LineA/Robot01",
+                    "twinops:status",
+                    self._state["robot_status"],
+                ),
+                self._event(
+                    "factory/robot-01/firmware",
+                    "/World/Factory/LineA/Robot01",
+                    "twinops:firmware",
+                    self._state["robot_firmware"],
+                ),
+                self._event(
+                    "factory/conveyor-01/speed",
+                    "/World/Factory/LineA/Conveyor01",
+                    "twinops:speed",
+                    self._state["conveyor_speed"],
+                ),
+                self._event(
+                    "factory/conveyor-01/status",
+                    "/World/Factory/LineA/Conveyor01",
+                    "twinops:status",
+                    self._state["conveyor_status"],
+                ),
+                self._event(
+                    "factory/scanner-01/status",
+                    "/World/Factory/LineA/Scanner01",
+                    "twinops:status",
+                    self._state["scanner_status"],
+                ),
+            ]
+            for event in events:
+                self.bus.publish(event)
+            return events
+
         spike = self._force_spike or (
             self.config.spike_every_cycles > 0
             and self._cycle % self.config.spike_every_cycles == 0
@@ -141,6 +215,11 @@ class AssemblyLineSimulator:
             ("/World/Factory/LineA/Conveyor01", "twinops:speed", self._state["conveyor_speed"]),
             ("/World/Factory/LineA/Conveyor01", "twinops:status", self._state["conveyor_status"]),
             ("/World/Factory/LineA/Scanner01", "twinops:status", self._state["scanner_status"]),
+            (
+                "/World/Factory/LineA/Packaging01",
+                "twinops:status",
+                self._state["packaging_status"],
+            ),
         ]
         for prim, attr, value in mapping:
             by_prim.setdefault(prim, {})[attr] = value

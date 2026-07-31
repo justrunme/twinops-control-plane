@@ -91,9 +91,41 @@ button {
   cursor: pointer;
 }
 
+button.secondary {
+  background: transparent;
+  color: var(--text);
+  border: 1px solid var(--line);
+}
+
 button:disabled {
   opacity: 0.6;
   cursor: wait;
+}
+
+.steps {
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  padding: 0;
+  margin: 0 0 18px;
+}
+
+.steps li {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 8px 10px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+}
+
+.steps li.active {
+  color: #142019;
+  background: var(--accent);
+  border-color: transparent;
+  font-weight: 700;
 }
 
 .link {
@@ -123,6 +155,11 @@ button:disabled {
 .banner.error {
   background: rgba(227, 93, 93, 0.12);
   color: #fecaca;
+}
+
+.banner.ok {
+  background: rgba(61, 190, 122, 0.12);
+  color: #bbf7d0;
 }
 
 .status-row {
@@ -266,6 +303,10 @@ code {
   border-left-color: var(--accent);
 }
 
+.tl.reconcile {
+  border-left-color: var(--ok);
+}
+
 .tl-meta {
   display: flex;
   justify-content: space-between;
@@ -288,12 +329,17 @@ code {
 @media (max-width: 900px) {
   .hero,
   .status-row,
-  .grid {
+  .grid,
+  .steps {
     grid-template-columns: 1fr;
     display: grid;
   }
 
   .hero {
     display: grid;
+  }
+
+  .hero-actions {
+    flex-wrap: wrap;
   }
 }

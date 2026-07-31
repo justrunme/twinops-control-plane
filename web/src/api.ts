@@ -17,6 +17,17 @@ export async function triggerSpike(): Promise<void> {
   }
 }
 
+export async function triggerReconcile(): Promise<{
+  changes: number
+  drift: TwinSnapshot['drift']
+}> {
+  const response = await fetch(`${API_BASE}/api/reconcile`, { method: 'POST' })
+  if (!response.ok) {
+    throw new Error(`reconcile failed: ${response.status}`)
+  }
+  return response.json()
+}
+
 export function connectEvents(onMessage: (data: unknown) => void): WebSocket {
   const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws'
   const host = import.meta.env.VITE_WS_HOST ?? window.location.host
