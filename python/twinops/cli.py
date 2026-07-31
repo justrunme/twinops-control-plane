@@ -17,7 +17,7 @@ from twinops.drift.reconcile import propose_reconciliation
 from twinops.drift.sarif import write_sarif_report
 from twinops.drift.table import render_drift_table
 from twinops.plm.mock import load_adapter_for_example
-from twinops.scene import build_scene_snapshot
+from twinops.scene import build_scene_snapshot, write_scene_html
 from twinops.schema import ManifestError, load_manifest
 
 
@@ -133,6 +133,10 @@ def _cmd_scene(args: argparse.Namespace) -> int:
         out.parent.mkdir(parents=True, exist_ok=True)
         out.write_text(json.dumps(scene, indent=2) + "\n", encoding="utf-8")
         print(f"Wrote {out}")
+    html_path = getattr(args, "html", None)
+    if html_path:
+        path = write_scene_html(scene, html_path)
+        print(f"Wrote {path}")
     if args.json:
         print(json.dumps(scene, indent=2))
     return 0 if not scene["hasDrift"] else 1
@@ -329,6 +333,44 @@ def _cmd_openapi(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_completion(args: argparse.Namespace) -> int:
+    """Print shell completion script for twinopsctl."""
+    if args.shell != "bash":
+        print(f"error: unsupported shell {args.shell!r} (only bash)", file=sys.stderr)
+        return 2
+    commands = (
+        "build drift scene reconcile serve plm doctor health openapi version completion"
+    )
+    script = f"""# twinopsctl bash completion — eval "$(twinopsctl completion bash)"
+_twinopsctl_completions() {{
+  local cur prev
+  COMPREPLY=()
+  cur="${{COMP_WORDS[COMP_CWORD]}}"
+  prev="${{COMP_WORDS[COMP_CWORD-1]}}"
+  if [[ ${{COMP_CWORD}} -eq 1 ]]; then
+    COMPREPLY=( $(compgen -W "{commands}" -- "$cur") )
+    return 0
+  fi
+  case "${{COMP_WORDS[1]}}" in
+    plm)
+      if [[ ${{COMP_CWORD}} -eq 2 ]]; then
+        COMPREPLY=( $(compgen -W "show compare bump sync desired" -- "$cur") )
+      fi
+      ;;
+    completion)
+      COMPREPLY=( $(compgen -W "bash" -- "$cur") )
+      ;;
+    *)
+      COMPREPLY=( $(compgen -f -- "$cur") )
+      ;;
+  esac
+}}
+complete -F _twinopsctl_completions twinopsctl
+"""
+    print(script, end="")
+    return 0
+
+
 def _cmd_health(args: argparse.Namespace) -> int:
     """Probe a running live API `/api/health` endpoint."""
     import urllib.error
@@ -451,6 +493,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="build scene from an existing drift-report.json",
     )
     scene.add_argument("--out", default=None, help="write scene JSON to this path")
+    scene.add_argument("--html", default=None, help="write offline scene HTML report")
     scene.add_argument("--json", action="store_true", help="print full scene JSON")
     scene.set_defaults(func=_cmd_scene)
 
@@ -574,6 +617,16 @@ def build_parser() -> argparse.ArgumentParser:
 
     version = sub.add_parser("version", help="print version")
     version.set_defaults(func=_cmd_version)
+
+    completion = sub.add_parser("completion", help="print shell completion script")
+    completion.add_argument(
+        "shell",
+        nargs="?",
+        default="bash",
+        choices=["bash"],
+        help="shell type (bash only for now)",
+    )
+    completion.set_defaults(func=_cmd_completion)
 
     return parser
 
