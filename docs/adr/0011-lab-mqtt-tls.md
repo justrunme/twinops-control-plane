@@ -25,5 +25,7 @@ no cert rotation.
 ## Consequences
 
 - `make mqtt-tls-up` is enough for a lab talking point
+- `twinopsctl serve --mqtt-host … --mqtt-port 8883 --mqtt-tls --mqtt-ca deploy/demo/certs/server.crt`
+  (or `--mqtt-tls-insecure` for smoke) can bridge the lab broker
 - Combine with ACL profile only when both compose files are wired intentionally
 - Production MQTT (CA, mutual TLS, credential rotation) stays a non-goal for now

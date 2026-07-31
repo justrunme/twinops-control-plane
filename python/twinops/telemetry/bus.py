@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+import ssl
 import threading
 from collections.abc import Callable
 from dataclasses import asdict, dataclass
@@ -14,6 +15,26 @@ logger = logging.getLogger(__name__)
 
 Subscriber = Callable[["TelemetryEvent"], None]
 MqttMessageHandler = Callable[[str, bytes], None]
+
+
+def configure_mqtt_tls(
+    client: Any,
+    *,
+    tls: bool = False,
+    ca_certs: str | None = None,
+    tls_insecure: bool = False,
+) -> None:
+    """Configure paho client TLS for lab/demo brokers (self-signed friendly)."""
+    if not tls and not ca_certs and not tls_insecure:
+        return
+    if tls_insecure:
+        client.tls_set(cert_reqs=ssl.CERT_NONE)
+        client.tls_insecure_set(True)
+        return
+    if ca_certs:
+        client.tls_set(ca_certs=ca_certs)
+        return
+    client.tls_set()
 
 
 @dataclass(frozen=True)
@@ -44,6 +65,7 @@ class TelemetryBus:
         self._mqtt_ingest = None
         self._mqtt_host: str | None = None
         self._mqtt_port: int | None = None
+        self._mqtt_tls: bool = False
         self._mqtt_ingest_topics: list[str] = []
 
     @property
@@ -64,6 +86,7 @@ class TelemetryBus:
             return {
                 "host": self._mqtt_host,
                 "port": self._mqtt_port,
+                "tls": self._mqtt_tls,
                 "publish": self._mqtt is not None,
                 "ingest": self._mqtt_ingest is not None,
                 "ingestTopics": list(self._mqtt_ingest_topics),
@@ -99,7 +122,15 @@ class TelemetryBus:
             except Exception:  # noqa: BLE001
                 logger.exception("mqtt publish failed")
 
-    def enable_mqtt(self, host: str = "127.0.0.1", port: int = 1883) -> bool:
+    def enable_mqtt(
+        self,
+        host: str = "127.0.0.1",
+        port: int = 1883,
+        *,
+        tls: bool = False,
+        ca_certs: str | None = None,
+        tls_insecure: bool = False,
+    ) -> bool:
         """Best-effort MQTT publish bridge. Returns False if paho/broker unavailable."""
         try:
             import paho.mqtt.client as mqtt
@@ -108,9 +139,13 @@ class TelemetryBus:
             return False
 
         client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id="twinops-bus")
+        use_tls = bool(tls or ca_certs or tls_insecure)
         try:
+            configure_mqtt_tls(
+                client, tls=use_tls, ca_certs=ca_certs, tls_insecure=tls_insecure
+            )
             client.connect(host, port, keepalive=30)
-        except OSError as exc:
+        except (OSError, ValueError, ssl.SSLError) as exc:
             logger.warning("mqtt broker unavailable at %s:%s (%s)", host, port, exc)
             return False
         client.loop_start()
@@ -118,7 +153,8 @@ class TelemetryBus:
             self._mqtt = client
             self._mqtt_host = host
             self._mqtt_port = port
-        logger.info("mqtt publish bridge enabled %s:%s", host, port)
+            self._mqtt_tls = use_tls
+        logger.info("mqtt publish bridge enabled %s:%s tls=%s", host, port, use_tls)
         return True
 
     def enable_mqtt_ingest(
@@ -128,6 +164,9 @@ class TelemetryBus:
         *,
         topics: list[str],
         handler: MqttMessageHandler,
+        tls: bool = False,
+        ca_certs: str | None = None,
+        tls_insecure: bool = False,
     ) -> bool:
         """Subscribe to broker topics and forward payloads to handler."""
         if not topics:
@@ -149,9 +188,13 @@ class TelemetryBus:
                 logger.exception("mqtt ingest handler failed for %s", msg.topic)
 
         client.on_message = _on_message
+        use_tls = bool(tls or ca_certs or tls_insecure)
         try:
+            configure_mqtt_tls(
+                client, tls=use_tls, ca_certs=ca_certs, tls_insecure=tls_insecure
+            )
             client.connect(host, port, keepalive=30)
-        except OSError as exc:
+        except (OSError, ValueError, ssl.SSLError) as exc:
             logger.warning("mqtt ingest broker unavailable at %s:%s (%s)", host, port, exc)
             return False
 
@@ -162,8 +205,11 @@ class TelemetryBus:
             self._mqtt_ingest = client
             self._mqtt_host = host
             self._mqtt_port = port
+            self._mqtt_tls = use_tls
             self._mqtt_ingest_topics = list(topics)
-        logger.info("mqtt ingest enabled %s:%s topics=%s", host, port, topics)
+        logger.info(
+            "mqtt ingest enabled %s:%s tls=%s topics=%s", host, port, use_tls, topics
+        )
         return True
 
     def disable_mqtt(self) -> None:
@@ -174,6 +220,7 @@ class TelemetryBus:
             self._mqtt_ingest = None
             self._mqtt_host = None
             self._mqtt_port = None
+            self._mqtt_tls = False
             self._mqtt_ingest_topics = []
         for client in (publish_client, ingest_client):
             if client is None:

@@ -40,6 +40,9 @@ class LiveDriftRuntime:
         mqtt_host: str | None = None,
         mqtt_port: int = 1883,
         mqtt_ingest: bool = True,
+        mqtt_tls: bool = False,
+        mqtt_ca_certs: str | None = None,
+        mqtt_tls_insecure: bool = False,
     ) -> None:
         self.example_dir = example_dir.resolve()
         self.work_dir = work_dir.resolve()
@@ -60,6 +63,9 @@ class LiveDriftRuntime:
         self._mqtt_host = mqtt_host
         self._mqtt_port = mqtt_port
         self._mqtt_ingest = mqtt_ingest
+        self._mqtt_tls = mqtt_tls
+        self._mqtt_ca_certs = mqtt_ca_certs
+        self._mqtt_tls_insecure = mqtt_tls_insecure
         self._ws_clients: list[Any] = []
         self._ws_lock = threading.Lock()
         self._stage_dir: Path | None = None
@@ -104,13 +110,19 @@ class LiveDriftRuntime:
             strict_schema=strict_schema,
         )
         if self._mqtt_host:
-            self.bus.enable_mqtt(self._mqtt_host, self._mqtt_port)
+            tls_kwargs = {
+                "tls": self._mqtt_tls,
+                "ca_certs": self._mqtt_ca_certs,
+                "tls_insecure": self._mqtt_tls_insecure,
+            }
+            self.bus.enable_mqtt(self._mqtt_host, self._mqtt_port, **tls_kwargs)
             if self._mqtt_ingest and self.ingest.topics:
                 self.bus.enable_mqtt_ingest(
                     self._mqtt_host,
                     self._mqtt_port,
                     topics=self.ingest.topics,
                     handler=self._on_mqtt_ingest,
+                    **tls_kwargs,
                 )
 
         # Seed first drift evaluation.
@@ -133,6 +145,9 @@ class LiveDriftRuntime:
             "enabled": self.bus.mqtt_enabled,
             "host": self._mqtt_host,
             "port": self._mqtt_port if self._mqtt_host else None,
+            "tls": bool(
+                self._mqtt_tls or self._mqtt_ca_certs or self._mqtt_tls_insecure
+            ),
             "endpoint": endpoint,
             "ingest": ingest,
         }
