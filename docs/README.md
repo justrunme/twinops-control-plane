@@ -30,6 +30,7 @@ Navigation index for the control plane docs.
 | [0002](adr/0002-kubernetes-operator.md) | Kubernetes operator |
 | [0003](adr/0003-scene-highlight-protocol.md) | Scene highlight without GPU |
 | [0004](adr/0004-bidirectional-mqtt-bridge.md) | Bidirectional MQTT bridge |
+| [0005](adr/0005-drift-sarif-export.md) | Drift findings as SARIF |
 
 ## Examples
 

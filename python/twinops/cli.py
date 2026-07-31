@@ -14,6 +14,7 @@ from twinops.drift.engine import detect_drift, save_drift_report
 from twinops.drift.html_report import write_html_report
 from twinops.drift.loaders import DriftLoadError
 from twinops.drift.reconcile import propose_reconciliation
+from twinops.drift.sarif import write_sarif_report
 from twinops.drift.table import render_drift_table
 from twinops.plm.mock import load_adapter_for_example
 from twinops.scene import build_scene_snapshot
@@ -66,8 +67,14 @@ def _cmd_drift(args: argparse.Namespace) -> int:
         out.mkdir(parents=True, exist_ok=True)
         save_drift_report(report, out / "drift-report.json")
         write_html_report(report, out / "drift-report.html")
+        write_sarif_report(report, out / "drift-report.sarif")
         print(f"\nWrote {out / 'drift-report.json'}")
         print(f"Wrote {out / 'drift-report.html'}")
+        print(f"Wrote {out / 'drift-report.sarif'}")
+
+    if args.sarif:
+        path = write_sarif_report(report, args.sarif)
+        print(f"Wrote {path}")
 
     if args.json:
         print(json.dumps(report.to_dict(), indent=2))
@@ -393,7 +400,12 @@ def build_parser() -> argparse.ArgumentParser:
     drift.add_argument(
         "--out",
         default=None,
-        help="write drift-report.json and drift-report.html",
+        help="write drift-report.json, .html, and .sarif into this directory",
+    )
+    drift.add_argument(
+        "--sarif",
+        default=None,
+        help="write SARIF 2.1.0 report to this path",
     )
     drift.add_argument(
         "--propose",

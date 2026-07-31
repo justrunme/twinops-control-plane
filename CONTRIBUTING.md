@@ -12,6 +12,13 @@ make verify-all
 bash scripts/verify_all.sh --with-mqtt
 ```
 
+Optional git hooks:
+
+```bash
+pip install pre-commit
+pre-commit install
+```
+
 ## Suggested PR slices
 
 1. Compiler / drift / tests  
