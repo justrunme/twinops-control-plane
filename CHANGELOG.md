@@ -4,6 +4,8 @@ All notable TwinOps changes are listed here. Dates are UTC.
 
 ## Unreleased
 
+## 0.4.9 — 2026-07-31
+
 - DigitalTwin kubectl printcolumn for status.live.ready
 
 ## 0.4.8 — 2026-07-31
