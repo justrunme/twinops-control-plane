@@ -364,7 +364,7 @@ def _cmd_completion(args: argparse.Namespace) -> int:
         return 2
     commands = (
         "build drift scene reconcile serve plm mqtt doctor health timeline "
-        "proposal live openapi version completion"
+        "proposal metrics live openapi version completion"
     )
     script = f"""# twinopsctl bash completion — eval "$(twinopsctl completion bash)"
 _twinopsctl_completions() {{
@@ -498,6 +498,30 @@ def _cmd_proposal(args: argparse.Namespace) -> int:
         print(f"  overlay: {status_block.get('overlayPath')}")
     if status_block.get("summaryPath"):
         print(f"  summary: {status_block.get('summaryPath')}")
+    return 0 if status == 200 else 1
+
+
+def _cmd_metrics(args: argparse.Namespace) -> int:
+    """Fetch live control-plane metrics JSON or Prometheus text."""
+    base = args.base_url.rstrip("/")
+    path = "/metrics" if args.prometheus else "/api/metrics"
+    status, body = _fetch_json(f"{base}{path}", timeout=args.timeout)
+    if not body:
+        return 1
+    if args.prometheus or args.json:
+        print(body, end="" if body.endswith("\n") else "\n")
+        return 0 if status == 200 else 1
+    try:
+        payload = json.loads(body)
+    except json.JSONDecodeError:
+        print(body)
+        return 0 if status == 200 else 1
+    print(f"twin:     {payload.get('twin')}")
+    print(f"hasDrift: {payload.get('hasDrift')}")
+    print(f"summary:  {payload.get('summary')}")
+    print(f"highlights: {payload.get('highlightedPrims')}")
+    print(f"mqttIngest: {payload.get('mqttIngestReceived')}")
+    print(f"timeline: {payload.get('timelineEvents')}")
     return 0 if status == 200 else 1
 
 
@@ -818,6 +842,17 @@ def build_parser() -> argparse.ArgumentParser:
     proposal.add_argument("--timeout", type=float, default=3.0)
     proposal.add_argument("--json", action="store_true")
     proposal.set_defaults(func=_cmd_proposal)
+
+    metrics = sub.add_parser("metrics", help="fetch live API metrics JSON or Prometheus text")
+    metrics.add_argument("--base-url", default="http://127.0.0.1:8080")
+    metrics.add_argument("--timeout", type=float, default=3.0)
+    metrics.add_argument("--json", action="store_true", help="print raw JSON body")
+    metrics.add_argument(
+        "--prometheus",
+        action="store_true",
+        help="fetch /metrics Prometheus exposition instead of /api/metrics",
+    )
+    metrics.set_defaults(func=_cmd_metrics)
 
     openapi = sub.add_parser("openapi", help="dump live API OpenAPI schema (no server)")
     openapi.add_argument("--example", default="examples/assembly-line")
