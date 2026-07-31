@@ -4,7 +4,9 @@ All notable TwinOps changes are listed here. Dates are UTC.
 
 ## Unreleased
 
-- `schemas/twinops.highlight.v1.json` + `twinopsctl scene --strict`
+## 0.3.2 — 2026-07-31
+
+- `schemas/twinops.highlight.v1.json` + `twinopsctl scene --strict` (also `make scene`)
 - `twinopsctl proposal` / `make proposal` + README DX refresh
 - `twinopsctl timeline` / `make timeline`
 - `Dockerfile.live` + Go 1.26 operator image base; UI hotkeys 1/2

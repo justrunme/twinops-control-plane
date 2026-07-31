@@ -15,7 +15,7 @@ Optional containerized live API (demo only, unauthenticated):
 
 ```bash
 make docker-live
-docker run --rm -p 8080:8080 twinops-live:0.3.1
+docker run --rm -p 8080:8080 twinops-live:0.3.2
 ```
 
 What you will see:
