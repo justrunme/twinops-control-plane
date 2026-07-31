@@ -4,6 +4,11 @@ All notable TwinOps changes are listed here. Dates are UTC.
 
 ## Unreleased
 
+## 0.5.7 — 2026-07-31
+
+- `twinopsctl serve --mqtt-tls` / `--mqtt-ca` / `--mqtt-tls-insecure` for lab TLS brokers
+- MQTT endpoint status exposes `tls` flag
+
 ## 0.5.6 — 2026-07-31
 
 - GitHub Actions publish workflow for `twinops-live` / `twinops-operator` to GHCR on `v*` tags

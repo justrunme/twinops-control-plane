@@ -437,6 +437,9 @@ def _cmd_serve(args: argparse.Namespace) -> int:
         mqtt_host=args.mqtt_host,
         mqtt_port=args.mqtt_port,
         mqtt_ingest=not args.no_mqtt_ingest,
+        mqtt_tls=bool(getattr(args, "mqtt_tls", False)),
+        mqtt_ca_certs=getattr(args, "mqtt_ca", None),
+        mqtt_tls_insecure=bool(getattr(args, "mqtt_tls_insecure", False)),
         autostart=True,
         web_dist=web_dist if web_dist.is_dir() else None,
         api_token=api_token,
@@ -1077,6 +1080,21 @@ def build_parser() -> argparse.ArgumentParser:
         help="optional MQTT broker host (in-process bus always enabled)",
     )
     serve.add_argument("--mqtt-port", type=int, default=1883, help="MQTT broker port")
+    serve.add_argument(
+        "--mqtt-tls",
+        action="store_true",
+        help="enable MQTT TLS (use with --mqtt-port 8883 for lab compose)",
+    )
+    serve.add_argument(
+        "--mqtt-ca",
+        default=None,
+        help="CA / server cert PEM for MQTT TLS (lab self-signed OK)",
+    )
+    serve.add_argument(
+        "--mqtt-tls-insecure",
+        action="store_true",
+        help="MQTT TLS without cert verify (lab only)",
+    )
     serve.add_argument(
         "--no-mqtt-ingest",
         action="store_true",
