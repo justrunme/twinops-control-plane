@@ -31,9 +31,13 @@ Optional containerized live stack (unauthenticated; local only):
 make docker-live-up
 make wait-ready
 make live-spike
+make scene-live
 make live-reconcile
 make docker-live-down
 ```
+
+With a local `make serve` / `make live-demo`, `make scene-live` writes
+`/tmp/twinops-scene.json` and `/tmp/twinops-scene.html`.
 
 ## Suggested PR slices
 
