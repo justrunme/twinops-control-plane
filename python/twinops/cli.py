@@ -190,13 +190,14 @@ def _cmd_reconcile(args: argparse.Namespace) -> int:
         return 2
 
     proposal = propose_reconciliation(report, args.out)
+    if args.json:
+        print(json.dumps(proposal.to_dict(), indent=2))
+        return 0
     print(f"TwinOps reconciliation proposal for '{report.name}'")
     print(f"  changes: {len(proposal.changes)}")
     print(f"  overlay: {proposal.overlay_path}")
     print(f"  proposal: {proposal.proposal_path}")
     print(f"  pr draft: {proposal.summary_path}")
-    if args.json:
-        print(json.dumps(proposal.to_dict(), indent=2))
     return 0 if proposal.changes else 0
 
 
