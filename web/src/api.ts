@@ -28,6 +28,7 @@ export async function triggerSpike(): Promise<void> {
 export async function triggerReconcile(): Promise<{
   changes: number
   drift: TwinSnapshot['drift']
+  scene?: SceneSnapshot
 }> {
   const response = await fetch(`${API_BASE}/api/reconcile`, { method: 'POST' })
   if (!response.ok) {

@@ -62,6 +62,8 @@ def test_live_api_health_and_spike(tmp_path: Path) -> None:
         assert body["healed"]["robot_firmware"] == "4.14"
         assert body["healed"]["robot_status"] == "running"
         assert body["drift"]["status"]["hasDrift"] is False
+        assert "scene" in body
+        assert body["scene"]["protocol"]["name"] == "twinops.highlight.v1"
 
         proposal = client.get("/api/proposal/latest")
         assert proposal.status_code == 200

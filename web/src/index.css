@@ -231,9 +231,65 @@ button:disabled {
   min-height: 420px;
 }
 
-.scene-panel {
-  min-height: 0;
+.scene-layout {
+  display: grid;
+  grid-template-columns: 1.1fr 0.9fr;
+  gap: 14px;
   margin-bottom: 14px;
+}
+
+.scene-panel,
+.stream-panel {
+  min-height: 0;
+  margin-bottom: 0;
+}
+
+.stream-viewport {
+  padding: 14px 16px 16px;
+  min-height: 220px;
+}
+
+.stream-viewport.alerting {
+  background:
+    radial-gradient(420px 180px at 70% 20%, rgba(227, 93, 93, 0.18), transparent 60%),
+    rgba(8, 20, 15, 0.35);
+}
+
+.stream-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.stream-cell {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 16px 12px;
+  display: grid;
+  gap: 6px;
+  transition: background 180ms ease, box-shadow 180ms ease;
+}
+
+.stream-cell.hot {
+  box-shadow: 0 0 24px rgba(227, 93, 93, 0.25);
+}
+
+.stream-cell span {
+  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  font-weight: 700;
+}
+
+.stream-cell small {
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: 0.7rem;
+}
+
+.stream-caption {
+  margin: 14px 0 0;
+  color: var(--muted);
+  font-size: 0.85rem;
 }
 
 .panel-head {
@@ -385,6 +441,7 @@ code {
   .hero,
   .status-row,
   .grid,
+  .scene-layout,
   .steps {
     grid-template-columns: 1fr;
     display: grid;
