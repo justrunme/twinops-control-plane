@@ -6,6 +6,7 @@ Thanks for hacking on TwinOps. Keep changes small, honest, and demoable without 
 
 ```bash
 make install
+make doctor
 make verify-all
 # optional Mosquitto path:
 bash scripts/verify_all.sh --with-mqtt
