@@ -95,12 +95,10 @@ status = payload.get('drift', {}).get('status', {})
 print(f\"    spike: hasDrift={status.get('hasDrift')} summary={status.get('summary')}\")
 "
 
-SCENE_JSON="$(curl -fsS "$BASE/api/scene")"
+SCENE_JSON="$("$TWINOPSCTL" scene --from-url "$BASE" --strict --json)"
 printf '%s' "$SCENE_JSON" | "$PYTHON" -c "
 import json, sys
-from twinops.scene import assert_valid_scene_snapshot
 scene = json.load(sys.stdin)
-assert_valid_scene_snapshot(scene)
 lit = [p for p in scene.get('prims', []) if (p.get('highlight') or {}).get('enabled')]
 robot = next((p for p in scene.get('prims', []) if p.get('label') == 'Robot01'), None)
 print(f\"    scene: protocol={scene.get('protocol', {}).get('name')} lit={len(lit)}\")
