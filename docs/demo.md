@@ -11,11 +11,11 @@ Opens the control plane at [http://127.0.0.1:8080/](http://127.0.0.1:8080/).
 
 Keyboard shortcuts in the UI: **1** = heat spike, **2** = reconcile.
 
-Optional containerized live API (demo only, unauthenticated):
+Optional containerized live API (demo only; set `TWINOPS_API_TOKEN` before sharing):
 
 ```bash
 make docker-live
-docker run --rm -p 8080:8080 twinops-live:0.3.8
+docker run --rm -p 8080:8080 twinops-live:0.4.9
 # or Mosquitto + live API/UI:
 make docker-live-up
 make wait-ready
@@ -33,6 +33,9 @@ What you will see:
    USD overlay applied + line healed
       ↓
 3. Twin returns to SYNCED
+      ↓
+4. (optional) Local GitOps apply — no push
+   make apply-live   # or: twinopsctl apply --from-url http://127.0.0.1:8080 --print-pr
 ```
 
 Smoke-only (CI / quick verify, no browser):
@@ -64,6 +67,7 @@ make scene-live   # also writes /tmp/twinops-scene.{json,html}
 make timeline
 make live-reconcile
 make proposal
+make apply-live   # local GitOps branch artifacts + suggested gh pr create
 ```
 
 Equivalent CLI:
@@ -73,6 +77,7 @@ twinopsctl live status
 twinopsctl live spike --json
 twinopsctl live reconcile --json
 twinopsctl proposal
+twinopsctl apply --from-url http://127.0.0.1:8080 --no-commit --print-pr --json
 ```
 
 Example output:
