@@ -1,14 +1,14 @@
-# Portfolio end-to-end demo (v0.10)
+# End-to-end operational demo (v0.10)
 
 One command that proves Kit contract, incident replay, PLM adapters, GitOps
 apply/verify, and SQLite persistence form a single product loop.
 
 ```bash
 make install
-make portfolio-demo
+make e2e-demo
 ```
 
-Artifacts land in `${ARTIFACTS:-/tmp/twinops-portfolio-demo}/out`:
+Artifacts land in `${ARTIFACTS:-/tmp/twinops-e2e-demo}/out`:
 
 | File | Meaning |
 |------|---------|

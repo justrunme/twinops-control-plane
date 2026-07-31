@@ -57,7 +57,8 @@ See [ADR-0015](adr/0015-kit-scene-runtime.md).
 | Layer | Status |
 | --- | --- |
 | Lab WebRTC + signaling | ✅ (`serve --webrtc`) |
-| Kit App Streaming GPU → browser | ⏳ sidecar after Kit runtime |
+| Streaming sidecar (session lifecycle) | ✅ (`streaming-sidecar`, mock frames) |
+| Kit App Streaming RTX/NVENC → browser | ⏳ encoder follow-up |
 | NVCF | ❌ out of scope |
 
 ## Honest status
@@ -65,5 +66,6 @@ See [ADR-0015](adr/0015-kit-scene-runtime.md).
 - ✅ Highlight API + web inspector + lab WebRTC
 - ✅ Kit extension runtime loop + apply backends
 - ✅ Session-layer highlights (source assets untouched; reconnect/idempotent)
-- ⏳ Kit App Streaming browser session with RTX frames
+- ✅ Single-session streaming sidecar (mock frames in CI; Kit supervisor optional)
+- ⏳ Real RTX/NVENC encoder into browser MediaStream
 - ❌ NVCF / cloud GPU product claims

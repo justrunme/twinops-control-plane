@@ -74,16 +74,19 @@ jobs:
           npm --prefix web run build
           bash scripts/live_demo.sh --smoke
 
-      - name: Portfolio end-to-end demo
-        run: bash scripts/portfolio_demo.sh
+      - name: End-to-end operational demo
+        run: bash scripts/e2e_demo.sh
 
-      - name: Upload portfolio artifacts
+      - name: Upload E2E demo artifacts
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: portfolio-demo-py${{ matrix.python-version }}
-          path: /tmp/twinops-portfolio-demo/out
+          name: e2e-demo-py${{ matrix.python-version }}
+          path: /tmp/twinops-e2e-demo/out
           if-no-files-found: ignore
+
+      - name: Streaming sidecar smoke
+        run: bash scripts/streaming_sidecar_smoke.sh
 
   mqtt:
     name: MQTT publish+ingest smoke
