@@ -32,6 +32,10 @@ def _cmd_build(args: argparse.Namespace) -> int:
     output = Path(args.out) if args.out else Path("usd/generated") / manifest.name
     result = compose_digital_twin(manifest, output, copy_base_stage=not args.no_copy_base)
 
+    if args.json:
+        print(json.dumps(result.report, indent=2))
+        return 0 if result.ok else 1
+
     print(f"TwinOps composed digital twin '{manifest.name}'")
     print(f"  output: {result.output_dir}")
     for key in ("root", "plm_overlay", "telemetry_overlay", "variant_overlay", "report"):
@@ -42,9 +46,6 @@ def _cmd_build(args: argparse.Namespace) -> int:
     for issue in result.issues:
         prefix = issue.severity.upper()
         print(f"  [{prefix}] {issue.code}: {issue.message}")
-
-    if args.json:
-        print(json.dumps(result.report, indent=2))
 
     return 0 if result.ok else 1
 
