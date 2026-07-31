@@ -1,3 +1,9 @@
+export type HealthInfo = {
+  status: string
+  version: string
+  service?: string
+}
+
 export type Finding = {
   prim: string
   attribute: string
