@@ -4,7 +4,9 @@ All notable TwinOps changes are listed here. Dates are UTC.
 
 ## Unreleased
 
+- Live demo smoke uses `twinopsctl live spike|reconcile`
 - `twinopsctl live spike|reconcile` against a running live API
+- GitHub release `v0.3.2`
 
 ## 0.3.2 — 2026-07-31
 
