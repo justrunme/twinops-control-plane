@@ -21,6 +21,15 @@ def test_simulator_tick_publishes_events() -> None:
     assert snap["observations"]
 
 
+def test_telemetry_bus_mqtt_helpers() -> None:
+    bus = TelemetryBus()
+    assert bus.mqtt_enabled is False
+    assert bus.mqtt_endpoint is None
+    assert bus.enable_mqtt("127.0.0.1", 9) is False
+    assert bus.mqtt_enabled is False
+    bus.disable_mqtt()
+
+
 def test_live_api_health_and_spike(tmp_path: Path) -> None:
     app = create_app(
         example_dir=EXAMPLE,
@@ -31,7 +40,10 @@ def test_live_api_health_and_spike(tmp_path: Path) -> None:
     with TestClient(app) as client:
         health = client.get("/api/health")
         assert health.status_code == 200
-        assert health.json()["status"] == "ok"
+        body = health.json()
+        assert body["status"] == "ok"
+        assert body["mqtt"]["requested"] is False
+        assert body["mqtt"]["enabled"] is False
 
         twin = client.get("/api/twin")
         assert twin.status_code == 200
