@@ -16,8 +16,10 @@ from fastapi.staticfiles import StaticFiles
 from twinops import __version__
 from twinops.api.auth import authorize_headers, build_http_auth_middleware, resolve_api_token
 from twinops.api.live import LiveDriftRuntime
+from twinops.api.sso import resolve_sso_secret
 from twinops.api.store import TwinStore
-from twinops.api.streaming import mock_streaming_session
+from twinops.api.streaming import build_streaming_session, webrtc_lab_enabled
+from twinops.api.webrtc_signal import SIGNAL_HUB
 
 
 class _WsClient:
@@ -46,6 +48,8 @@ def create_app(
     autostart: bool = True,
     web_dist: str | Path | None = None,
     api_token: str | None = None,
+    sso_secret: str | None = None,
+    webrtc: bool | None = None,
 ) -> FastAPI:
     store = TwinStore()
     runtime = LiveDriftRuntime(
@@ -85,11 +89,16 @@ def create_app(
         allow_headers=["*"],
     )
     token = resolve_api_token(api_token)
-    if token:
-        app.middleware("http")(build_http_auth_middleware(token))
+    jwt_secret = resolve_sso_secret(sso_secret)
+    if token or jwt_secret:
+        app.middleware("http")(
+            build_http_auth_middleware(token, sso_secret=jwt_secret)
+        )
     app.state.store = store
     app.state.runtime = runtime
     app.state.api_token_configured = bool(token)
+    app.state.sso_configured = bool(jwt_secret)
+    app.state.webrtc_lab = webrtc
 
     @app.get("/api/health")
     def health() -> dict[str, Any]:
@@ -209,9 +218,69 @@ def create_app(
 
     @app.get("/api/streaming/session")
     def streaming_session(request: Request) -> dict[str, Any]:
-        """Mock Kit App Streaming session descriptor (GPU-free placeholder)."""
+        """Kit streaming session descriptor (mock or lab WebRTC)."""
         base = str(request.base_url).rstrip("/")
-        return mock_streaming_session(base_url=base)
+        return build_streaming_session(base_url=base, webrtc=webrtc)
+
+    @app.get("/api/streaming/webrtc")
+    def webrtc_info() -> dict[str, Any]:
+        """Lab WebRTC control-plane info (not NVIDIA Kit App Streaming)."""
+        return {
+            "apiVersion": "twinops.io/v1alpha1",
+            "kind": "WebRTCLabInfo",
+            "enabled": webrtc_lab_enabled(webrtc),
+            "signaling": "/api/streaming/webrtc/signal",
+            "notes": (
+                "Browser attaches a scene-driven MediaStream; signaling stores "
+                "offer/answer/ICE for a future Kit App Streaming sidecar."
+            ),
+        }
+
+    @app.post("/api/streaming/webrtc/signal")
+    def webrtc_signal(payload: dict[str, Any]) -> dict[str, Any]:
+        """REST signaling for lab WebRTC (offer/answer/candidate)."""
+        action = str(payload.get("action") or "").strip().lower()
+        session_id = str(payload.get("sessionId") or "").strip()
+        if action == "create":
+            session = SIGNAL_HUB.create()
+            return {"ok": True, "sessionId": session.session_id}
+        if not session_id:
+            return {"ok": False, "error": "sessionId required"}
+        if action == "offer":
+            offer = payload.get("sdp") or payload.get("offer")
+            if not isinstance(offer, dict):
+                return {"ok": False, "error": "offer sdp object required"}
+            SIGNAL_HUB.set_offer(session_id, offer)
+            # Lab echo answer: browser uses local MediaStream; Kit sidecar later.
+            answer = {
+                "type": "answer",
+                "sdp": offer.get("sdp", ""),
+                "labEcho": True,
+                "note": "Lab echo — replace with Kit App Streaming answer",
+            }
+            SIGNAL_HUB.set_answer(session_id, answer)
+            return {"ok": True, "sessionId": session_id, "answer": answer}
+        if action == "answer":
+            answer = payload.get("sdp") or payload.get("answer")
+            if not isinstance(answer, dict):
+                return {"ok": False, "error": "answer sdp object required"}
+            if SIGNAL_HUB.set_answer(session_id, answer) is None:
+                return {"ok": False, "error": "unknown sessionId"}
+            return {"ok": True, "sessionId": session_id}
+        if action == "candidate":
+            candidate = payload.get("candidate")
+            if not isinstance(candidate, dict):
+                return {"ok": False, "error": "candidate object required"}
+            local = bool(payload.get("local"))
+            if SIGNAL_HUB.add_candidate(session_id, candidate, local=local) is None:
+                return {"ok": False, "error": "unknown sessionId"}
+            return {"ok": True, "sessionId": session_id}
+        if action == "get":
+            snap = SIGNAL_HUB.snapshot(session_id)
+            if snap is None:
+                return {"ok": False, "error": "unknown sessionId"}
+            return {"ok": True, **snap}
+        return {"ok": False, "error": f"unknown action: {action}"}
 
     @app.post("/api/drift/refresh")
     def drift_refresh() -> dict[str, Any]:
@@ -221,14 +290,14 @@ def create_app(
     async def ws_events(websocket: WebSocket) -> None:
         # Browsers cannot set WS Authorization headers; allow ?token= for demos.
         query_token = websocket.query_params.get("token")
-        if token and not (
-            authorize_headers(
-                authorization=websocket.headers.get("authorization"),
-                header_token=websocket.headers.get("x-twinops-token"),
-                expected=token,
-            )
-            or (query_token == token)
-        ):
+        auth_needed = bool(token or jwt_secret)
+        authorized = authorize_headers(
+            authorization=websocket.headers.get("authorization"),
+            header_token=websocket.headers.get("x-twinops-token"),
+            expected_token=token,
+            sso_secret=jwt_secret,
+        ) or (bool(token) and query_token == token)
+        if auth_needed and not authorized:
             await websocket.close(code=4401)
             return
         await websocket.accept()
