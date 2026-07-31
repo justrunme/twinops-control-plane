@@ -1,12 +1,15 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   connectEvents,
   fetchHealth,
   fetchMetrics,
   fetchScene,
+  fetchStreamingSession,
   fetchTwin,
+  signalWebRTC,
   triggerReconcile,
   triggerSpike,
+  type StreamingSession,
 } from './api'
 import type { LiveMetrics, SceneSnapshot, TwinSnapshot } from './types'
 
@@ -36,6 +39,88 @@ export default function App() {
   const [busy, setBusy] = useState<'spike' | 'reconcile' | null>(null)
   const [flash, setFlash] = useState<string | null>(null)
   const [version, setVersion] = useState<string | null>(null)
+  const [streamSession, setStreamSession] = useState<StreamingSession | null>(null)
+  const [webrtcState, setWebrtcState] = useState<string>('idle')
+  const videoRef = useRef<HTMLVideoElement | null>(null)
+  const canvasRef = useRef<HTMLCanvasElement | null>(null)
+
+  useEffect(() => {
+    fetchStreamingSession()
+      .then((data) => setStreamSession(data))
+      .catch(() => {
+        /* session optional while API boots */
+      })
+  }, [])
+
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas || !scene) return
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+    const w = canvas.width
+    const h = canvas.height
+    ctx.fillStyle = '#07140f'
+    ctx.fillRect(0, 0, w, h)
+    const prims = (scene.prims ?? []).filter((p) => p.label !== 'LineA')
+    const cellW = Math.floor(w / Math.max(prims.length, 1))
+    prims.forEach((prim, index) => {
+      const color = STATUS_COLOR[prim.status] ?? '#64748b'
+      ctx.fillStyle = prim.highlight.enabled ? `${color}99` : '#0f241c'
+      ctx.fillRect(index * cellW + 4, 20, cellW - 8, h - 40)
+      ctx.strokeStyle = color
+      ctx.strokeRect(index * cellW + 4, 20, cellW - 8, h - 40)
+      ctx.fillStyle = '#e2e8f0'
+      ctx.font = '14px sans-serif'
+      ctx.fillText(prim.label, index * cellW + 12, h / 2)
+      ctx.fillText(prim.status, index * cellW + 12, h / 2 + 18)
+    })
+  }, [scene])
+
+  useEffect(() => {
+    if (!streamSession?.spec.webrtc.enabled) return
+    const canvas = canvasRef.current
+    const video = videoRef.current
+    if (!canvas || !video) return
+    let pc: RTCPeerConnection | null = null
+    let closed = false
+    const run = async () => {
+      try {
+        setWebrtcState('signaling')
+        const created = await signalWebRTC({ action: 'create' })
+        const sessionId = String(created.sessionId || '')
+        const stream = canvas.captureStream(8)
+        video.srcObject = stream
+        await video.play().catch(() => undefined)
+        pc = new RTCPeerConnection({
+          iceServers: streamSession.spec.webrtc.iceServers ?? [],
+        })
+        for (const track of stream.getTracks()) {
+          pc.addTrack(track, stream)
+        }
+        const offer = await pc.createOffer()
+        await pc.setLocalDescription(offer)
+        const signaled = await signalWebRTC({
+          action: 'offer',
+          sessionId,
+          sdp: { type: offer.type, sdp: offer.sdp },
+        })
+        if (closed) return
+        // Lab path keeps local MediaStream on the video element; answer is stored for Kit sidecar.
+        if (signaled.ok) {
+          setWebrtcState('lab-local-stream')
+        } else {
+          setWebrtcState('signal-error')
+        }
+      } catch {
+        if (!closed) setWebrtcState('error')
+      }
+    }
+    void run()
+    return () => {
+      closed = true
+      pc?.close()
+    }
+  }, [streamSession])
 
   useEffect(() => {
     let ws: WebSocket | null = null
@@ -356,35 +441,52 @@ export default function App() {
 
         <section className="panel stream-panel">
           <div className="panel-head">
-            <h2>Kit stream (mock)</h2>
-            <small>placeholder · no GPU / NVCF</small>
+            <h2>
+              {streamSession?.spec.webrtc.enabled ? 'Kit stream (WebRTC lab)' : 'Kit stream (mock)'}
+            </h2>
+            <small>
+              {streamSession?.spec.webrtc.enabled
+                ? `MediaStream + signaling · ${webrtcState}`
+                : 'placeholder · no GPU / NVCF'}
+            </small>
           </div>
           <div className={`stream-viewport ${litPrims.length ? 'alerting' : 'calm'}`}>
-            <div className="stream-grid">
-              {(scene?.prims ?? [])
-                .filter((prim) => prim.label !== 'LineA')
-                .map((prim) => {
-                  const color = STATUS_COLOR[prim.status] ?? '#64748b'
-                  return (
-                    <div
-                      key={prim.prim}
-                      className={`stream-cell ${prim.highlight.enabled ? 'hot' : ''}`}
-                      style={{
-                        borderColor: color,
-                        background: prim.highlight.enabled
-                          ? `${color}33`
-                          : 'rgba(8, 20, 15, 0.55)',
-                      }}
-                    >
-                      <span>{prim.label}</span>
-                      <small>{prim.status}</small>
-                    </div>
-                  )
-                })}
-            </div>
+            <canvas
+              ref={canvasRef}
+              width={640}
+              height={180}
+              className="stream-canvas"
+              aria-hidden={!streamSession?.spec.webrtc.enabled}
+            />
+            {streamSession?.spec.webrtc.enabled ? (
+              <video ref={videoRef} className="stream-video" muted playsInline autoPlay />
+            ) : (
+              <div className="stream-grid">
+                {(scene?.prims ?? [])
+                  .filter((prim) => prim.label !== 'LineA')
+                  .map((prim) => {
+                    const color = STATUS_COLOR[prim.status] ?? '#64748b'
+                    return (
+                      <div
+                        key={prim.prim}
+                        className={`stream-cell ${prim.highlight.enabled ? 'hot' : ''}`}
+                        style={{
+                          borderColor: color,
+                          background: prim.highlight.enabled
+                            ? `${color}33`
+                            : 'rgba(8, 20, 15, 0.55)',
+                        }}
+                      >
+                        <span>{prim.label}</span>
+                        <small>{prim.status}</small>
+                      </div>
+                    )
+                  })}
+              </div>
+            )}
             <p className="stream-caption">
               {litPrims.length
-                ? `${litPrims.length} prim(s) highlighted — Kit extension would select these`
+                ? `${litPrims.length} prim(s) highlighted — Kit extension / WebRTC lab track these`
                 : 'All prims calm — streaming client idle'}{' '}
               <a href="/api/streaming/session">session descriptor</a>
             </p>

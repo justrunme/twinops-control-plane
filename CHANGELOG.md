@@ -4,6 +4,12 @@ All notable TwinOps changes are listed here. Dates are UTC.
 
 ## Unreleased
 
+## 0.6.0 — 2026-07-31
+
+- Lab WebRTC: `serve --webrtc`, signaling API, browser MediaStream UI (ADR-0014)
+- HTTPS + mTLS for live API (`--tls-*`, `scripts/gen_live_tls_certs.sh`)
+- Demo SSO JWT (`TWINOPS_SSO_JWT_SECRET`, `twinopsctl sso issue`) + oauth2-proxy compose stub (ADR-0013)
+
 ## 0.5.9 — 2026-07-31
 
 - Kit streaming session mock exposes `spec.webrtc` placeholder (ADR-0012)

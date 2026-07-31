@@ -51,6 +51,7 @@ web/dist/
 # Mosquitto ACL / TLS demo secrets
 deploy/demo/mosquitto.passwd
 deploy/demo/certs/
+deploy/demo/live-certs/
 
 # Helm dependency packages (regenerate via make helm-deps)
 deploy/helm/*/charts/
