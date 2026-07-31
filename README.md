@@ -18,7 +18,7 @@ Omniverse Kit (optional)
 Browser streaming (mock viewport now; Kit App Streaming later)
 ```
 
-> Status: **experimental** (v0.3.4). Mock PLM adapter. Bidirectional MQTT. Optional Omniverse highlight contract. Not production-ready.
+> Status: **experimental** (v0.3.5). Mock PLM adapter. Bidirectional MQTT. Optional Omniverse highlight contract. Not production-ready.
 
 [![CI](https://github.com/justrunme/twinops-control-plane/actions/workflows/ci.yml/badge.svg)](https://github.com/justrunme/twinops-control-plane/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/justrunme/twinops-control-plane?display_name=tag)](https://github.com/justrunme/twinops-control-plane/releases/latest)
