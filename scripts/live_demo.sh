@@ -95,7 +95,8 @@ status = payload.get('drift', {}).get('status', {})
 print(f\"    spike: hasDrift={status.get('hasDrift')} summary={status.get('summary')}\")
 "
 
-SCENE_JSON="$("$TWINOPSCTL" scene --from-url "$BASE" --strict --json)"
+# scene exits 1 when hasDrift=true; keep going — Python asserts still validate.
+SCENE_JSON="$("$TWINOPSCTL" scene --from-url "$BASE" --strict --json || true)"
 printf '%s' "$SCENE_JSON" | "$PYTHON" -c "
 import json, sys
 scene = json.load(sys.stdin)
