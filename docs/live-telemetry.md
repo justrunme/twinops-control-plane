@@ -38,3 +38,28 @@ twinopsctl serve --mqtt-host 127.0.0.1 --mqtt-port 1883
 ```
 
 Requires `pip install -e ".[live]"` (included in `make install` via `.[dev]`).
+
+`GET /api/health` reports MQTT bridge status:
+
+```json
+{
+  "status": "ok",
+  "mqtt": {
+    "requested": true,
+    "enabled": true,
+    "host": "127.0.0.1",
+    "port": 1883
+  }
+}
+```
+
+### Smoke test
+
+One-command check that Mosquitto receives `factory/#` telemetry:
+
+```bash
+make mqtt-smoke
+```
+
+This starts Mosquitto via Compose, runs `twinopsctl serve --mqtt-host`,
+subscribes with paho-mqtt, and tears everything down.

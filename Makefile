@@ -3,7 +3,7 @@ PIP ?= $(PYTHON) -m pip
 VENV ?= .venv
 BIN := $(VENV)/bin
 
-.PHONY: help venv install test lint build demo live-demo live-demo-smoke drift serve web web-dev operator-build operator-run operator-demo operator-demo-watch operator-demo-cleanup go-test clean
+.PHONY: help venv install test lint build demo live-demo live-demo-smoke mqtt-smoke drift serve web web-dev operator-build operator-run operator-demo operator-demo-watch operator-demo-cleanup go-test clean
 
 help:
 	@echo "TwinOps targets:"
@@ -13,6 +13,7 @@ help:
 	@echo "  make lint            - run ruff"
 	@echo "  make live-demo       - 2-minute UI demo on :8080"
 	@echo "  make live-demo-smoke - spike→reconcile smoke (no browser)"
+	@echo "  make mqtt-smoke      - Mosquitto bridge smoke (compose + subscribe)"
 	@echo "  make demo            - offline self-healing drift demo"
 	@echo "  make drift           - build + drift against sample telemetry"
 	@echo "  make serve           - live MQTT-style simulator + drift API"
@@ -51,6 +52,9 @@ live-demo:
 
 live-demo-smoke:
 	bash scripts/live_demo.sh --smoke
+
+mqtt-smoke:
+	bash scripts/mqtt_smoke.sh
 
 drift:
 	$(BIN)/twinopsctl build examples/assembly-line/twin.yaml --out examples/assembly-line/generated
