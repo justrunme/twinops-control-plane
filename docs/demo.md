@@ -16,6 +16,8 @@ Optional containerized live API (demo only, unauthenticated):
 ```bash
 make docker-live
 docker run --rm -p 8080:8080 twinops-live:0.3.2
+# or Mosquitto + live API/UI:
+make docker-live-up
 ```
 
 What you will see:
@@ -52,15 +54,29 @@ Produces:
 
 ## Expected API storyboard
 
+With `make serve` (or `make live-demo`) already running:
+
 ```bash
-curl -s http://127.0.0.1:8080/api/health
-curl -s -X POST http://127.0.0.1:8080/api/simulate/spike | jq '.drift.status.summary'
-curl -s -X POST http://127.0.0.1:8080/api/reconcile | jq '{changes, hasDrift: .drift.status.hasDrift}'
+make health
+make metrics
+make live-spike
+make timeline
+make live-reconcile
+make proposal
+```
+
+Equivalent curl / CLI:
+
+```bash
+twinopsctl health
+twinopsctl live spike --json
+twinopsctl live reconcile --json
+twinopsctl proposal
 ```
 
 Example output:
 
 ```text
-spike:      { "CRITICAL": 1, "DRIFT": 5, ... }
-reconcile:  { "changes": 4, "hasDrift": false }
+spike:      hasDrift=True summary={'CRITICAL': 1, ...}
+reconcile:  changes=4 hasDrift=False
 ```
