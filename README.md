@@ -136,6 +136,8 @@ make doctor
 make health
 make timeline
 twinopsctl proposal
+twinopsctl live spike
+twinopsctl live reconcile
 twinopsctl openapi --out /tmp/twinops-openapi.json
 make verify-all
 ```
