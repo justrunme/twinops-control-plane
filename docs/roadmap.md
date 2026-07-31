@@ -119,6 +119,7 @@ twinopsctl drift \
 - [ADR-0008](adr/0008-live-api-token-auth.md) — Optional live API token
 - [ADR-0009](adr/0009-mqtt-payload-schema.md) — MQTT payload schema
 - [ADR-0010](adr/0010-apply-verify-loop.md) — Apply verification loop
+- [ADR-0011](adr/0011-lab-mqtt-tls.md) — Lab MQTT TLS stub
 
 ## Next focus (0.5.x → 0.6)
 
