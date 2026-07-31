@@ -4,6 +4,8 @@ All notable TwinOps changes are listed here. Dates are UTC.
 
 ## Unreleased
 
+## 0.3.6 — 2026-07-31
+
 - CONTRIBUTING documents `scene-live` in the docker-live path
 - `.gitattributes` + CODEOWNERS for schemas/scene/telemetry
 - Docs mention `/tmp` artifacts from `make scene-live`
