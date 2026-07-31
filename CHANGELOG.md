@@ -4,6 +4,10 @@ All notable TwinOps changes are listed here. Dates are UTC.
 
 ## Unreleased
 
+## 0.5.8 — 2026-07-31
+
+- `make mqtt-tls-smoke` / `scripts/mqtt_tls_smoke.sh` end-to-end lab TLS pub/sub
+
 ## 0.5.7 — 2026-07-31
 
 - `twinopsctl serve --mqtt-tls` / `--mqtt-ca` / `--mqtt-tls-insecure` for lab TLS brokers
