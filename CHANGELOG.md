@@ -4,6 +4,7 @@ All notable TwinOps changes are listed here. Dates are UTC.
 
 ## Unreleased
 
+- Live `GET /api/scene/report` + `GET /api/mqtt/topics` (+ example catalog JSON)
 - Offline scene HTML report (`twinopsctl scene --html`)
 - Bash completion (`eval "$(twinopsctl completion bash)"`)
 - `.editorconfig`
