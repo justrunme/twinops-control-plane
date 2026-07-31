@@ -94,11 +94,22 @@ class LiveDriftRuntime:
         )
         self._thread.start()
 
+    def mqtt_status(self) -> dict[str, Any]:
+        endpoint = self.bus.mqtt_endpoint
+        return {
+            "requested": bool(self._mqtt_host),
+            "enabled": self.bus.mqtt_enabled,
+            "host": self._mqtt_host,
+            "port": self._mqtt_port if self._mqtt_host else None,
+            "endpoint": endpoint,
+        }
+
     def stop(self) -> None:
         self._stop.set()
         if self._thread:
             self._thread.join(timeout=2)
             self._thread = None
+        self.bus.disable_mqtt()
 
     def trigger_spike(self) -> dict[str, Any]:
         self.simulator.trigger_spike()

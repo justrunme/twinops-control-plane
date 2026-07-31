@@ -40,6 +40,20 @@ class TelemetryBus:
         self._subscribers: list[Subscriber] = []
         self._lock = threading.RLock()
         self._mqtt = None
+        self._mqtt_host: str | None = None
+        self._mqtt_port: int | None = None
+
+    @property
+    def mqtt_enabled(self) -> bool:
+        with self._lock:
+            return self._mqtt is not None
+
+    @property
+    def mqtt_endpoint(self) -> dict[str, Any] | None:
+        with self._lock:
+            if self._mqtt is None or self._mqtt_host is None or self._mqtt_port is None:
+                return None
+            return {"host": self._mqtt_host, "port": self._mqtt_port}
 
     def subscribe(self, callback: Subscriber) -> None:
         with self._lock:
@@ -85,9 +99,26 @@ class TelemetryBus:
             logger.warning("mqtt broker unavailable at %s:%s (%s)", host, port, exc)
             return False
         client.loop_start()
-        self._mqtt = client
+        with self._lock:
+            self._mqtt = client
+            self._mqtt_host = host
+            self._mqtt_port = port
         logger.info("mqtt bridge enabled %s:%s", host, port)
         return True
+
+    def disable_mqtt(self) -> None:
+        with self._lock:
+            client = self._mqtt
+            self._mqtt = None
+            self._mqtt_host = None
+            self._mqtt_port = None
+        if client is None:
+            return
+        try:
+            client.loop_stop()
+            client.disconnect()
+        except Exception:  # noqa: BLE001
+            logger.exception("mqtt disconnect failed")
 
     @staticmethod
     def now() -> str:

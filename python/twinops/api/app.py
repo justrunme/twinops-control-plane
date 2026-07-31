@@ -78,7 +78,12 @@ def create_app(
 
     @app.get("/api/health")
     def health() -> dict[str, Any]:
-        return {"status": "ok", "version": __version__, "service": "twinops-live"}
+        return {
+            "status": "ok",
+            "version": __version__,
+            "service": "twinops-live",
+            "mqtt": runtime.mqtt_status(),
+        }
 
     @app.get("/api/twin")
     def twin() -> dict[str, Any]:
