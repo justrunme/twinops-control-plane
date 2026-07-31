@@ -25,7 +25,7 @@ class _Resp:
 
 def test_live_status_cli(capsys) -> None:
     responses = [
-        _Resp({"status": "ok", "version": "0.3.6"}),
+        _Resp({"status": "ok", "version": "0.3.7"}),
         _Resp(
             {
                 "status": "ready",
