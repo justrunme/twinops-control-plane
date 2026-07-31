@@ -4,6 +4,7 @@ All notable TwinOps changes are listed here. Dates are UTC.
 
 ## Unreleased
 
+- Live-demo smoke validates `/api/scene` against twinops.highlight.v1
 - `scripts/wait_ready.sh` / `make wait-ready` for compose/demo boots
 
 ## 0.3.3 — 2026-07-31
