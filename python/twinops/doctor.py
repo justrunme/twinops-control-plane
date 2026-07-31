@@ -191,5 +191,31 @@ def run_doctor(*, mqtt_host: str = "127.0.0.1", mqtt_port: int = 1883) -> list[C
             required=False,
         )
     )
+    mqtt_tls = Path("deploy/demo/docker-compose.mqtt-tls.yml")
+    checks.append(
+        Check(
+            name="mqtt-tls-profile",
+            ok=mqtt_tls.is_file(),
+            detail=(
+                "deploy/demo/docker-compose.mqtt-tls.yml present (lab TLS stub)"
+                if mqtt_tls.is_file()
+                else "missing deploy/demo/docker-compose.mqtt-tls.yml"
+            ),
+            required=False,
+        )
+    )
+    demo_gitops = Path("scripts/demo_gitops.sh")
+    checks.append(
+        Check(
+            name="demo-gitops-script",
+            ok=demo_gitops.is_file(),
+            detail=(
+                "scripts/demo_gitops.sh present"
+                if demo_gitops.is_file()
+                else "missing scripts/demo_gitops.sh"
+            ),
+            required=False,
+        )
+    )
 
     return checks

@@ -4,6 +4,15 @@ All notable TwinOps changes are listed here. Dates are UTC.
 
 ## Unreleased
 
+## 0.5.3 — 2026-07-31
+
+- `make demo-gitops` / `scripts/demo_gitops.sh` offline apply+verify walkthrough
+- `twinopsctl apply --no-branch` copies artifacts without switching git branches
+- Lab MQTT TLS compose stub (`:8883`, self-signed certs gitignored)
+- Helm umbrella live API token via Secret (`twinops-live-api`)
+- Doctor checks for MQTT TLS profile + demo-gitops script
+- Roadmap Next focus updated (0.5.x → 0.6)
+
 ## 0.5.2 — 2026-07-31
 
 - `twinopsctl doctor` checks MQTT ACL profile + Helm umbrella presence

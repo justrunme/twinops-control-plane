@@ -27,6 +27,9 @@ helm upgrade --install twinops deploy/helm/twinops \
 
 ## Optional live Deployment
 
+`live.apiToken` is stored in a Kubernetes Secret (`twinops-live-api`) and mounted
+as `TWINOPS_API_TOKEN` (not passed as a container arg).
+
 ```bash
 helm upgrade --install twinops deploy/helm/twinops \
   --namespace twinops-system --create-namespace \
