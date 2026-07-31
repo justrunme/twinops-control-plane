@@ -124,9 +124,23 @@ See [docs/plm-adapter.md](docs/plm-adapter.md).
 make serve
 # other terminal:
 make scene-highlight
+make scene   # offline JSON + HTML highlight report
 ```
 
 See [docs/omniverse.md](docs/omniverse.md).
+
+### Local DX probes
+
+```bash
+make doctor
+make health
+make timeline
+twinopsctl proposal
+twinopsctl openapi --out /tmp/twinops-openapi.json
+make verify-all
+```
+
+Docs index: [docs/README.md](docs/README.md). Security: [SECURITY.md](SECURITY.md).
 
 ### Dev UI (Vite hot reload)
 
@@ -205,13 +219,15 @@ The compiler turns this into OpenUSD overlay layers with `twinops:*` custom attr
 ```text
 twinops-control-plane/
 ├── python/twinops/          # Compiler, drift, live API, PLM mock, CLI
-├── examples/assembly-line/  # Demo factory line + sample USDA + PLM catalog
-├── scripts/                 # live-demo / mqtt-smoke / operator-demo
+├── examples/assembly-line/  # Demo factory line + sample USDA + PLM/MQTT catalogs
+├── scripts/                 # live-demo / mqtt-smoke / operator-demo / sync helpers
 ├── docs/                    # Architecture, USD model, ADRs, roadmap
 ├── api/                     # DigitalTwin CRD types (Go)
 ├── controllers/             # Kubernetes operator controllers
 ├── cmd/manager/             # Operator manager entrypoint
 ├── deploy/helm/             # Helm chart for the operator
+├── Dockerfile.live          # Demo live API + web UI image
+├── Dockerfile.operator      # Operator manager image
 ├── extensions/              # Omniverse Kit highlight stub
 ├── usd/                     # Generated / shared USD workspace
 └── web/                     # Live control-plane UI + mock Kit viewport
