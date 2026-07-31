@@ -25,6 +25,9 @@ spec:
         - name: Drift
           type: string
           jsonPath: .status.drift.status
+        - name: Live
+          type: boolean
+          jsonPath: .status.live.ready
         - name: Critical
           type: integer
           jsonPath: .status.drift.critical
