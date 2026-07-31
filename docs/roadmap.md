@@ -82,6 +82,7 @@ twinopsctl drift \
 - [ADR-0002](adr/0002-kubernetes-operator.md) — Kubernetes operator
 - [ADR-0003](adr/0003-scene-highlight-protocol.md) — Scene highlight without GPU
 - [ADR-0004](adr/0004-bidirectional-mqtt-bridge.md) — Bidirectional MQTT bridge
+- [ADR-0005](adr/0005-drift-sarif-export.md) — Drift findings as SARIF
 
 ## Non-goals (for now)
 
