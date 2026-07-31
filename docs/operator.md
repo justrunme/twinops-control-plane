@@ -9,30 +9,64 @@ DigitalTwin CR
    → status.phase / status.drift
 ```
 
-## Install CRD
+## Fastest path: local cluster demo
+
+Requires Docker + kubectl, plus **k3d** (preferred) or **kind**.
+
+```bash
+make install
+make operator-demo
+```
+
+Provider selection (`TWINOPS_CLUSTER_PROVIDER`):
+
+- `auto` (default) — k3d if installed, otherwise kind
+- `k3d` / `kind` — force one provider
+
+What it does:
+
+1. Creates (or reuses) local cluster `twinops`
+2. Applies the `DigitalTwin` CRD
+3. Applies a sample CR pointing at `examples/assembly-line`
+4. Runs the manager out-of-cluster
+5. Waits for `status.phase` = `Ready` or `DriftDetected`
+
+Cleanup:
+
+```bash
+make operator-demo-cleanup
+```
+
+Useful watches:
+
+```bash
+kubectl -n twinops-system get dtwin -w
+kubectl -n twinops-system describe dtwin assembly-line-a
+```
+
+## Install CRD only
 
 ```bash
 kubectl apply -f config/crd/bases/twinops.io_digitaltwins.yaml
 ```
 
-## Run locally (no image build)
+## Run locally against an existing kubeconfig
 
 ```bash
 make install
 make operator-run
 ```
 
-In another shell (with kubeconfig pointing at a cluster):
+In another shell:
 
 ```bash
-kubectl apply -f config/rbac/service_account.yaml
-kubectl apply -f config/rbac/role.yaml
-kubectl apply -f config/rbac/role_binding.yaml
+kubectl apply -f config/samples/namespace.yaml
 kubectl apply -f config/samples/twinops_v1alpha1_digitaltwin.yaml
 kubectl get digitaltwins -A
 ```
 
-For the sample CR, mount/copy `examples/assembly-line` to the paths referenced in `spec.manifestPath`.
+For the stock sample CR, paths are `/examples/...` (container/hostPath layout).
+The local cluster demo generates absolute host paths automatically.
 
 ## Helm
 
