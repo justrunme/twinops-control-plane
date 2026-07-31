@@ -3,7 +3,7 @@ PIP ?= $(PYTHON) -m pip
 VENV ?= .venv
 BIN := $(VENV)/bin
 
-.PHONY: help venv install test lint build demo live-demo live-demo-smoke demo-gitops mqtt-up mqtt-down mqtt-smoke mqtt-topics mqtt-topics-sync mqtt-topics-check mqtt-acl-up mqtt-acl-down mqtt-tls-certs mqtt-tls-up mqtt-tls-down drift serve web web-dev operator-build operator-run operator-demo operator-demo-watch operator-demo-cleanup scene scene-live scene-highlight plm-demo verify-all doctor health ready wait-ready timeline proposal metrics live-status live-spike live-reconcile openapi version docker-live docker-operator docker-live-up docker-live-down go-test clean apply apply-live apply-verify
+.PHONY: help venv install test lint build demo live-demo live-demo-smoke demo-gitops mqtt-up mqtt-down mqtt-smoke mqtt-topics mqtt-topics-sync mqtt-topics-check mqtt-acl-up mqtt-acl-down mqtt-tls-certs mqtt-tls-up mqtt-tls-down drift serve web web-dev operator-build operator-run operator-demo operator-demo-watch operator-demo-cleanup scene scene-live scene-highlight plm-demo verify-all doctor health ready wait-ready timeline proposal metrics live-status live-spike live-reconcile openapi version docker-live docker-operator docker-live-up docker-live-down go-test clean apply apply-live apply-verify helm-deps helm-template
 
 help:
 	@echo "TwinOps targets:"
@@ -49,6 +49,8 @@ help:
 	@echo "  make mqtt-acl-up     - Mosquitto with password+ACL (lab only)"
 	@echo "  make mqtt-tls-certs  - generate lab self-signed MQTT TLS certs"
 	@echo "  make mqtt-tls-up     - Mosquitto TLS listener on :8883 (lab only)"
+	@echo "  make helm-deps       - helm dependency update for umbrella chart"
+	@echo "  make helm-template   - render umbrella chart (live stub enabled)"
 	@echo "  make serve           - live MQTT-style simulator + drift API"
 	@echo "  make web             - build web control plane into web/dist"
 	@echo "  make web-dev         - run Vite UI (proxies API on :8080)"
@@ -169,7 +171,7 @@ version:
 	$(BIN)/twinopsctl version
 
 docker-live:
-	docker build -f Dockerfile.live -t twinops-live:0.5.4 .
+	docker build -f Dockerfile.live -t twinops-live:0.5.5 .
 
 docker-live-up:
 	docker compose -f deploy/demo/docker-compose.live.yml up --build -d
@@ -178,7 +180,7 @@ docker-live-down:
 	docker compose -f deploy/demo/docker-compose.live.yml down
 
 docker-operator:
-	docker build -f Dockerfile.operator -t twinops-operator:0.5.4 .
+	docker build -f Dockerfile.operator -t twinops-operator:0.5.5 .
 
 drift:
 	$(BIN)/twinopsctl build examples/assembly-line/twin.yaml --out examples/assembly-line/generated
@@ -233,6 +235,15 @@ mqtt-tls-down:
 
 demo-gitops:
 	./scripts/demo_gitops.sh
+
+helm-deps:
+	helm dependency update deploy/helm/twinops
+
+helm-template: helm-deps
+	helm template twinops deploy/helm/twinops \
+		--namespace twinops-system \
+		--set live.enabled=true \
+		--set live.apiToken=demo-token
 
 serve:
 	$(BIN)/twinopsctl serve --example examples/assembly-line --host 127.0.0.1 --port 8080

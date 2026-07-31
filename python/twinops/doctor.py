@@ -191,6 +191,19 @@ def run_doctor(*, mqtt_host: str = "127.0.0.1", mqtt_port: int = 1883) -> list[C
             required=False,
         )
     )
+    chart_lock = Path("deploy/helm/twinops/Chart.lock")
+    checks.append(
+        Check(
+            name="helm-chartlock",
+            ok=chart_lock.is_file(),
+            detail=(
+                "deploy/helm/twinops/Chart.lock present"
+                if chart_lock.is_file()
+                else "missing Chart.lock (run make helm-deps)"
+            ),
+            required=False,
+        )
+    )
     mqtt_tls = Path("deploy/demo/docker-compose.mqtt-tls.yml")
     checks.append(
         Check(
