@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import importlib.util
+import json
 import shutil
 import socket
 import subprocess
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 
@@ -122,5 +124,45 @@ def run_doctor(*, mqtt_host: str = "127.0.0.1", mqtt_port: int = 1883) -> list[C
             required=False,
         )
     )
+
+    catalog_path = Path("examples/assembly-line/mqtt-topics.json")
+    try:
+        from twinops.telemetry.topics import topic_catalog
+
+        expected = topic_catalog()
+        expected.pop("status", None)
+        if catalog_path.is_file():
+            current = json.loads(catalog_path.read_text(encoding="utf-8"))
+            synced = current == expected
+            checks.append(
+                Check(
+                    name="mqtt-topic-catalog",
+                    ok=synced,
+                    detail=(
+                        "examples/assembly-line/mqtt-topics.json matches in-code catalog"
+                        if synced
+                        else "out of sync (run: python scripts/sync_mqtt_topics.py)"
+                    ),
+                    required=False,
+                )
+            )
+        else:
+            checks.append(
+                Check(
+                    name="mqtt-topic-catalog",
+                    ok=False,
+                    detail=f"missing {catalog_path}",
+                    required=False,
+                )
+            )
+    except Exception as exc:  # noqa: BLE001 - doctor must not crash
+        checks.append(
+            Check(
+                name="mqtt-topic-catalog",
+                ok=False,
+                detail=f"catalog check failed: {exc}",
+                required=False,
+            )
+        )
 
     return checks
