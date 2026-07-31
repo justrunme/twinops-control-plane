@@ -69,6 +69,12 @@ twinopsctl drift \
 - GPU Operator / Kit App Streaming notes (`docs/omniverse.md`)
 - Remaining: real Kit App Streaming session + browser client
 
+## PLM adapter ✅ (mock)
+
+- JSON catalog (`examples/assembly-line/plm-catalog.json`)
+- `twinopsctl plm show|compare|bump|sync|desired`
+- Vendor-neutral mock only — no proprietary PLM SDK
+
 ## Non-goals (for now)
 
 - Claiming production / enterprise readiness

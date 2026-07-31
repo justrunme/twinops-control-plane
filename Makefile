@@ -15,6 +15,7 @@ help:
 	@echo "  make live-demo-smoke - spike→reconcile smoke (no browser)"
 	@echo "  make mqtt-smoke      - Mosquitto bridge smoke (compose + subscribe)"
 	@echo "  make scene-highlight - poll /api/scene and print Kit highlight plan"
+	@echo "  make plm-demo        - mock PLM bump → compare → show drift"
 	@echo "  make demo            - offline self-healing drift demo"
 	@echo "  make drift           - build + drift against sample telemetry"
 	@echo "  make serve           - live MQTT-style simulator + drift API"
@@ -59,6 +60,11 @@ mqtt-smoke:
 
 scene-highlight:
 	$(PYTHON) extensions/twinops_highlight/twinops_highlight/client.py --base-url http://127.0.0.1:8080
+
+plm-demo:
+	$(BIN)/twinopsctl plm show --example examples/assembly-line
+	$(BIN)/twinopsctl plm compare --example examples/assembly-line
+	@echo "(bump is intentionally manual — see docs/plm-adapter.md)"
 
 drift:
 	$(BIN)/twinopsctl build examples/assembly-line/twin.yaml --out examples/assembly-line/generated
