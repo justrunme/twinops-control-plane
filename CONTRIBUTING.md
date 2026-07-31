@@ -55,6 +55,12 @@ Avoid bundling unrelated refactors with feature work.
 - Mark mock Kit streaming / anonymous MQTT as demo-only.
 - Prefer ADRs for architectural choices (`docs/adr/`).
 
+## CLI JSON contract
+
+When a command supports `--json`, stdout must be **JSON only** (no tables /
+“Wrote …” lines mixed in). Human summaries stay on the default (non-`--json`)
+path. This keeps `live-demo-smoke` and other scripts parseable.
+
 ## Useful docs
 
 Full index: [docs/README.md](docs/README.md).
