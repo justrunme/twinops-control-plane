@@ -1,2 +1,7 @@
 # Default reviewer for TwinOps control-plane changes.
 * @justrunme
+
+# Contract surfaces
+/schemas/ @justrunme
+/python/twinops/scene/ @justrunme
+/python/twinops/telemetry/ @justrunme
