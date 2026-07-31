@@ -9,6 +9,11 @@ DigitalTwin CR
    → status.phase / status.drift
 ```
 
+## Toolchain
+
+- Go **1.26.x** (see `go.mod` / CI `setup-go`)
+- `twinopsctl` on `PATH` (or via `make install` / `--twinopsctl=`)
+
 ## Fastest path: local cluster demo
 
 Requires Docker + kubectl, plus **k3d** (preferred) or **kind**.
