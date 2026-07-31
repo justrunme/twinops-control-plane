@@ -126,7 +126,13 @@ def create_app(
         client = _WsClient(websocket, asyncio.get_running_loop())
         runtime.register_ws(client)
         try:
-            await websocket.send_json({"type": "snapshot", "snapshot": store.snapshot()})
+            await websocket.send_json(
+                {
+                    "type": "snapshot",
+                    "snapshot": store.snapshot(),
+                    "scene": runtime.scene_snapshot(),
+                }
+            )
             while True:
                 await websocket.receive_text()
         except WebSocketDisconnect:

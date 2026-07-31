@@ -197,6 +197,7 @@ class LiveDriftRuntime:
                 "type": "reconcile",
                 "event": event.to_dict(),
                 "snapshot": self.store.snapshot(),
+                "scene": self.scene_snapshot(),
             }
         )
         return {
@@ -204,6 +205,7 @@ class LiveDriftRuntime:
             "drift": after,
             "healed": healed,
             "changes": len(proposal.changes),
+            "scene": self.scene_snapshot(),
         }
 
     def register_ws(self, client: Any) -> None:
@@ -272,6 +274,7 @@ class LiveDriftRuntime:
                 "type": "drift",
                 "event": event.to_dict(),
                 "snapshot": self.store.snapshot(),
+                "scene": self.scene_snapshot(),
             }
         )
         return payload

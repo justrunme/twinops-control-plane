@@ -52,13 +52,17 @@ export default function App() {
       const payload = message as {
         type?: string
         snapshot?: TwinSnapshot
+        scene?: SceneSnapshot
         event?: TwinSnapshot['timeline'][number]
+      }
+      if (payload.scene) {
+        setScene(payload.scene)
       }
       if (payload.snapshot) {
         setSnap(payload.snapshot)
         setConnected(true)
         setError(null)
-        refreshScene()
+        if (!payload.scene) refreshScene()
         return
       }
       if (payload.event) {
@@ -71,7 +75,7 @@ export default function App() {
           return { ...prev, timeline }
         })
         setConnected(true)
-        if (payload.event?.type === 'drift' || payload.event?.type === 'reconcile') {
+        if (!payload.scene && (payload.event?.type === 'drift' || payload.event?.type === 'reconcile')) {
           refreshScene()
         }
       }
@@ -98,6 +102,11 @@ export default function App() {
   const summaryChips = useMemo(
     () => Object.entries(summary).sort(([a], [b]) => a.localeCompare(b)),
     [summary],
+  )
+
+  const litPrims = useMemo(
+    () => (scene?.prims ?? []).filter((prim) => prim.highlight.enabled),
+    [scene],
   )
 
   const demoStep =
@@ -207,42 +216,80 @@ export default function App() {
         ))}
       </div>
 
-      <section className="panel scene-panel">
-        <div className="panel-head">
-          <h2>Scene inspector</h2>
-          <small>{scene?.protocol?.name ?? 'twinops.highlight.v1'} · no GPU required</small>
-        </div>
-        <div className="scene-tree">
-          {(scene?.prims ?? []).length === 0 ? (
-            <p className="scene-empty">Waiting for scene snapshot…</p>
-          ) : (
-            (scene?.prims ?? []).map((prim) => {
-              const color = STATUS_COLOR[prim.status] ?? '#64748b'
-              const depth = Math.max(0, prim.prim.split('/').filter(Boolean).length - 3)
-              return (
-                <div
-                  key={prim.prim}
-                  className={`scene-node ${prim.highlight.enabled ? 'lit' : ''}`}
-                  style={{
-                    marginLeft: `${depth * 16}px`,
-                    borderColor: color,
-                    boxShadow: prim.highlight.enabled
-                      ? `0 0 ${10 + prim.highlight.intensity * 18}px ${color}55`
-                      : 'none',
-                  }}
-                >
-                  <span className="scene-dot" style={{ background: color }} />
-                  <strong>{prim.label}</strong>
-                  <code>{prim.prim}</code>
-                  <span className="pill" style={{ background: color }}>
-                    {prim.status}
-                  </span>
-                </div>
-              )
-            })
-          )}
-        </div>
-      </section>
+      <div className="scene-layout">
+        <section className="panel scene-panel">
+          <div className="panel-head">
+            <h2>Scene inspector</h2>
+            <small>{scene?.protocol?.name ?? 'twinops.highlight.v1'} · live WS</small>
+          </div>
+          <div className="scene-tree">
+            {(scene?.prims ?? []).length === 0 ? (
+              <p className="scene-empty">Waiting for scene snapshot…</p>
+            ) : (
+              (scene?.prims ?? []).map((prim) => {
+                const color = STATUS_COLOR[prim.status] ?? '#64748b'
+                const depth = Math.max(0, prim.prim.split('/').filter(Boolean).length - 3)
+                return (
+                  <div
+                    key={prim.prim}
+                    className={`scene-node ${prim.highlight.enabled ? 'lit' : ''}`}
+                    style={{
+                      marginLeft: `${depth * 16}px`,
+                      borderColor: color,
+                      boxShadow: prim.highlight.enabled
+                        ? `0 0 ${10 + prim.highlight.intensity * 18}px ${color}55`
+                        : 'none',
+                    }}
+                  >
+                    <span className="scene-dot" style={{ background: color }} />
+                    <strong>{prim.label}</strong>
+                    <code>{prim.prim}</code>
+                    <span className="pill" style={{ background: color }}>
+                      {prim.status}
+                    </span>
+                  </div>
+                )
+              })
+            )}
+          </div>
+        </section>
+
+        <section className="panel stream-panel">
+          <div className="panel-head">
+            <h2>Kit stream (mock)</h2>
+            <small>placeholder · no GPU / NVCF</small>
+          </div>
+          <div className={`stream-viewport ${litPrims.length ? 'alerting' : 'calm'}`}>
+            <div className="stream-grid">
+              {(scene?.prims ?? [])
+                .filter((prim) => prim.label !== 'LineA')
+                .map((prim) => {
+                  const color = STATUS_COLOR[prim.status] ?? '#64748b'
+                  return (
+                    <div
+                      key={prim.prim}
+                      className={`stream-cell ${prim.highlight.enabled ? 'hot' : ''}`}
+                      style={{
+                        borderColor: color,
+                        background: prim.highlight.enabled
+                          ? `${color}33`
+                          : 'rgba(8, 20, 15, 0.55)',
+                      }}
+                    >
+                      <span>{prim.label}</span>
+                      <small>{prim.status}</small>
+                    </div>
+                  )
+                })}
+            </div>
+            <p className="stream-caption">
+              {litPrims.length
+                ? `${litPrims.length} prim(s) highlighted — Kit extension would select these`
+                : 'All prims calm — streaming client idle'}
+            </p>
+          </div>
+        </section>
+      </div>
 
       <div className="grid">
         <section className="panel">
