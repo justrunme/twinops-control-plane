@@ -35,13 +35,13 @@ twinopsctl drift \
 - Self-healing demo script (`make demo`)
 - Tests
 
-## Milestone 3 — Kubernetes operator
+## Milestone 3 — Kubernetes operator ✅ (foundation)
 
-- `DigitalTwin` CRD (Kubebuilder)
-- Reconciliation: fetch → compose → store → status
-- Conditions / finalizers
-- Object storage upload
-- envtest integration tests
+- `DigitalTwin` CRD + Go types
+- controller-runtime reconcile loop (`build` + optional `drift`)
+- Status phases / conditions / finalizer
+- Helm chart + sample CR
+- Local `make operator-run`
 
 ## Milestone 4 — Live telemetry
 

@@ -157,12 +157,13 @@ twinops-control-plane/
 ├── examples/assembly-line/  # Demo factory line + sample USDA
 ├── scripts/                 # End-to-end demo scripts
 ├── docs/                    # Architecture, USD model, ADRs, roadmap
-├── api/                     # Future Kubernetes CRD types (Go)
-├── controllers/             # Future operator controllers
+├── api/                     # DigitalTwin CRD types (Go)
+├── controllers/             # Kubernetes operator controllers
+├── cmd/manager/             # Operator manager entrypoint
+├── deploy/helm/             # Helm chart for the operator
 ├── usd/                     # Generated / shared USD workspace
 ├── kit-app/                 # Planned Omniverse Kit extension
-├── web/                     # Planned control-plane UI
-└── deploy/                  # Helm / Argo CD / observability (later)
+└── web/                     # Planned control-plane UI
 ```
 
 About **70% of the platform** (compiler, drift engine, operator, GitOps, observability, mock adapters) can be built **without an NVIDIA GPU**. GPU is required only for Kit rendering and streaming.
@@ -181,7 +182,7 @@ Robot → Conveyor → Scanner → Packaging
 4. Scene metadata highlights revision or telemetry drift  
 5. A reconciliation proposal restores the desired composition  
 
-Milestones 1–2 deliver composition, drift detection, HTML report, and a reconciliation proposal. Kubernetes operator comes next.
+Milestones 1–2 deliver composition, drift detection, HTML report, and a reconciliation proposal. The Kubernetes operator reconciles `DigitalTwin` CRs via `twinopsctl`.
 
 ---
 
@@ -192,7 +193,7 @@ Milestones 1–2 deliver composition, drift detection, HTML report, and a reconc
 | 0         | Repository foundation, docs, sample scene  | **done**    |
 | 1         | OpenUSD Digital Twin Compiler + CLI        | **done**    |
 | 2         | Drift engine + reconcile proposal + demo   | **done**    |
-| 3         | Kubernetes operator + DigitalTwin CRD      | planned     |
+| 3         | Kubernetes operator + DigitalTwin CRD      | in progress |
 | 4         | Live MQTT telemetry adapter                | planned     |
 | 5         | Omniverse Kit extension (highlight + panel)| planned     |
 | 6         | GPU streaming + browser client             | planned     |

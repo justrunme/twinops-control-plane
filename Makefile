@@ -3,18 +3,21 @@ PIP ?= $(PYTHON) -m pip
 VENV ?= .venv
 BIN := $(VENV)/bin
 
-.PHONY: help venv install test lint build demo drift clean
+.PHONY: help venv install test lint build demo drift operator-build operator-run go-test clean
 
 help:
 	@echo "TwinOps targets:"
-	@echo "  make venv     - create virtualenv"
-	@echo "  make install  - install package + dev deps"
-	@echo "  make test     - run unit tests"
-	@echo "  make lint     - run ruff"
-	@echo "  make demo     - full self-healing drift demo"
-	@echo "  make drift    - build + drift against sample telemetry"
-	@echo "  make build    - build sdist/wheel"
-	@echo "  make clean    - remove build artifacts"
+	@echo "  make venv            - create virtualenv"
+	@echo "  make install         - install package + dev deps"
+	@echo "  make test            - run Python unit tests"
+	@echo "  make lint            - run ruff"
+	@echo "  make demo            - full self-healing drift demo"
+	@echo "  make drift           - build + drift against sample telemetry"
+	@echo "  make operator-build  - build Go operator manager binary"
+	@echo "  make operator-run    - run operator against current kubeconfig"
+	@echo "  make go-test         - run Go tests"
+	@echo "  make build           - build sdist/wheel"
+	@echo "  make clean           - remove build artifacts"
 
 venv:
 	$(PYTHON) -m venv $(VENV)
@@ -45,7 +48,16 @@ drift:
 		--out examples/assembly-line/generated/drift \
 		--propose examples/assembly-line/generated/proposal
 
+operator-build:
+	go build -o bin/manager ./cmd/manager
+
+operator-run: operator-build
+	./bin/manager --twinopsctl=$(BIN)/twinopsctl
+
+go-test:
+	go test ./...
+
 clean:
-	rm -rf dist build *.egg-info python/*.egg-info .pytest_cache .ruff_cache .coverage
+	rm -rf dist build bin *.egg-info python/*.egg-info .pytest_cache .ruff_cache .coverage
 	rm -rf examples/assembly-line/generated examples/assembly-line/demo-run usd/generated
 	find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
