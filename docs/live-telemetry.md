@@ -18,7 +18,15 @@ API:
 | `GET /api/drift/latest` | latest drift report |
 | `GET /api/timeline` | recent telemetry/drift events |
 | `POST /api/simulate/spike` | force overheating robot event |
+| `POST /api/reconcile` | generate proposal, apply USD overlay, heal line |
+| `GET /api/proposal/latest` | last reconciliation proposal |
 | `WS /ws/events` | live event stream |
+
+Demo flow in the web UI:
+
+1. **Trigger heat spike** → CRITICAL / DRIFT findings appear  
+2. **Apply reconciliation** → USD overlay applied, simulator healed, twin returns to SYNCED  
+
 
 ## MQTT bridge (optional)
 

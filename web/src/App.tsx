@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { connectEvents, fetchTwin, triggerSpike } from './api'
+import { connectEvents, fetchTwin, triggerReconcile, triggerSpike } from './api'
 import type { TwinSnapshot } from './types'
 
 const STATUS_COLOR: Record<string, string> = {
@@ -23,7 +23,8 @@ export default function App() {
   const [snap, setSnap] = useState<TwinSnapshot | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [connected, setConnected] = useState(false)
-  const [busy, setBusy] = useState(false)
+  const [busy, setBusy] = useState<'spike' | 'reconcile' | null>(null)
+  const [flash, setFlash] = useState<string | null>(null)
 
   useEffect(() => {
     let ws: WebSocket | null = null
@@ -74,20 +75,48 @@ export default function App() {
   const hasDrift = Boolean(snap?.drift?.status?.hasDrift)
   const temp = snap?.simulator?.robot_temp
   const robotStatus = snap?.simulator?.robot_status
+  const reconciled = Boolean(snap?.twin?.reconciled)
+  const critical = Number(summary.CRITICAL ?? 0)
+  const driftCount = Number(summary.DRIFT ?? 0)
 
   const summaryChips = useMemo(
     () => Object.entries(summary).sort(([a], [b]) => a.localeCompare(b)),
     [summary],
   )
 
+  const demoStep =
+    critical > 0 ? 2 : hasDrift && !reconciled ? 1 : reconciled && !hasDrift ? 4 : reconciled ? 3 : 1
+
   async function onSpike() {
-    setBusy(true)
+    setBusy('spike')
+    setFlash(null)
     try {
       await triggerSpike()
+      setFlash('Heat spike injected — critical drift should appear')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'spike failed')
     } finally {
-      setBusy(false)
+      setBusy(null)
+    }
+  }
+
+  async function onReconcile() {
+    setBusy('reconcile')
+    setFlash(null)
+    try {
+      const result = await triggerReconcile()
+      const stillDrifting = Boolean(result.drift?.status?.hasDrift)
+      setFlash(
+        stillDrifting
+          ? `Applied ${result.changes} changes — residual findings remain`
+          : `Applied ${result.changes} changes — twin returned to SYNCED`,
+      )
+      const refreshed = await fetchTwin()
+      setSnap(refreshed)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'reconcile failed')
+    } finally {
+      setBusy(null)
     }
   }
 
@@ -105,19 +134,33 @@ export default function App() {
           <span className={`link ${connected ? 'ok' : 'bad'}`}>
             {connected ? 'LIVE' : 'OFFLINE'}
           </span>
-          <button type="button" onClick={onSpike} disabled={busy}>
-            {busy ? 'Spiking…' : 'Trigger heat spike'}
+          <button type="button" className="secondary" onClick={onSpike} disabled={busy !== null}>
+            {busy === 'spike' ? 'Spiking…' : '1. Trigger heat spike'}
+          </button>
+          <button type="button" onClick={onReconcile} disabled={busy !== null}>
+            {busy === 'reconcile' ? 'Reconciling…' : '2. Apply reconciliation'}
           </button>
         </div>
       </header>
 
+      <ol className="steps">
+        <li className={demoStep >= 1 ? 'active' : ''}>Drift visible</li>
+        <li className={demoStep >= 2 ? 'active' : ''}>Critical spike</li>
+        <li className={demoStep >= 3 ? 'active' : ''}>Reconcile applied</li>
+        <li className={demoStep >= 4 ? 'active' : ''}>Synced</li>
+      </ol>
+
       {error ? <div className="banner error">{error}</div> : null}
+      {flash ? <div className="banner ok">{flash}</div> : null}
 
       <section className="status-row">
         <article>
           <span className="label">Twin</span>
           <strong>{snap?.twin?.name ?? '—'}</strong>
-          <small>variant {snap?.twin?.variant ?? '—'}</small>
+          <small>
+            variant {snap?.twin?.variant ?? '—'}
+            {reconciled ? ' · reconciled' : ''}
+          </small>
         </article>
         <article>
           <span className="label">Robot01</span>
@@ -131,7 +174,10 @@ export default function App() {
           <strong className={hasDrift ? 'bad-text' : 'ok-text'}>
             {hasDrift ? 'DETECTED' : 'SYNCED'}
           </strong>
-          <small>{snap?.drift?.metadata?.generatedAt ?? 'waiting for stream'}</small>
+          <small>
+            {driftCount} drift · {critical} critical ·{' '}
+            {snap?.drift?.metadata?.generatedAt ?? 'waiting for stream'}
+          </small>
         </article>
       </section>
 
@@ -167,7 +213,9 @@ export default function App() {
                   </tr>
                 ) : (
                   findings.map((finding) => (
-                    <tr key={`${finding.prim}-${finding.attribute}-${finding.status}-${finding.message}`}>
+                    <tr
+                      key={`${finding.prim}-${finding.attribute}-${finding.status}-${finding.message}`}
+                    >
                       <td>{shortPrim(finding.prim)}</td>
                       <td>
                         <code>{finding.attribute.replace('twinops:', '')}</code>
