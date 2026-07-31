@@ -7,7 +7,7 @@ live:
   enabled: false
   image:
     repository: ghcr.io/justrunme/twinops-live
-    tag: "0.10.0"
+    tag: "0.11.0"
   service:
     port: 8080
   apiToken: ""

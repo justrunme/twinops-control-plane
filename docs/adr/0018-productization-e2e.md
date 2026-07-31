@@ -12,7 +12,7 @@ one operational lifecycle, with persistence across restarts and CI coverage.
 
 ## Decision
 
-1. Ship `make portfolio-demo` as the canonical one-command scenario.
+1. Ship `make e2e-demo` as the canonical one-command scenario.
 2. Persist timeline / proposals / audit in optional SQLite (`twinopsctl serve --db`).
 3. Add `incident replay --verify` against `expectedFinalState` /
    `expectedCriticalDrifts`.
@@ -22,6 +22,6 @@ one operational lifecycle, with persistence across restarts and CI coverage.
 
 ## Consequences
 
-- CI runs the portfolio demo and uploads artifacts
+- CI runs the E2E demo and uploads artifacts
 - v0.11 GPU streaming sidecar can assume a stable control-plane loop
 - 1.0 waits for streaming + ops checklist, not for more feature sprawl

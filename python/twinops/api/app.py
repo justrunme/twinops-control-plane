@@ -50,10 +50,13 @@ def create_app(
     sso_secret: str | None = None,
     webrtc: bool | None = None,
     db_path: str | Path | None = None,
+    streaming_sidecar_url: str | None = None,
 ) -> FastAPI:
     from twinops.api.persist import create_store
+    from twinops.api.streaming import sidecar_url as resolve_sidecar_url
 
     store = create_store(db_path=db_path)
+    sidecar = resolve_sidecar_url(streaming_sidecar_url)
     runtime = LiveDriftRuntime(
         example_dir=Path(example_dir),
         work_dir=Path(work_dir),
@@ -101,6 +104,7 @@ def create_app(
     app.state.api_token_configured = bool(token)
     app.state.sso_configured = bool(jwt_secret)
     app.state.webrtc_lab = webrtc
+    app.state.streaming_sidecar_url = sidecar
 
     @app.get("/api/health")
     def health() -> dict[str, Any]:
@@ -226,9 +230,11 @@ def create_app(
 
     @app.get("/api/streaming/session")
     def streaming_session(request: Request) -> dict[str, Any]:
-        """Kit streaming session descriptor (mock or lab WebRTC)."""
+        """Kit streaming session descriptor (mock / lab WebRTC / kit sidecar)."""
         base = str(request.base_url).rstrip("/")
-        return build_streaming_session(base_url=base, webrtc=webrtc)
+        return build_streaming_session(
+            base_url=base, webrtc=webrtc, sidecar=sidecar
+        )
 
     @app.get("/api/streaming/webrtc")
     def webrtc_info() -> dict[str, Any]:
