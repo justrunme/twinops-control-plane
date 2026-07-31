@@ -252,6 +252,9 @@ export default function App() {
         <span>
           scrape <code>/metrics</code>
         </span>
+        <span>
+          report <a href="/api/drift/report" target="_blank" rel="noreferrer">HTML</a>
+        </span>
       </section>
 
       <div className="scene-layout">

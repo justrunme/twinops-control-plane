@@ -81,3 +81,8 @@ def test_live_api_health_and_spike(tmp_path: Path) -> None:
         prom = client.get("/metrics")
         assert prom.status_code == 200
         assert "twinops_drift_has_drift" in prom.text
+
+        report = client.get("/api/drift/report")
+        assert report.status_code == 200
+        assert "text/html" in report.headers.get("content-type", "")
+        assert "Drift" in report.text or "drift" in report.text
