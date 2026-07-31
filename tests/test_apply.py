@@ -8,11 +8,6 @@ from pathlib import Path
 
 from twinops.cli import main
 from twinops.drift.apply import apply_proposal
-from twinops.drift.engine import detect_drift
-from twinops.drift.reconcile import propose_reconciliation
-
-ROOT = Path(__file__).resolve().parents[1]
-EXAMPLE = ROOT / "examples" / "assembly-line"
 
 
 def _git(repo: Path, *args: str) -> None:
@@ -25,6 +20,31 @@ def _git(repo: Path, *args: str) -> None:
     )
 
 
+def _write_proposal(path: Path) -> Path:
+    path.mkdir(parents=True, exist_ok=True)
+    (path / "reconcile-overlay.usda").write_text(
+        '#usda 1.0\n(\n    doc = "test overlay"\n)\n',
+        encoding="utf-8",
+    )
+    (path / "reconciliation-proposal.json").write_text(
+        json.dumps(
+            {
+                "apiVersion": "twinops.io/v1alpha1",
+                "kind": "ReconciliationProposal",
+                "status": {
+                    "recommendedBranch": "reconcile/twinops-auto",
+                    "recommendedAction": "open-pull-request",
+                },
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (path / "PULL_REQUEST.md").write_text("# test\n", encoding="utf-8")
+    return path
+
+
 def test_apply_proposal_commits_on_branch(tmp_path: Path) -> None:
     repo = tmp_path / "repo"
     repo.mkdir()
@@ -35,16 +55,9 @@ def test_apply_proposal_commits_on_branch(tmp_path: Path) -> None:
     _git(repo, "add", "README")
     _git(repo, "commit", "-m", "init")
 
-    report = detect_drift(
-        desired=EXAMPLE / "desired.yaml",
-        stage=EXAMPLE / "generated" / "root.usda",
-        observed=EXAMPLE / "telemetry.json",
-        manifest=EXAMPLE / "twin.yaml",
-    )
-    # Force at least a proposal directory with artifacts.
-    proposal = propose_reconciliation(report, tmp_path / "proposal")
+    proposal = _write_proposal(tmp_path / "proposal")
     result = apply_proposal(
-        proposal.output_dir,
+        proposal,
         repo=repo,
         target_dir=repo / "usd" / "generated" / "applied",
         commit=True,
@@ -73,18 +86,12 @@ def test_apply_cli_json(tmp_path: Path, capsys) -> None:
     _git(repo, "add", "README")
     _git(repo, "commit", "-m", "init")
 
-    report = detect_drift(
-        desired=EXAMPLE / "desired.yaml",
-        stage=EXAMPLE / "generated" / "root.usda",
-        observed=EXAMPLE / "telemetry.json",
-        manifest=EXAMPLE / "twin.yaml",
-    )
-    proposal = propose_reconciliation(report, tmp_path / "proposal")
+    proposal = _write_proposal(tmp_path / "proposal")
     try:
         main(
             [
                 "apply",
-                str(proposal.output_dir),
+                str(proposal),
                 "--repo",
                 str(repo),
                 "--no-commit",

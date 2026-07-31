@@ -385,7 +385,8 @@ export default function App() {
             <p className="stream-caption">
               {litPrims.length
                 ? `${litPrims.length} prim(s) highlighted — Kit extension would select these`
-                : 'All prims calm — streaming client idle'}
+                : 'All prims calm — streaming client idle'}{' '}
+              <a href="/api/streaming/session">session descriptor</a>
             </p>
           </div>
         </section>

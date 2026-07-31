@@ -1,5 +1,6 @@
 # TwinOps live demo stack: Mosquitto + live API/UI container.
-# Demo only — live API is unauthenticated and binds publicly inside the compose network.
+# Demo only — binds publicly inside the compose network.
+# Optional: set TWINOPS_API_TOKEN and pass --api-token to serve before sharing.
 #
 #   docker compose -f deploy/demo/docker-compose.live.yml up --build
 #   open http://127.0.0.1:8080/
