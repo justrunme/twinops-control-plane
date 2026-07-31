@@ -102,6 +102,17 @@ examples/assembly-line/demo-run/
     └── PULL_REQUEST.md
 ```
 
+Live telemetry API (no external broker required):
+
+```bash
+make serve
+# GET  http://127.0.0.1:8080/api/twin
+# POST http://127.0.0.1:8080/api/simulate/spike
+# WS   ws://127.0.0.1:8080/ws/events
+```
+
+See [docs/live-telemetry.md](docs/live-telemetry.md).
+
 Run tests:
 
 ```bash
@@ -193,9 +204,9 @@ Milestones 1–2 deliver composition, drift detection, HTML report, and a reconc
 | 1         | OpenUSD Digital Twin Compiler + CLI        | **done**    |
 | 2         | Drift engine + reconcile proposal + demo   | **done**    |
 | 3         | Kubernetes operator + DigitalTwin CRD      | planned     |
-| 4         | Live MQTT telemetry adapter                | planned     |
-| 5         | Omniverse Kit extension (highlight + panel)| planned     |
-| 6         | GPU streaming + browser client             | planned     |
+| 4         | Live MQTT telemetry + drift API            | in progress |
+| 5         | Web control plane (timeline UI)            | planned     |
+| 6         | Omniverse Kit extension / GPU streaming    | planned     |
 
 See [docs/roadmap.md](docs/roadmap.md) and [docs/architecture.md](docs/architecture.md).
 
