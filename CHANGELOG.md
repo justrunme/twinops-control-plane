@@ -4,6 +4,11 @@ All notable TwinOps changes are listed here. Dates are UTC.
 
 ## Unreleased
 
+## 0.5.4 — 2026-07-31
+
+- Operator `spec.liveAPITokenSecretRef` (Secret-backed live API token)
+- RBAC: controller can get/list/watch Secrets for token resolve
+
 ## 0.5.3 — 2026-07-31
 
 - `make demo-gitops` / `scripts/demo_gitops.sh` offline apply+verify walkthrough

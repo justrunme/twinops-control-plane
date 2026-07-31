@@ -18,6 +18,7 @@ authn switch before any shared exposure.
 - Keep `/api/health`, `/api/ready`, and `/metrics` public for probes
 - If unset, auth stays disabled (local demo default)
 - Web UI can set `VITE_TWINOPS_API_TOKEN` at build time
+- Operator may resolve the token via `spec.liveAPITokenSecretRef` (preferred over plaintext `liveAPIToken`)
 
 ## Consequences
 

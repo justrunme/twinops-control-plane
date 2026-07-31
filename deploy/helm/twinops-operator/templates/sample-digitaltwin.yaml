@@ -16,4 +16,13 @@ spec:
   {{- if .Values.sampleTwin.liveAPIToken }}
   liveAPIToken: {{ .Values.sampleTwin.liveAPIToken | quote }}
   {{- end }}
+  {{- with .Values.sampleTwin.liveAPITokenSecretRef }}
+  {{- if .name }}
+  liveAPITokenSecretRef:
+    name: {{ .name | quote }}
+    {{- if .key }}
+    key: {{ .key | quote }}
+    {{- end }}
+  {{- end }}
+  {{- end }}
 {{- end }}

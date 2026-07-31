@@ -71,6 +71,16 @@ spec:
                 liveAPIToken:
                   type: string
                   description: Optional bearer token for the live API (demo auth)
+                liveAPITokenSecretRef:
+                  type: object
+                  description: Load bearer token from a Secret (takes precedence over liveAPIToken)
+                  required: ["name"]
+                  properties:
+                    name:
+                      type: string
+                    key:
+                      type: string
+                      description: Secret data key (default api-token)
             status:
               type: object
               properties:

@@ -36,9 +36,23 @@ type DigitalTwinSpec struct {
 	LiveAPIURL string `json:"liveAPIURL,omitempty"`
 
 	// LiveAPIToken is an optional bearer token for the live API (demo auth).
-	// Prefer mounting a Secret and wiring via env in production layouts.
+	// Prefer LiveAPITokenSecretRef for anything beyond local demos.
 	// +optional
 	LiveAPIToken string `json:"liveAPIToken,omitempty"`
+
+	// LiveAPITokenSecretRef loads the bearer token from a Secret in the same
+	// namespace. When set, it takes precedence over liveAPIToken.
+	// +optional
+	LiveAPITokenSecretRef *SecretKeyRef `json:"liveAPITokenSecretRef,omitempty"`
+}
+
+// SecretKeyRef selects a key from a namespaced Secret.
+type SecretKeyRef struct {
+	// Name of the Secret.
+	Name string `json:"name"`
+	// Key within the Secret data map (default: api-token when empty at resolve time).
+	// +optional
+	Key string `json:"key,omitempty"`
 }
 
 // DriftStatus summarizes three-way drift detection.

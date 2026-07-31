@@ -82,7 +82,8 @@ twinopsctl drift \
 - Optional bearer token (`TWINOPS_API_TOKEN` / `--api-token`) — ADR-0008
 - Operator `spec.liveAPIURL` → `status.live` probe
 - Helm live Deployment mounts `TWINOPS_API_TOKEN` from Secret (umbrella)
-- Remaining: operator SecretRef for CR tokens, mTLS
+- Operator `spec.liveAPITokenSecretRef` resolves bearer token from Secret
+- Remaining: mTLS
 
 ## Milestone 9 — Industrial contour ✅ (stubs)
 
@@ -127,9 +128,9 @@ Done in 0.5.x: apply `--verify`, MQTT ACL, Kit `--ws`, Helm umbrella + live stub
 lab MQTT TLS compose, Secret-mounted live API token, `make demo-gitops`.
 
 1. Real Kit App Streaming session + browser WebRTC (still mock today)
-2. Operator `liveAPIToken` from SecretRef (CR plaintext remains demo-only)
-3. Helm `dependency update` / Chart.lock + published GHCR image tags
-4. Recorded 5–7 minute demo using `docs/demo-script.md` / `make demo-gitops`
+2. Helm `dependency update` / Chart.lock + published GHCR image tags
+3. Recorded 5–7 minute demo using `docs/demo-script.md` / `make demo-gitops`
+4. Live API mTLS / SSO (token + SecretRef remain the demo auth path)
 
 ## Non-goals (for now)
 
