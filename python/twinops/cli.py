@@ -441,7 +441,7 @@ _twinopsctl_completions() {{
       ;;
     mqtt)
       if [[ ${{COMP_CWORD}} -eq 2 ]]; then
-        COMPREPLY=( $(compgen -W "topics" -- "$cur") )
+        COMPREPLY=( $(compgen -W "topics validate" -- "$cur") )
       fi
       ;;
     live)
@@ -474,7 +474,7 @@ _twinopsctl_completions() {{
       _describe -t commands 'plm' sub
       ;;
     mqtt)
-      sub=(topics)
+      sub=(topics validate)
       _describe -t commands 'mqtt' sub
       ;;
     live)
@@ -509,6 +509,28 @@ def _cmd_mqtt_topics(args: argparse.Namespace) -> int:
     print(f"MQTT catalog: {catalog['metadata']['name']}")
     for binding in catalog["spec"]["bindings"]:
         print(f"  {binding['topic']} → {binding['prim']}#{binding['attribute']}")
+    return 0
+
+
+def _cmd_mqtt_validate(args: argparse.Namespace) -> int:
+    """Validate a TwinOps MQTT payload JSON file against twinops.mqtt.payload.v1."""
+    from twinops.telemetry.payload import validate_mqtt_payload
+
+    path = Path(args.payload)
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
+    errors = validate_mqtt_payload(payload)
+    if args.json:
+        print(json.dumps({"ok": not errors, "errors": errors}, indent=2))
+        return 0 if not errors else 1
+    if errors:
+        for err in errors:
+            print(f"error: {err}", file=sys.stderr)
+        return 1
+    print(f"mqtt payload ok: {path} schema={payload.get('schema')}")
     return 0
 
 
@@ -1004,6 +1026,14 @@ def build_parser() -> argparse.ArgumentParser:
     mqtt_topics = mqtt_sub.add_parser("topics", help="print assembly-line MQTT topic catalog")
     mqtt_topics.add_argument("--json", action="store_true")
     mqtt_topics.set_defaults(func=_cmd_mqtt_topics)
+
+    mqtt_validate = mqtt_sub.add_parser(
+        "validate",
+        help="validate a twinops.mqtt.payload.v1 JSON file",
+    )
+    mqtt_validate.add_argument("payload", help="path to MQTT payload JSON")
+    mqtt_validate.add_argument("--json", action="store_true")
+    mqtt_validate.set_defaults(func=_cmd_mqtt_validate)
 
     live = sub.add_parser("live", help="drive a running live API (spike / reconcile)")
     live_sub = live.add_subparsers(dest="live_command", required=True)
