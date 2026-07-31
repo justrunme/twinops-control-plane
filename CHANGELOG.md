@@ -4,6 +4,11 @@ All notable TwinOps changes are listed here. Dates are UTC.
 
 ## Unreleased
 
+- Docs index (`docs/README.md`) + root `SECURITY.md`
+- `twinopsctl health` / `make health` for live API probes
+- `make mqtt-up` / `make mqtt-down` Mosquitto shortcuts
+- Dependabot + CODEOWNERS + issue/PR templates
+
 ## 2026-07-31
 
 - Live control plane: spike → reconcile → SYNCED demo (`make live-demo`)
