@@ -9,9 +9,10 @@ from typing import Any
 
 from twinops.api.store import TwinStore
 from twinops.composer import compose_digital_twin
-from twinops.drift.engine import detect_drift
+from twinops.drift.engine import DriftReport, detect_drift
 from twinops.drift.loaders import load_desired_state
 from twinops.drift.model import ObservedState
+from twinops.drift.reconcile import propose_reconciliation
 from twinops.schema import load_manifest
 from twinops.telemetry.bus import TelemetryBus
 from twinops.telemetry.simulator import AssemblyLineSimulator, SimulatorConfig
@@ -49,6 +50,8 @@ class LiveDriftRuntime:
         self._mqtt_port = mqtt_port
         self._ws_clients: list[Any] = []
         self._ws_lock = threading.Lock()
+        self._stage_dir: Path | None = None
+        self._last_report: DriftReport | None = None
 
     def bootstrap(self) -> None:
         manifest = load_manifest(self.example_dir / "twin.yaml")
@@ -67,6 +70,7 @@ class LiveDriftRuntime:
             )
             plm.write_text(parts[0] + 'over "Robot01"' + robot, encoding="utf-8")
 
+        self._stage_dir = stage_dir
         self._stage_root = result.files["root"]
         self.store.set_twin_meta(
             {
@@ -74,6 +78,7 @@ class LiveDriftRuntime:
                 "manifest": str(self.example_dir / "twin.yaml"),
                 "stage": str(self._stage_root),
                 "variant": manifest.variant,
+                "reconciled": False,
             }
         )
         if self._mqtt_host:
@@ -100,6 +105,64 @@ class LiveDriftRuntime:
         events = self.simulator.tick()
         report = self.evaluate_drift(record_telemetry=True)
         return {"events": len(events), "drift": report}
+
+    def reconcile(self) -> dict[str, Any]:
+        """Generate proposal, apply USD overlay, heal observed state, re-check drift."""
+        if self._stage_root is None or self._stage_dir is None:
+            raise RuntimeError("runtime not bootstrapped")
+
+        # Ensure we reconcile against the freshest three-way view.
+        before = self.evaluate_drift(record_telemetry=False)
+        if self._last_report is None:
+            raise RuntimeError("drift report unavailable")
+
+        proposal_dir = self.work_dir / "proposal"
+        proposal = propose_reconciliation(self._last_report, proposal_dir)
+        applied = self._apply_proposal_overlay(proposal.overlay_path)
+
+        healed = self.simulator.heal(firmware="4.14", cooldown_cycles=25)
+        self.simulator.tick()
+
+        after = self.evaluate_drift(record_telemetry=True)
+        proposal_payload = proposal.to_dict()
+        proposal_payload["status"]["applied"] = True
+        proposal_payload["status"]["appliedOverlay"] = str(applied)
+        proposal_payload["status"]["healedSimulator"] = healed
+        proposal_payload["status"]["driftBefore"] = before.get("status", {}).get("summary", {})
+        proposal_payload["status"]["driftAfter"] = after.get("status", {}).get("summary", {})
+        self.store.set_proposal(proposal_payload)
+
+        meta = dict(self.store.twin_meta)
+        meta["reconciled"] = True
+        meta["lastReconcileOverlay"] = str(applied)
+        self.store.set_twin_meta(meta)
+
+        event = self.store.record(
+            event_type="reconcile",
+            timestamp=str(after.get("metadata", {}).get("generatedAt")),
+            summary=(
+                f"Applied reconciliation ({len(proposal.changes)} changes) · "
+                f"drift={'yes' if after.get('status', {}).get('hasDrift') else 'reduced'}"
+            ),
+            payload={
+                "changes": proposal.changes,
+                "overlay": str(applied),
+                "healed": healed,
+            },
+        )
+        self._broadcast(
+            {
+                "type": "reconcile",
+                "event": event.to_dict(),
+                "snapshot": self.store.snapshot(),
+            }
+        )
+        return {
+            "proposal": proposal_payload,
+            "drift": after,
+            "healed": healed,
+            "changes": len(proposal.changes),
+        }
 
     def register_ws(self, client: Any) -> None:
         with self._ws_lock:
@@ -129,6 +192,7 @@ class LiveDriftRuntime:
             observed=observed,
             manifest=self.example_dir / "twin.yaml",
         )
+        self._last_report = report
         payload = report.to_dict()
         self.store.set_observed(observed_raw)
         self.store.set_drift(payload)
@@ -190,3 +254,34 @@ class LiveDriftRuntime:
                 stale.append(client)
         for client in stale:
             self.unregister_ws(client)
+
+    def _apply_proposal_overlay(self, overlay_path: Path) -> Path:
+        assert self._stage_dir is not None
+        assert self._stage_root is not None
+
+        target = self._stage_dir / "reconcile-overlay.usda"
+        target.write_text(overlay_path.read_text(encoding="utf-8"), encoding="utf-8")
+
+        # Also restore PLM revision in the composed PLM overlay for strong demos.
+        plm = self._stage_dir / "plm-overlay.usda"
+        if plm.is_file():
+            text = plm.read_text(encoding="utf-8")
+            parts = text.split('over "Robot01"')
+            if len(parts) == 2:
+                robot = parts[1].replace(
+                    'twinops:plmRevision = "B"',
+                    'twinops:plmRevision = "C"',
+                    1,
+                )
+                plm.write_text(parts[0] + 'over "Robot01"' + robot, encoding="utf-8")
+
+        root_text = self._stage_root.read_text(encoding="utf-8")
+        if "reconcile-overlay.usda" not in root_text:
+            root_text = root_text.replace(
+                "    subLayers = [\n",
+                "    subLayers = [\n        @./reconcile-overlay.usda@\n",
+                1,
+            )
+            self._stage_root.write_text(root_text, encoding="utf-8")
+        return target
+
