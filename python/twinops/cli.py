@@ -339,7 +339,7 @@ def _cmd_completion(args: argparse.Namespace) -> int:
         print(f"error: unsupported shell {args.shell!r} (only bash)", file=sys.stderr)
         return 2
     commands = (
-        "build drift scene reconcile serve plm doctor health openapi version completion"
+        "build drift scene reconcile serve plm mqtt doctor health openapi version completion"
     )
     script = f"""# twinopsctl bash completion — eval "$(twinopsctl completion bash)"
 _twinopsctl_completions() {{
@@ -351,10 +351,15 @@ _twinopsctl_completions() {{
     COMPREPLY=( $(compgen -W "{commands}" -- "$cur") )
     return 0
   fi
-  case "${{COMP_WORDS[1]}}" in
+    case "${{COMP_WORDS[1]}}" in
     plm)
       if [[ ${{COMP_CWORD}} -eq 2 ]]; then
         COMPREPLY=( $(compgen -W "show compare bump sync desired" -- "$cur") )
+      fi
+      ;;
+    mqtt)
+      if [[ ${{COMP_CWORD}} -eq 2 ]]; then
+        COMPREPLY=( $(compgen -W "topics" -- "$cur") )
       fi
       ;;
     completion)
@@ -368,6 +373,19 @@ _twinopsctl_completions() {{
 complete -F _twinopsctl_completions twinopsctl
 """
     print(script, end="")
+    return 0
+
+
+def _cmd_mqtt_topics(args: argparse.Namespace) -> int:
+    from twinops.telemetry.topics import topic_catalog
+
+    catalog = topic_catalog()
+    if args.json:
+        print(json.dumps(catalog, indent=2))
+        return 0
+    print(f"MQTT catalog: {catalog['metadata']['name']}")
+    for binding in catalog["spec"]["bindings"]:
+        print(f"  {binding['topic']} → {binding['prim']}#{binding['attribute']}")
     return 0
 
 
@@ -592,6 +610,12 @@ def build_parser() -> argparse.ArgumentParser:
     plm_desired.add_argument("--example", default="examples/assembly-line")
     plm_desired.add_argument("--out", default=None, help="optional output YAML path")
     plm_desired.set_defaults(func=_cmd_plm_desired)
+
+    mqtt = sub.add_parser("mqtt", help="MQTT demo helpers")
+    mqtt_sub = mqtt.add_subparsers(dest="mqtt_command", required=True)
+    mqtt_topics = mqtt_sub.add_parser("topics", help="print assembly-line MQTT topic catalog")
+    mqtt_topics.add_argument("--json", action="store_true")
+    mqtt_topics.set_defaults(func=_cmd_mqtt_topics)
 
     doctor = sub.add_parser("doctor", help="check local demo prerequisites")
     doctor.add_argument("--mqtt-host", default="127.0.0.1")

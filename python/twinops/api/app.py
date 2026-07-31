@@ -87,6 +87,19 @@ def create_app(
             "mqtt": runtime.mqtt_status(),
         }
 
+    @app.get("/api/ready")
+    def ready() -> dict[str, Any]:
+        """Readiness: twin metadata loaded and at least one drift evaluation present."""
+        twin_name = (runtime.store.twin_meta or {}).get("name")
+        has_drift_report = runtime.store.latest_drift is not None
+        ok = bool(twin_name) and has_drift_report
+        return {
+            "status": "ready" if ok else "not_ready",
+            "version": __version__,
+            "twin": twin_name,
+            "hasDriftReport": has_drift_report,
+        }
+
     @app.get("/api/twin")
     def twin() -> dict[str, Any]:
         return store.snapshot()

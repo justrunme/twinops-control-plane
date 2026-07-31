@@ -14,6 +14,7 @@ API:
 | Endpoint | Purpose |
 | --- | --- |
 | `GET /api/health` | liveness |
+| `GET /api/ready` | readiness (twin loaded + drift evaluated) |
 | `GET /api/twin` | twin + latest drift + timeline snapshot |
 | `GET /api/drift/latest` | latest drift report |
 | `GET /api/drift/report` | self-contained HTML drift dashboard |
