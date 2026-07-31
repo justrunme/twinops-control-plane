@@ -10,7 +10,7 @@ from pathlib import Path
 from twinops import __version__
 from twinops.composer import compose_digital_twin
 from twinops.doctor import run_doctor
-from twinops.drift.apply import apply_proposal
+from twinops.drift.apply import apply_proposal, render_pr_create_hint
 from twinops.drift.csv_report import write_csv_report
 from twinops.drift.engine import detect_drift, save_drift_report
 from twinops.drift.html_report import write_html_report
@@ -256,7 +256,10 @@ def _cmd_apply(args: argparse.Namespace) -> int:
         print(f"error: {exc}", file=sys.stderr)
         return 2
     if args.json:
-        print(json.dumps(result.to_dict(), indent=2))
+        payload = result.to_dict()
+        if getattr(args, "print_pr", False):
+            payload["status"]["prCreateHint"] = render_pr_create_hint(result)
+        print(json.dumps(payload, indent=2))
         return 0
     print(f"TwinOps applied proposal from {result.proposal_dir}")
     print(f"  branch:    {result.branch}")
@@ -266,6 +269,9 @@ def _cmd_apply(args: argparse.Namespace) -> int:
         print(f"  commit:    {result.commit_sha[:12]}")
     for path in result.files:
         print(f"  file:      {path}")
+    if getattr(args, "print_pr", False):
+        print("\n# Suggested (manual) pull request:")
+        print(render_pr_create_hint(result))
     return 0
 
 
@@ -986,6 +992,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--no-commit",
         action="store_true",
         help="copy artifacts only; do not git commit",
+    )
+    apply_cmd.add_argument(
+        "--print-pr",
+        action="store_true",
+        help="print a suggested gh pr create command (never executed)",
     )
     apply_cmd.add_argument("--json", action="store_true", help="print apply result JSON")
     apply_cmd.set_defaults(func=_cmd_apply)
