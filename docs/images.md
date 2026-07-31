@@ -26,6 +26,8 @@ docker pull ghcr.io/justrunme/twinops-operator:0.5.6
 Packages may start as private under the GitHub org — set visibility to public
 in package settings if you want anonymous pulls.
 
+First automated publish: **v0.5.6** (live + operator).
+
 ## Honesty
 
 Images are for demos and labs. Live image binds `0.0.0.0:8080` by default —

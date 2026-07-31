@@ -130,7 +130,7 @@ lab MQTT TLS compose, Secret-mounted live API token, `liveAPITokenSecretRef`,
 `Chart.lock` / `make helm-deps`, `make demo-gitops`.
 
 1. Real Kit App Streaming session + browser WebRTC (still mock today)
-2. Confirm GHCR package visibility after first `v*` publish (`docs/images.md`)
+2. GHCR images published for v0.5.6 — set package visibility public if needed
 3. Recorded 5–7 minute demo using `docs/demo-script.md` / `make demo-gitops`
 4. Live API mTLS / SSO (token + SecretRef remain the demo auth path)
 
