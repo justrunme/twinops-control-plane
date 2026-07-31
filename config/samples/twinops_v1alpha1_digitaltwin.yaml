@@ -13,3 +13,6 @@ spec:
   # Optional: probe a running twinopsctl serve for status.live
   # liveAPIURL: http://twinops-live.twinops-system.svc:8080
   # liveAPIToken: ""
+  # liveAPITokenSecretRef:
+  #   name: twinops-live-api
+  #   key: api-token

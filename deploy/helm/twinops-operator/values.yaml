@@ -46,3 +46,7 @@ sampleTwin:
   # Point at a twinopsctl serve Service to populate status.live
   liveAPIURL: ""
   liveAPIToken: ""
+  # Prefer SecretRef over plaintext liveAPIToken outside local demos.
+  liveAPITokenSecretRef:
+    name: ""
+    key: api-token
