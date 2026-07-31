@@ -83,6 +83,7 @@ twinopsctl drift \
 - [ADR-0003](adr/0003-scene-highlight-protocol.md) — Scene highlight without GPU
 - [ADR-0004](adr/0004-bidirectional-mqtt-bridge.md) — Bidirectional MQTT bridge
 - [ADR-0005](adr/0005-drift-sarif-export.md) — Drift findings as SARIF
+- [ADR-0006](adr/0006-mqtt-topic-catalog.md) — Shared MQTT topic catalog
 
 ## Non-goals (for now)
 

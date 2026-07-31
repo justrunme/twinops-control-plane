@@ -4,6 +4,7 @@ All notable TwinOps changes are listed here. Dates are UTC.
 
 ## Unreleased
 
+- ADR-0006 MQTT topic catalog + `make version`
 - Drift CSV export (`drift-report.csv`, `--csv`, `GET /api/drift/csv`)
 - `make mqtt-topics`
 - CI Go toolchain 1.26.x (matches go.mod after controller-runtime bump)
