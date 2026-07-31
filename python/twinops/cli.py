@@ -685,11 +685,15 @@ def _cmd_ready(args: argparse.Namespace) -> int:
 def _cmd_doctor(args: argparse.Namespace) -> int:
     checks = run_doctor(mqtt_host=args.mqtt_host, mqtt_port=args.mqtt_port)
     failed_required = [item for item in checks if item.required and not item.ok]
+    if args.json:
+        print(json.dumps({"checks": [item.to_dict() for item in checks]}, indent=2))
+        if failed_required:
+            print("doctor: required checks failed", file=sys.stderr)
+            return 1
+        return 0
     for item in checks:
         mark = "OK" if item.ok else ("MISSING" if item.required else "WARN")
         print(f"[{mark}] {item.name}: {item.detail}")
-    if args.json:
-        print(json.dumps({"checks": [item.to_dict() for item in checks]}, indent=2))
     if failed_required:
         print("doctor: required checks failed", file=sys.stderr)
         return 1
