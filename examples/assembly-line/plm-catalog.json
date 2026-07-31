@@ -1,0 +1,33 @@
+{
+  "provider": "mock",
+  "items": [
+    {
+      "itemId": "1004711",
+      "revision": "C",
+      "lifecycle": "Released",
+      "prim": "/World/Factory/LineA/Robot01",
+      "name": "Robot01 arm assembly"
+    },
+    {
+      "itemId": "1004820",
+      "revision": "A",
+      "lifecycle": "Released",
+      "prim": "/World/Factory/LineA/Conveyor01",
+      "name": "Conveyor01 belt module"
+    },
+    {
+      "itemId": "1004902",
+      "revision": "B",
+      "lifecycle": "Released",
+      "prim": "/World/Factory/LineA/Scanner01",
+      "name": "Scanner01 vision head"
+    },
+    {
+      "itemId": "1005011",
+      "revision": "A",
+      "lifecycle": "Released",
+      "prim": "/World/Factory/LineA/Packaging01",
+      "name": "Packaging01 cell"
+    }
+  ]
+}
