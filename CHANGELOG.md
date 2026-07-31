@@ -4,6 +4,8 @@ All notable TwinOps changes are listed here. Dates are UTC.
 
 ## Unreleased
 
+## 0.4.8 — 2026-07-31
+
 - Helm optional sampleTwin CR with liveAPIURL wiring
 
 ## 0.4.7 — 2026-07-31
