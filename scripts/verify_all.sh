@@ -23,6 +23,9 @@ make test
 echo "==> make lint"
 make lint
 
+echo "==> mqtt topic catalog sync check"
+"${ROOT}/.venv/bin/python" scripts/sync_mqtt_topics.py --check
+
 echo "==> make go-test"
 make go-test
 
