@@ -26,7 +26,7 @@ class _Resp:
 def test_health_cli_ok(capsys) -> None:
     payload = {
         "status": "ok",
-        "version": "0.3.1",
+        "version": "0.3.2",
         "service": "twinops-live",
         "mqtt": {"enabled": False},
     }
@@ -41,7 +41,7 @@ def test_health_cli_ok(capsys) -> None:
 
 
 def test_health_cli_json(capsys) -> None:
-    payload = {"status": "ok", "version": "0.3.1"}
+    payload = {"status": "ok", "version": "0.3.2"}
     with patch("urllib.request.urlopen", return_value=_Resp(payload)):
         try:
             main(["health", "--json"])

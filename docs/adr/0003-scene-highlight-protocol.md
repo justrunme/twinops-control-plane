@@ -28,6 +28,9 @@ Define **`twinops.highlight.v1`** as a JSON snapshot available at `GET /api/scen
 A Kit extension stub polls this API. The web UI renders a mock streaming viewport
 that consumes the same contract.
 
+JSON Schema: `schemas/twinops.highlight.v1.json`.  
+CLI validation: `twinopsctl scene --strict`.
+
 ## Consequences
 
 ### Positive
