@@ -107,25 +107,61 @@ def format_highlight_plan(target: HighlightTarget) -> str:
 
 def main() -> None:
     import argparse
+    import os
     import sys
 
     parser = argparse.ArgumentParser(description="Poll TwinOps /api/scene and print highlight plan")
     parser.add_argument("--base-url", default="http://127.0.0.1:8080")
+    parser.add_argument(
+        "--token",
+        default=os.environ.get("TWINOPS_API_TOKEN"),
+        help="optional bearer token (or TWINOPS_API_TOKEN)",
+    )
+    parser.add_argument(
+        "--session",
+        action="store_true",
+        help="also print GET /api/streaming/session descriptor",
+    )
+    parser.add_argument(
+        "--watch",
+        type=int,
+        default=1,
+        metavar="N",
+        help="poll scene N times (default: 1)",
+    )
+    parser.add_argument(
+        "--interval",
+        type=float,
+        default=1.0,
+        help="seconds between --watch polls",
+    )
     args = parser.parse_args()
 
-    client = TwinOpsHighlightClient(args.base_url)
+    client = TwinOpsHighlightClient(args.base_url, token=args.token)
     try:
-        scene = client.fetch_scene()
+        if args.session:
+            session = client.fetch_streaming_session()
+            print(
+                f"session mode={session.get('metadata', {}).get('mode')} "
+                f"phase={session.get('status', {}).get('phase')} "
+                f"streamUrl={session.get('spec', {}).get('streamUrl')}"
+            )
+        frames = client.watch_scene(interval_seconds=args.interval, ticks=args.watch)
     except RuntimeError as exc:
         print(exc, file=sys.stderr)
         raise SystemExit(1) from exc
 
-    targets = client.highlight_targets(scene)
-    print(f"twin={scene.get('twin')} hasDrift={scene.get('hasDrift')} targets={len(targets)}")
-    for line in client.apply_highlights(targets):
-        print(line)
-    if not targets:
-        print("No drifted prims to highlight.")
+    for index, scene in enumerate(frames, start=1):
+        targets = client.highlight_targets(scene)
+        prefix = f"[{index}/{len(frames)}] " if len(frames) > 1 else ""
+        print(
+            f"{prefix}twin={scene.get('twin')} hasDrift={scene.get('hasDrift')} "
+            f"targets={len(targets)}"
+        )
+        for line in client.apply_highlights(targets):
+            print(line)
+        if not targets:
+            print(f"{prefix}No drifted prims to highlight.")
 
 
 if __name__ == "__main__":

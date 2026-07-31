@@ -62,7 +62,7 @@ where = ["python"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-pythonpath = ["python"]
+pythonpath = ["python", "extensions/twinops_highlight"]
 
 [tool.ruff]
 line-length = 100
