@@ -1,0 +1,24 @@
+namespace: twinops-system
+
+image:
+  repository: ghcr.io/justrunme/twinops-operator
+  tag: 0.1.0
+  pullPolicy: IfNotPresent
+
+replicaCount: 1
+
+twinopsctlPath: /usr/local/bin/twinopsctl
+
+# Mount host examples for demos (kind/k3d local path style).
+examples:
+  enabled: true
+  hostPath: /examples
+  mountPath: /examples
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+  limits:
+    cpu: 500m
+    memory: 256Mi

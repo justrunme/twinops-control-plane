@@ -113,10 +113,39 @@ make serve
 
 See [docs/live-telemetry.md](docs/live-telemetry.md).
 
+Web control plane (timeline UI):
+
+```bash
+# terminal 1
+make serve
+
+# terminal 2
+make web-dev
+# open http://127.0.0.1:5173
+```
+
+Or build UI into the API:
+
+```bash
+make web && make serve
+# open http://127.0.0.1:8080/
+```
+
+Operator:
+
+```bash
+make operator-build
+# kubectl apply -f config/crd/bases/twinops.io_digitaltwins.yaml
+# make operator-run
+```
+
+See [docs/operator.md](docs/operator.md).
+
 Run tests:
 
 ```bash
 make test
+make go-test
 ```
 
 ---
@@ -168,12 +197,13 @@ twinops-control-plane/
 ├── examples/assembly-line/  # Demo factory line + sample USDA
 ├── scripts/                 # End-to-end demo scripts
 ├── docs/                    # Architecture, USD model, ADRs, roadmap
-├── api/                     # Future Kubernetes CRD types (Go)
-├── controllers/             # Future operator controllers
+├── api/                     # DigitalTwin CRD types (Go)
+├── controllers/             # Kubernetes operator controllers
+├── cmd/manager/             # Operator manager entrypoint
+├── deploy/helm/             # Helm chart for the operator
 ├── usd/                     # Generated / shared USD workspace
-├── kit-app/                 # Planned Omniverse Kit extension
-├── web/                     # Planned control-plane UI
-└── deploy/                  # Helm / Argo CD / observability (later)
+├── web/                     # Live control-plane UI
+└── kit-app/                 # Planned Omniverse Kit extension
 ```
 
 About **70% of the platform** (compiler, drift engine, operator, GitOps, observability, mock adapters) can be built **without an NVIDIA GPU**. GPU is required only for Kit rendering and streaming.
@@ -192,7 +222,7 @@ Robot → Conveyor → Scanner → Packaging
 4. Scene metadata highlights revision or telemetry drift  
 5. A reconciliation proposal restores the desired composition  
 
-Milestones 1–2 deliver composition, drift detection, HTML report, and a reconciliation proposal. Kubernetes operator comes next.
+Milestones 1–2 deliver composition, drift detection, HTML report, and a reconciliation proposal. The Kubernetes operator reconciles `DigitalTwin` CRs via `twinopsctl`.
 
 ---
 
@@ -203,9 +233,9 @@ Milestones 1–2 deliver composition, drift detection, HTML report, and a reconc
 | 0         | Repository foundation, docs, sample scene  | **done**    |
 | 1         | OpenUSD Digital Twin Compiler + CLI        | **done**    |
 | 2         | Drift engine + reconcile proposal + demo   | **done**    |
-| 3         | Kubernetes operator + DigitalTwin CRD      | planned     |
-| 4         | Live MQTT telemetry + drift API            | in progress |
-| 5         | Web control plane (timeline UI)            | planned     |
+| 3         | Kubernetes operator + DigitalTwin CRD      | **done**    |
+| 4         | Live MQTT telemetry + drift API            | **done**    |
+| 5         | Web control plane (timeline UI)            | **done**    |
 | 6         | Omniverse Kit extension / GPU streaming    | planned     |
 
 See [docs/roadmap.md](docs/roadmap.md) and [docs/architecture.md](docs/architecture.md).

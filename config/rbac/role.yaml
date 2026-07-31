@@ -1,0 +1,20 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: twinops-manager-role
+rules:
+  - apiGroups: ["twinops.io"]
+    resources: ["digitaltwins"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: ["twinops.io"]
+    resources: ["digitaltwins/status"]
+    verbs: ["get", "update", "patch"]
+  - apiGroups: ["twinops.io"]
+    resources: ["digitaltwins/finalizers"]
+    verbs: ["update"]
+  - apiGroups: ["coordination.k8s.io"]
+    resources: ["leases"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: [""]
+    resources: ["events"]
+    verbs: ["create", "patch"]
