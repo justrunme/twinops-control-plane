@@ -3,7 +3,7 @@ name: twinops
 description: TwinOps umbrella chart (operator + optional live stubs)
 type: application
 version: 0.1.0
-appVersion: "0.8.0"
+appVersion: "0.9.0"
 dependencies:
   - name: twinops-operator
     version: 0.1.1

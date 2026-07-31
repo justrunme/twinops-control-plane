@@ -4,6 +4,12 @@ All notable TwinOps changes are listed here. Dates are UTC.
 
 ## Unreleased
 
+## 0.9.0 — 2026-07-31
+
+- Generic File + REST PLM adapters (`FilePlmAdapter`, `RestPlmAdapter`) — ADR-0017
+- `twinopsctl plm get` and `--catalog` / `--url` sources
+- Adapter SDK docs (`docs/plm-adapters.md`)
+
 ## 0.8.0 — 2026-07-31
 
 - TwinIncident export/replay (`twinopsctl incident export|replay`) — ADR-0016

@@ -23,6 +23,7 @@ Navigation index for the control plane docs.
 | Container images (GHCR) | [images.md](images.md) |
 | Omniverse / scene highlights | [omniverse.md](omniverse.md) |
 | Mock PLM adapter | [plm-adapter.md](plm-adapter.md) |
+| File + REST PLM SDK | [plm-adapters.md](plm-adapters.md) |
 | Security notes | [security.md](security.md) |
 | Roadmap | [roadmap.md](roadmap.md) |
 
@@ -46,6 +47,7 @@ Navigation index for the control plane docs.
 | [0014](adr/0014-lab-webrtc-streaming.md) | Lab WebRTC streaming path |
 | [0015](adr/0015-kit-scene-runtime.md) | Kit scene runtime backends |
 | [0016](adr/0016-incident-replay.md) | Twin incident history and replay |
+| [0017](adr/0017-generic-plm-adapters.md) | Generic File and REST PLM adapters |
 
 ## Schemas
 
