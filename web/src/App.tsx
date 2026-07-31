@@ -255,6 +255,11 @@ export default function App() {
         <span>
           report <a href="/api/drift/report" target="_blank" rel="noreferrer">HTML</a>
         </span>
+        <span>
+          api <a href="/docs" target="_blank" rel="noreferrer">Swagger</a>
+          {' · '}
+          <a href="/openapi.json" target="_blank" rel="noreferrer">OpenAPI</a>
+        </span>
       </section>
 
       <div className="scene-layout">
