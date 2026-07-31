@@ -14,7 +14,7 @@ reconcile against rendered stage and observed telemetry
 optionally serve an Omniverse runtime session
 ```
 
-## Current scope (Milestone 0–6 foundation)
+## Current scope (Milestone 0–10 foundation through 0.4.0)
 
 Live path:
 
@@ -23,10 +23,11 @@ simulator / MQTT ingest
       → observed state
       → drift loop
       → /api/scene highlight + WebSocket
-      → web UI / Kit stub
+      → optional bearer token (TWINOPS_API_TOKEN)
+      → web UI / Kit stub / mock streaming session
 ```
 
-Compiler + drift path (Milestone 0–2):
+Compiler + drift path (Milestone 0–2 + 7):
 
 ```text
 DigitalTwin YAML
@@ -47,6 +48,10 @@ DigitalTwin YAML
                           ▼            ▼            ▼
                      table/JSON   HTML report   reconcile
                                                 overlay+PR
+                                                     │
+                                                     ▼
+                                              twinopsctl apply
+                                              (local branch, no push)
 ```
 
 No Kubernetes, GPU, or Omniverse runtime is required for this path.

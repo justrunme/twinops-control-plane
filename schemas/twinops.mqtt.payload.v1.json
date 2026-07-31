@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://twinops.io/schemas/twinops.mqtt.payload.v1.json",
+  "title": "TwinOps MQTT telemetry payload",
+  "type": "object",
+  "required": ["schema", "topic", "value", "timestamp"],
+  "additionalProperties": true,
+  "properties": {
+    "schema": {
+      "type": "string",
+      "const": "twinops.mqtt.payload.v1"
+    },
+    "topic": {
+      "type": "string",
+      "minLength": 1,
+      "description": "MQTT topic (must match the shared topic catalog)"
+    },
+    "value": {},
+    "unit": {
+      "type": "string"
+    },
+    "timestamp": {
+      "type": "string",
+      "description": "RFC3339 UTC timestamp"
+    },
+    "source": {
+      "type": "string",
+      "description": "Publisher identity; twinops echoes use source=twinops"
+    },
+    "prim": {
+      "type": "string",
+      "description": "Optional OpenUSD prim path binding"
+    },
+    "attribute": {
+      "type": "string",
+      "description": "Optional twin attribute name"
+    }
+  }
+}

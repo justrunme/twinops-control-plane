@@ -8,6 +8,7 @@ Navigation index for the control plane docs.
 | --- | --- |
 | Architecture overview | [architecture.md](architecture.md) |
 | 2-minute live demo | [demo.md](demo.md) |
+| 5–7 minute demo script | [demo-script.md](demo-script.md) |
 | Local prerequisites | `make doctor` / [CONTRIBUTING.md](../CONTRIBUTING.md) |
 | Cutting a release | [RELEASING.md](../RELEASING.md) |
 
@@ -33,12 +34,15 @@ Navigation index for the control plane docs.
 | [0004](adr/0004-bidirectional-mqtt-bridge.md) | Bidirectional MQTT bridge |
 | [0005](adr/0005-drift-sarif-export.md) | Drift findings as SARIF |
 | [0006](adr/0006-mqtt-topic-catalog.md) | Shared MQTT topic catalog |
+| [0007](adr/0007-local-gitops-apply.md) | Local GitOps apply |
+| [0008](adr/0008-live-api-token-auth.md) | Optional live API token |
 
 ## Schemas
 
 | Schema | Path |
 | --- | --- |
 | Scene highlight | [`schemas/twinops.highlight.v1.json`](../schemas/twinops.highlight.v1.json) |
+| MQTT payload | [`schemas/twinops.mqtt.payload.v1.json`](../schemas/twinops.mqtt.payload.v1.json) |
 
 ## Examples
 

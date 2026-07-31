@@ -10,6 +10,7 @@ from pathlib import Path
 from twinops import __version__
 from twinops.composer import compose_digital_twin
 from twinops.doctor import run_doctor
+from twinops.drift.apply import apply_proposal
 from twinops.drift.csv_report import write_csv_report
 from twinops.drift.engine import detect_drift, save_drift_report
 from twinops.drift.html_report import write_html_report
@@ -198,7 +199,35 @@ def _cmd_reconcile(args: argparse.Namespace) -> int:
     print(f"  overlay: {proposal.overlay_path}")
     print(f"  proposal: {proposal.proposal_path}")
     print(f"  pr draft: {proposal.summary_path}")
+    print("  next:    twinopsctl apply <proposal-dir>")
     return 0 if proposal.changes else 0
+
+
+def _cmd_apply(args: argparse.Namespace) -> int:
+    """Apply a local reconciliation proposal into a GitOps working tree."""
+    try:
+        result = apply_proposal(
+            args.proposal_dir,
+            repo=args.repo,
+            target_dir=args.target_dir,
+            branch=args.branch,
+            commit=not args.no_commit,
+        )
+    except (OSError, RuntimeError, FileNotFoundError, ValueError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
+    if args.json:
+        print(json.dumps(result.to_dict(), indent=2))
+        return 0
+    print(f"TwinOps applied proposal from {result.proposal_dir}")
+    print(f"  branch:    {result.branch}")
+    print(f"  target:    {result.target_dir}")
+    print(f"  committed: {result.committed}")
+    if result.commit_sha:
+        print(f"  commit:    {result.commit_sha[:12]}")
+    for path in result.files:
+        print(f"  file:      {path}")
+    return 0
 
 
 def _cmd_plm_show(args: argparse.Namespace) -> int:
@@ -320,10 +349,12 @@ def _cmd_serve(args: argparse.Namespace) -> int:
         return 2
 
     from twinops.api.app import create_app
+    from twinops.api.auth import resolve_api_token
 
     example_dir = Path(args.example).resolve()
     work_dir = Path(args.work_dir).resolve() if args.work_dir else Path("usd/generated/live")
     web_dist = Path(args.web_dist).resolve() if args.web_dist else Path("web/dist")
+    api_token = resolve_api_token(getattr(args, "api_token", None))
     app = create_app(
         example_dir=example_dir,
         work_dir=work_dir,
@@ -333,6 +364,7 @@ def _cmd_serve(args: argparse.Namespace) -> int:
         mqtt_ingest=not args.no_mqtt_ingest,
         autostart=True,
         web_dist=web_dist if web_dist.is_dir() else None,
+        api_token=api_token,
     )
     base = f"http://{args.host}:{args.port}"
     print(f"TwinOps live API on {base}")
@@ -341,7 +373,9 @@ def _cmd_serve(args: argparse.Namespace) -> int:
     print(f"  health:  {base}/api/health")
     print(f"  twin:    {base}/api/twin")
     print(f"  ready:   {base}/api/ready")
+    print(f"  stream:  {base}/api/streaming/session")
     print(f"  ws:      ws://{args.host}:{args.port}/ws/events")
+    print(f"  auth:    {'enabled' if api_token else 'disabled (demo)'}")
     if getattr(args, "open", False):
         import threading
         import webbrowser
@@ -385,7 +419,7 @@ def _cmd_openapi(args: argparse.Namespace) -> int:
 def _cmd_completion(args: argparse.Namespace) -> int:
     """Print shell completion script for twinopsctl."""
     commands = (
-        "build drift scene reconcile serve plm mqtt doctor health ready timeline "
+        "build drift scene reconcile apply serve plm mqtt doctor health ready timeline "
         "proposal metrics live openapi version completion"
     )
     if args.shell == "bash":
@@ -485,12 +519,16 @@ def _fetch_json(
     method: str = "GET",
     data: bytes | None = None,
 ) -> tuple[int, str]:
+    import os
     import urllib.error
     import urllib.request
 
     request = urllib.request.Request(url, data=data, method=method)
     if data is not None:
         request.add_header("Content-Type", "application/json")
+    token = (os.environ.get("TWINOPS_API_TOKEN") or "").strip()
+    if token:
+        request.add_header("Authorization", f"Bearer {token}")
     try:
         with urllib.request.urlopen(request, timeout=timeout) as resp:
             return resp.status, resp.read().decode("utf-8")
@@ -847,6 +885,34 @@ def build_parser() -> argparse.ArgumentParser:
     reconcile.add_argument("--json", action="store_true", help="print proposal JSON")
     reconcile.set_defaults(func=_cmd_reconcile)
 
+    apply_cmd = sub.add_parser(
+        "apply",
+        help="apply a reconciliation proposal into a local GitOps branch (no push)",
+    )
+    apply_cmd.add_argument("proposal_dir", help="directory with reconcile-overlay.usda")
+    apply_cmd.add_argument(
+        "--repo",
+        default=".",
+        help="git repository root (default: cwd)",
+    )
+    apply_cmd.add_argument(
+        "--target-dir",
+        default=None,
+        help="where to copy artifacts (default: <repo>/usd/generated/applied)",
+    )
+    apply_cmd.add_argument(
+        "--branch",
+        default=None,
+        help="branch override (default: proposal recommendedBranch)",
+    )
+    apply_cmd.add_argument(
+        "--no-commit",
+        action="store_true",
+        help="copy artifacts only; do not git commit",
+    )
+    apply_cmd.add_argument("--json", action="store_true", help="print apply result JSON")
+    apply_cmd.set_defaults(func=_cmd_apply)
+
     serve = sub.add_parser(
         "serve",
         help="run live telemetry simulator + drift API (HTTP/WebSocket)",
@@ -889,6 +955,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--open",
         action="store_true",
         help="open the live UI in a browser after startup",
+    )
+    serve.add_argument(
+        "--api-token",
+        default=None,
+        help="require bearer token (overrides TWINOPS_API_TOKEN when set)",
     )
     serve.set_defaults(func=_cmd_serve)
 

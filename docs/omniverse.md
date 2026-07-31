@@ -43,9 +43,10 @@ Payload shape:
 
 Consumers should:
 
-1. Poll `GET /api/scene` (or subscribe to future WebSocket scene frames)
-2. For each prim with `highlight.enabled`, select / tint / emissive-highlight it
-3. Clear highlights when status returns to `SYNCED`
+1. Poll `GET /api/scene` (or consume scene frames from `/ws/events` snapshots)
+2. Optionally fetch `GET /api/streaming/session` for a Kit session descriptor (mock today)
+3. For each prim with `highlight.enabled`, select / tint / emissive-highlight it
+4. Clear highlights when status returns to `SYNCED`
 
 ## Kit extension stub
 

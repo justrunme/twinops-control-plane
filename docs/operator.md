@@ -6,7 +6,8 @@ Experimental DigitalTwin controller that reconciles:
 DigitalTwin CR
    → twinopsctl build
    → twinopsctl drift (optional)
-   → status.phase / status.drift
+   → optional live API probe (spec.liveAPIURL)
+   → status.phase / status.drift / status.live
 ```
 
 ## Toolchain
