@@ -30,6 +30,8 @@ Avoid bundling unrelated refactors with feature work.
 
 ## Useful docs
 
+Full index: [docs/README.md](docs/README.md).
+
 | Topic | Doc |
 | --- | --- |
 | Live API | [docs/live-telemetry.md](docs/live-telemetry.md) |
@@ -37,4 +39,4 @@ Avoid bundling unrelated refactors with feature work.
 | MQTT | [docs/live-telemetry.md](docs/live-telemetry.md) + ADR-0004 |
 | Omniverse highlight | [docs/omniverse.md](docs/omniverse.md) + ADR-0003 |
 | PLM mock | [docs/plm-adapter.md](docs/plm-adapter.md) |
-| Security | [docs/security.md](docs/security.md) |
+| Security | [SECURITY.md](SECURITY.md) / [docs/security.md](docs/security.md) |
