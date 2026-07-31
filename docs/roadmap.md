@@ -56,8 +56,9 @@ twinopsctl drift \
 - React + Vite UI with live WebSocket updates
 - Drift findings table
 - Event timeline
-- Heat-spike demo action
+- Heat-spike + reconcile demo actions
 - Optional static hosting from `twinopsctl serve`
+- One-command live demo (`make live-demo`)
 
 ## Milestone 6 — Omniverse / GPU streaming
 

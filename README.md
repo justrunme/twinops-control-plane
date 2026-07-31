@@ -22,9 +22,9 @@ Browser streaming (planned)
 
 [![CI](https://github.com/justrunme/twinops-control-plane/actions/workflows/ci.yml/badge.svg)](https://github.com/justrunme/twinops-control-plane/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
-[![Go](https://img.shields.io/badge/Go-operator%20planned-gray.svg)](#roadmap)
-[![OpenUSD](https://img.shields.io/badge/OpenUSD-compiler-brightgreen.svg)](#quickstart)
-[![Kubernetes](https://img.shields.io/badge/Kubernetes-operator%20planned-gray.svg)](#roadmap)
+[![OpenUSD](https://img.shields.io/badge/OpenUSD-compiler-brightgreen.svg)](#2-minute-live-demo)
+[![Go](https://img.shields.io/badge/Go-operator-brightgreen.svg)](docs/operator.md)
+[![Kubernetes](https://img.shields.io/badge/Kubernetes-CRD-brightgreen.svg)](docs/operator.md)
 [![Omniverse](https://img.shields.io/badge/NVIDIA%20Omniverse-optional-orange.svg)](#roadmap)
 
 ---
@@ -60,78 +60,53 @@ When those diverge, TwinOps surfaces the drift and can propose a Git-backed reco
 
 ---
 
-## Quickstart (no GPU required)
+## 2-minute live demo
+
+No GPU required.
 
 ```bash
 git clone https://github.com/justrunme/twinops-control-plane.git
 cd twinops-control-plane
 make install
+make live-demo
+```
+
+Open **http://127.0.0.1:8080/**
+
+```text
+1. Trigger heat spike      → CRITICAL / DRIFT
+2. Apply reconciliation    → USD overlay + healed telemetry
+3. Twin returns to SYNCED  → timeline shows reconcile event
+```
+
+Smoke check without a browser:
+
+```bash
+make live-demo-smoke
+```
+
+Full walkthrough: [docs/demo.md](docs/demo.md)
+
+---
+
+## Quickstart extras
+
+### Offline CLI demo
+
+```bash
 make demo
 ```
 
-`make demo` runs the self-healing scenario:
+Produces composed USDA layers, a drift HTML report, and a GitOps reconciliation proposal.
 
-1. Compose the assembly-line OpenUSD stage  
-2. Inject a stale PLM revision into the rendered scene  
-3. Compare desired / rendered / observed telemetry  
-4. Emit drift table, HTML dashboard, and a GitOps reconciliation proposal  
-
-Manual commands:
+### Dev UI (Vite hot reload)
 
 ```bash
-twinopsctl build examples/assembly-line/twin.yaml --out examples/assembly-line/generated
-
-twinopsctl drift \
-  --desired examples/assembly-line/desired.yaml \
-  --stage examples/assembly-line/demo-run/stage/root.usda \
-  --observed examples/assembly-line/telemetry.json \
-  --manifest examples/assembly-line/twin.yaml \
-  --out examples/assembly-line/demo-run/drift \
-  --propose examples/assembly-line/demo-run/proposal
+make serve      # terminal 1 — API :8080
+make web-dev    # terminal 2 — UI  :5173
 ```
 
-Artifacts:
-
-```text
-examples/assembly-line/demo-run/
-├── stage/                     # composed USDA layers
-├── drift/drift-report.html    # color-coded dashboard
-└── proposal/
-    ├── reconcile-overlay.usda
-    ├── reconciliation-proposal.json
-    └── PULL_REQUEST.md
-```
-
-Live telemetry API (no external broker required):
-
-```bash
-make serve
-# GET  http://127.0.0.1:8080/api/twin
-# POST http://127.0.0.1:8080/api/simulate/spike
-# WS   ws://127.0.0.1:8080/ws/events
-```
-
-See [docs/live-telemetry.md](docs/live-telemetry.md).
-
-Web control plane (timeline UI):
-
-```bash
-# terminal 1
-make serve
-
-# terminal 2
-make web-dev
-# open http://127.0.0.1:5173
-```
-
-Or build UI into the API:
-
-```bash
-make web && make serve
-# open http://127.0.0.1:8080/
-```
-
-Operator:
+### Kubernetes operator
 
 ```bash
 make operator-build
@@ -139,9 +114,9 @@ make operator-build
 # make operator-run
 ```
 
-See [docs/operator.md](docs/operator.md).
+See [docs/operator.md](docs/operator.md) and [docs/live-telemetry.md](docs/live-telemetry.md).
 
-Run tests:
+### Tests
 
 ```bash
 make test
@@ -235,7 +210,7 @@ Milestones 1–2 deliver composition, drift detection, HTML report, and a reconc
 | 2         | Drift engine + reconcile proposal + demo   | **done**    |
 | 3         | Kubernetes operator + DigitalTwin CRD      | **done**    |
 | 4         | Live MQTT telemetry + drift API            | **done**    |
-| 5         | Web control plane (timeline UI)            | **done**    |
+| 5         | Web control plane + one-command live demo  | **done**    |
 | 6         | Omniverse Kit extension / GPU streaming    | planned     |
 
 See [docs/roadmap.md](docs/roadmap.md) and [docs/architecture.md](docs/architecture.md).
