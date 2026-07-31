@@ -37,6 +37,7 @@ def create_app(
     interval_seconds: float = 1.0,
     mqtt_host: str | None = None,
     mqtt_port: int = 1883,
+    mqtt_ingest: bool = True,
     autostart: bool = True,
     web_dist: str | Path | None = None,
 ) -> FastAPI:
@@ -48,6 +49,7 @@ def create_app(
         interval_seconds=interval_seconds,
         mqtt_host=mqtt_host,
         mqtt_port=mqtt_port,
+        mqtt_ingest=mqtt_ingest,
     )
 
     @asynccontextmanager

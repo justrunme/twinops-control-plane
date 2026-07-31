@@ -31,11 +31,17 @@ Demo flow in the web UI:
 
 ## MQTT bridge (optional)
 
-The simulator always publishes on an in-process bus. To also publish to a broker:
+The simulator always publishes on an in-process bus. With a broker you get a
+**bidirectional** bridge:
+
+- **publish** — simulator telemetry → `factory/#` (payload includes `"source": "twinops"`)
+- **ingest** — external PLC/MQTT → observed twin attributes (echoes from TwinOps ignored)
 
 ```bash
 docker compose -f deploy/demo/docker-compose.mqtt.yml up -d
 twinopsctl serve --mqtt-host 127.0.0.1 --mqtt-port 1883
+# publish-only:
+# twinopsctl serve --mqtt-host 127.0.0.1 --no-mqtt-ingest
 ```
 
 Requires `pip install -e ".[live]"` (included in `make install` via `.[dev]`).
@@ -49,18 +55,31 @@ Requires `pip install -e ".[live]"` (included in `make install` via `.[dev]`).
     "requested": true,
     "enabled": true,
     "host": "127.0.0.1",
-    "port": 1883
+    "port": 1883,
+    "ingest": {
+      "requested": true,
+      "enabled": true,
+      "received": 1,
+      "lastTopic": "factory/robot-01/temperature"
+    }
   }
 }
 ```
 
+External inject example:
+
+```bash
+mosquitto_pub -h 127.0.0.1 -t factory/robot-01/temperature \
+  -m '{"value": 91.5, "source": "factory-plc"}'
+```
+
 ### Smoke test
 
-One-command check that Mosquitto receives `factory/#` telemetry:
+One-command check for publish **and** ingest:
 
 ```bash
 make mqtt-smoke
 ```
 
-This starts Mosquitto via Compose, runs `twinopsctl serve --mqtt-host`,
-subscribes with paho-mqtt, and tears everything down.
+Starts Mosquitto, runs `twinopsctl serve --mqtt-host`, verifies outbound
+`factory/#` messages, publishes an external heat spike, and asserts critical drift.

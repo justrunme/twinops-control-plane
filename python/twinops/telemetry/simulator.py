@@ -37,6 +37,7 @@ class AssemblyLineSimulator:
         self._cycle = 0
         self._force_spike = False
         self._cooldown_cycles = 0
+        self._external_locks: set[str] = set()
         self._state: dict[str, Any] = {
             "robot_temp": self.config.base_temperature,
             "robot_status": "running",
@@ -59,6 +60,7 @@ class AssemblyLineSimulator:
         """Restore line to a healthy observed state after reconciliation."""
         self._force_spike = False
         self._cooldown_cycles = max(0, cooldown_cycles)
+        self._external_locks.clear()
         self._state.update(
             {
                 "robot_temp": self.config.base_temperature,
@@ -71,6 +73,31 @@ class AssemblyLineSimulator:
             }
         )
         return self.state
+
+    def apply_external(self, prim: str, attribute: str, value: Any) -> bool:
+        """Patch simulator state from an external MQTT observation."""
+        key = {
+            ("/World/Factory/LineA/Robot01", "twinops:temperature"): "robot_temp",
+            ("/World/Factory/LineA/Robot01", "twinops:status"): "robot_status",
+            ("/World/Factory/LineA/Robot01", "twinops:firmware"): "robot_firmware",
+            ("/World/Factory/LineA/Conveyor01", "twinops:speed"): "conveyor_speed",
+            ("/World/Factory/LineA/Conveyor01", "twinops:status"): "conveyor_status",
+            ("/World/Factory/LineA/Scanner01", "twinops:status"): "scanner_status",
+            ("/World/Factory/LineA/Packaging01", "twinops:status"): "packaging_status",
+        }.get((prim, attribute))
+        if key is None:
+            return False
+        self._state[key] = value
+        self._external_locks.add(key)
+        if key == "robot_temp":
+            self._force_spike = False
+            self._cooldown_cycles = 0
+        return True
+
+    def _set_state(self, key: str, value: Any) -> None:
+        if key in self._external_locks:
+            return
+        self._state[key] = value
 
     def start(self) -> None:
         if self._thread and self._thread.is_alive():
@@ -92,13 +119,16 @@ class AssemblyLineSimulator:
             self._cooldown_cycles -= 1
             self._force_spike = False
             # Keep the line stable while cooldown is active.
-            self._state["robot_temp"] = max(
-                self.config.base_temperature - 1.0,
-                float(self._state["robot_temp"]) * 0.9
-                + self.config.base_temperature * 0.1,
+            self._set_state(
+                "robot_temp",
+                max(
+                    self.config.base_temperature - 1.0,
+                    float(self._state["robot_temp"]) * 0.9
+                    + self.config.base_temperature * 0.1,
+                ),
             )
-            self._state["robot_status"] = "running"
-            self._state["conveyor_speed"] = 1.2
+            self._set_state("robot_status", "running")
+            self._set_state("conveyor_speed", 1.2)
             events = [
                 self._event(
                     "factory/robot-01/temperature",
@@ -148,21 +178,32 @@ class AssemblyLineSimulator:
         self._force_spike = False
 
         if spike:
-            self._state["robot_temp"] = self.config.spike_temperature + self._rng.uniform(
-                -1.0, 1.5
+            self._set_state(
+                "robot_temp",
+                self.config.spike_temperature + self._rng.uniform(-1.0, 1.5),
             )
-            self._state["robot_status"] = "degraded"
-            self._state["conveyor_speed"] = 1.8
+            self._set_state("robot_status", "degraded")
+            self._set_state("conveyor_speed", 1.8)
         else:
             drift = self._rng.uniform(-1.5, 1.8)
-            self._state["robot_temp"] = max(
-                35.0, min(92.0, float(self._state["robot_temp"]) * 0.82 + (48.0 + drift) * 0.18)
+            self._set_state(
+                "robot_temp",
+                max(
+                    35.0,
+                    min(
+                        92.0,
+                        float(self._state["robot_temp"]) * 0.82 + (48.0 + drift) * 0.18,
+                    ),
+                ),
             )
             if float(self._state["robot_temp"]) > 75:
-                self._state["robot_status"] = "degraded"
+                self._set_state("robot_status", "degraded")
             else:
-                self._state["robot_status"] = "running"
-            self._state["conveyor_speed"] = round(1.15 + self._rng.uniform(-0.05, 0.15), 2)
+                self._set_state("robot_status", "running")
+            self._set_state(
+                "conveyor_speed",
+                round(1.15 + self._rng.uniform(-0.05, 0.15), 2),
+            )
 
         events = [
             self._event(
