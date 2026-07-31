@@ -31,5 +31,5 @@ Echo suppression stays based on payload `source` ∈ {`twinops`, `twinops-bus`,
 
 ### Negative / trade-offs
 
-- Example JSON can drift if not regenerated with code changes — CI does not yet
-  assert byte-equality; keep them in the same PR when topics change
+- Example JSON can drift if not regenerated — use
+  `python scripts/sync_mqtt_topics.py` (and `--check` in CI / `verify_all`)

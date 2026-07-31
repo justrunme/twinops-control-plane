@@ -303,12 +303,23 @@ def _cmd_serve(args: argparse.Namespace) -> int:
         autostart=True,
         web_dist=web_dist if web_dist.is_dir() else None,
     )
-    print(f"TwinOps live API on http://{args.host}:{args.port}")
+    base = f"http://{args.host}:{args.port}"
+    print(f"TwinOps live API on {base}")
     print(f"  example: {example_dir}")
     print(f"  workdir: {work_dir}")
-    print(f"  health:  http://{args.host}:{args.port}/api/health")
-    print(f"  twin:    http://{args.host}:{args.port}/api/twin")
+    print(f"  health:  {base}/api/health")
+    print(f"  twin:    {base}/api/twin")
+    print(f"  ready:   {base}/api/ready")
     print(f"  ws:      ws://{args.host}:{args.port}/ws/events")
+    if getattr(args, "open", False):
+        import threading
+        import webbrowser
+
+        def _open() -> None:
+            webbrowser.open(base)
+
+        threading.Timer(0.8, _open).start()
+        print(f"  browser: opening {base}")
     uvicorn.run(app, host=args.host, port=args.port, log_level="info")
     return 0
 
@@ -584,6 +595,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--web-dist",
         default="web/dist",
         help="optional built web UI directory to serve at /",
+    )
+    serve.add_argument(
+        "--open",
+        action="store_true",
+        help="open the live UI in a browser after startup",
     )
     serve.set_defaults(func=_cmd_serve)
 

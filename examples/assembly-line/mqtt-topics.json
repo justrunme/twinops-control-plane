@@ -6,7 +6,11 @@
     "description": "Demo MQTT topics for TwinOps live + mqtt-smoke"
   },
   "spec": {
-    "ignoreSources": ["twinops", "twinops-bus", "twinops-simulator"],
+    "ignoreSources": [
+      "twinops",
+      "twinops-bus",
+      "twinops-simulator"
+    ],
     "bindings": [
       {
         "topic": "factory/robot-01/temperature",
