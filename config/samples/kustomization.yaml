@@ -1,0 +1,6 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - namespace.yaml
+  - ../crd/bases/twinops.io_digitaltwins.yaml
+  - twinops_v1alpha1_digitaltwin.yaml
