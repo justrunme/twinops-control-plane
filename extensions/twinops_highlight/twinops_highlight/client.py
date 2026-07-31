@@ -133,9 +133,20 @@ class TwinOpsHighlightClient:
             )
         return targets
 
-    def apply_highlights(self, targets: list[HighlightTarget]) -> list[str]:
-        """Stub apply step — replace with omni.kit.commands when running in Kit."""
-        return [format_highlight_plan(target) for target in targets]
+    def apply_highlights(
+        self,
+        targets: list[HighlightTarget],
+        *,
+        mode: str = "auto",
+        overlay_path: str | None = None,
+    ) -> list[str]:
+        """Apply highlights through plan / USD overlay / Kit backend."""
+        from twinops_highlight.apply import select_applier
+
+        applier = select_applier(mode=mode, overlay_path=overlay_path)
+        if not targets:
+            return applier.clear()
+        return applier.apply(targets)
 
 
 def format_highlight_plan(target: HighlightTarget) -> str:
@@ -182,6 +193,17 @@ def main() -> None:
         action="store_true",
         help="prefer /ws/events scene frames (falls back to HTTP poll)",
     )
+    parser.add_argument(
+        "--apply",
+        choices=("auto", "plan", "overlay", "kit"),
+        default="plan",
+        help="highlight apply backend (default: plan)",
+    )
+    parser.add_argument(
+        "--overlay-out",
+        default="/tmp/twinops-highlight-overlay.usda",
+        help="USDA path when --apply overlay",
+    )
     args = parser.parse_args()
 
     client = TwinOpsHighlightClient(args.base_url, token=args.token)
@@ -208,7 +230,9 @@ def main() -> None:
             f"{prefix}twin={scene.get('twin')} hasDrift={scene.get('hasDrift')} "
             f"targets={len(targets)}"
         )
-        for line in client.apply_highlights(targets):
+        for line in client.apply_highlights(
+            targets, mode=args.apply, overlay_path=args.overlay_out
+        ):
             print(line)
         if not targets:
             print(f"{prefix}No drifted prims to highlight.")

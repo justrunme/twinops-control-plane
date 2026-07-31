@@ -44,6 +44,7 @@ Navigation index for the control plane docs.
 | [0012](adr/0012-kit-streaming-mock-contract.md) | Kit streaming mock contract |
 | [0013](adr/0013-live-mtls-and-sso.md) | Live API mTLS and demo SSO JWT |
 | [0014](adr/0014-lab-webrtc-streaming.md) | Lab WebRTC streaming path |
+| [0015](adr/0015-kit-scene-runtime.md) | Kit scene runtime backends |
 
 ## Schemas
 

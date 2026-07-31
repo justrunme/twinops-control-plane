@@ -4,6 +4,12 @@ All notable TwinOps changes are listed here. Dates are UTC.
 
 ## Unreleased
 
+## 0.7.0 — 2026-07-31
+
+- Kit scene runtime: plan / USD overlay / Kit apply backends (ADR-0015)
+- `TwinOpsSceneRuntime` poll loop; Kit extension starts live highlighting
+- Roadmap reframed: control plane first; v0.8 history/replay, v0.9 generic PLM
+
 ## 0.6.0 — 2026-07-31
 
 - Lab WebRTC: `serve --webrtc`, signaling API, browser MediaStream UI (ADR-0014)

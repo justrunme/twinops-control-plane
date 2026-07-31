@@ -1,101 +1,68 @@
-# Omniverse / GPU streaming (Milestone 6 foundation)
+# Omniverse as an optional TwinOps runtime
 
-TwinOps treats Omniverse as an **optional visualization runtime**, not a hard dependency.
-Milestones 1–5 already compose OpenUSD, detect drift, and reconcile without a GPU.
+TwinOps is a **GitOps control plane for digital twins**. Omniverse Kit is one
+optional way to visualize and execute OpenUSD — not a hard dependency.
 
-This milestone adds the **highlight contract** that a Kit extension or streaming client
-can consume.
+CPU-first path (no GPU): compose → drift → live API → highlight contract → web UI.
 
 ## Highlight protocol (`twinops.highlight.v1`)
 
-Machine-readable schema: [`schemas/twinops.highlight.v1.json`](../schemas/twinops.highlight.v1.json).  
-Offline validation: `twinopsctl scene … --strict`.  
-Live fetch: `make scene-live` / `twinopsctl scene --from-url http://127.0.0.1:8080 --strict`  
-(also writes `/tmp/twinops-scene.json` + `/tmp/twinops-scene.html`).
+Schema: [`schemas/twinops.highlight.v1.json`](../schemas/twinops.highlight.v1.json).
 
 ```bash
 make serve
 make scene-live
-curl -s http://127.0.0.1:8080/api/scene | jq .
 ```
 
-Payload shape:
+Consumers:
 
-```json
-{
-  "twin": "assembly-line-a",
-  "hasDrift": true,
-  "prims": [
-    {
-      "prim": "/World/Factory/LineA/Robot01",
-      "status": "CRITICAL",
-      "highlight": {
-        "enabled": true,
-        "color": [0.5, 0.11, 0.11],
-        "intensity": 1.0
-      },
-      "findings": []
-    }
-  ],
-  "protocol": { "name": "twinops.highlight.v1" }
-}
-```
+1. Poll `GET /api/scene` or `/ws/events` scene frames
+2. Optionally `GET /api/streaming/session` (mock / lab WebRTC)
+3. Apply highlights for `highlight.enabled` prims
+4. Clear when status returns to `SYNCED`
 
-Consumers should:
-
-1. Poll `GET /api/scene` (or consume scene frames from `/ws/events` snapshots)
-2. Optionally fetch `GET /api/streaming/session` (mock or lab WebRTC via `--webrtc`; see ADR-0012 / ADR-0014)
-3. For each prim with `highlight.enabled`, select / tint / emissive-highlight it
-4. Clear highlights when status returns to `SYNCED`
-
-## Kit extension stub
+## Kit scene runtime (v0.7)
 
 ```text
 extensions/twinops_highlight/
 ```
 
-Runnable without Omniverse:
+| Backend | When | Behavior |
+| --- | --- | --- |
+| `plan` | CI / default CLI | Print highlight plan |
+| `overlay` | No Kit | Write highlight USDA overlay |
+| `kit` | Inside Omniverse | `displayColor` + selection via `omni.usd` |
+
+Laptop (no GPU):
 
 ```bash
-# terminal 1
 make serve
-
-# terminal 2 — after a heat spike
-python extensions/twinops_highlight/twinops_highlight/client.py --base-url http://127.0.0.1:8080
+# after a spike:
+python extensions/twinops_highlight/twinops_highlight/client.py \
+  --base-url http://127.0.0.1:8080 --apply overlay \
+  --overlay-out /tmp/twinops-highlight-overlay.usda
 ```
 
-Inside Kit, enable the extension from this folder and replace `apply_highlights()`
-with `omni.kit.commands` / USD selection APIs.
+Inside Kit:
 
-## GPU Operator / Kit App Streaming notes
+1. Add `extensions/twinops_highlight` to the Kit extension search path
+2. Enable **TwinOps Scene Runtime**
+3. Set `TWINOPS_API_URL` (and optional `TWINOPS_API_TOKEN`)
+4. Open the assembly-line stage — drifted prims highlight on the poll loop
 
-These are **deployment sketches**, not claimed as implemented:
+See [ADR-0015](adr/0015-kit-scene-runtime.md).
 
-| Piece | Notes |
+## Streaming
+
+| Layer | Status |
 | --- | --- |
-| NVIDIA GPU Operator | Install via Helm on a GPU node pool; expose MIG/time-slicing as needed |
-| Omniverse Kit | Run Kit with the TwinOps highlight extension mounted |
-| Kit App Streaming | Session lifecycle + browser client arrive after the highlight loop is solid |
-| NVCF | Explicitly out of scope until a real streaming path exists |
-
-Example Helm-style values sketch (not a chart):
-
-```yaml
-# deploy notes only — do not treat as production
-gpuOperator:
-  driver:
-    enabled: true
-kitStreaming:
-  enabled: false
-  twinopsApi: http://twinops-live.twinops-system.svc:8080
-  extensionPath: /opt/twinops/extensions/twinops_highlight
-```
+| Lab WebRTC + signaling | ✅ (`serve --webrtc`) |
+| Kit App Streaming GPU → browser | ⏳ sidecar after Kit runtime |
+| NVCF | ❌ out of scope |
 
 ## Honest status
 
-- ✅ Scene highlight API + web inspector
-- ✅ Scene snapshots on WebSocket drift/reconcile frames
-- ✅ Mock Kit streaming viewport in the web UI (no GPU)
-- ✅ Kit extension stub that polls TwinOps without GPU
-- ❌ Full Omniverse Kit App Streaming browser session
+- ✅ Highlight API + web inspector + lab WebRTC
+- ✅ Kit extension runtime loop + apply backends
+- ⏳ Kit App Streaming browser session with RTX frames
 - ❌ NVCF / cloud GPU product claims
