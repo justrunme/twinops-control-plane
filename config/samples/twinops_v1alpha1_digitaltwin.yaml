@@ -1,0 +1,12 @@
+apiVersion: twinops.io/v1alpha1
+kind: DigitalTwin
+metadata:
+  name: assembly-line-a
+  namespace: twinops-system
+spec:
+  # Dev/demo layout: mount the repo examples directory into the operator pod/host.
+  manifestPath: /examples/assembly-line/twin.yaml
+  desiredPath: /examples/assembly-line/desired.yaml
+  observedPath: /examples/assembly-line/telemetry.json
+  outputDir: /tmp/twinops/assembly-line-a
+  intervalSeconds: 30

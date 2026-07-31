@@ -1,0 +1,213 @@
+import { useEffect, useMemo, useState } from 'react'
+import { connectEvents, fetchTwin, triggerSpike } from './api'
+import type { TwinSnapshot } from './types'
+
+const STATUS_COLOR: Record<string, string> = {
+  SYNCED: '#1f9d55',
+  WARNING: '#d97706',
+  MISSING: '#64748b',
+  DRIFT: '#dc2626',
+  CRITICAL: '#7f1d1d',
+}
+
+function shortPrim(prim: string): string {
+  return prim.split('/').filter(Boolean).at(-1) ?? prim
+}
+
+function display(value: unknown): string {
+  if (value === null || value === undefined || value === '') return '—'
+  return String(value)
+}
+
+export default function App() {
+  const [snap, setSnap] = useState<TwinSnapshot | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [connected, setConnected] = useState(false)
+  const [busy, setBusy] = useState(false)
+
+  useEffect(() => {
+    let ws: WebSocket | null = null
+    let closed = false
+
+    fetchTwin()
+      .then((data) => {
+        if (!closed) setSnap(data)
+      })
+      .catch((err: Error) => setError(err.message))
+
+    ws = connectEvents((message) => {
+      const payload = message as {
+        type?: string
+        snapshot?: TwinSnapshot
+        event?: TwinSnapshot['timeline'][number]
+      }
+      if (payload.snapshot) {
+        setSnap(payload.snapshot)
+        setConnected(true)
+        setError(null)
+        return
+      }
+      if (payload.event) {
+        setSnap((prev) => {
+          if (!prev) return prev
+          const timeline = [
+            payload.event!,
+            ...prev.timeline.filter((item) => item.id !== payload.event!.id),
+          ].slice(0, 80)
+          return { ...prev, timeline }
+        })
+        setConnected(true)
+      }
+    })
+    ws.onopen = () => setConnected(true)
+    ws.onclose = () => setConnected(false)
+    ws.onerror = () => setError('WebSocket disconnected — is `make serve` running?')
+
+    return () => {
+      closed = true
+      ws?.close()
+    }
+  }, [])
+
+  const findings = snap?.drift?.status?.findings ?? []
+  const summary = snap?.drift?.status?.summary ?? {}
+  const hasDrift = Boolean(snap?.drift?.status?.hasDrift)
+  const temp = snap?.simulator?.robot_temp
+  const robotStatus = snap?.simulator?.robot_status
+
+  const summaryChips = useMemo(
+    () => Object.entries(summary).sort(([a], [b]) => a.localeCompare(b)),
+    [summary],
+  )
+
+  async function onSpike() {
+    setBusy(true)
+    try {
+      await triggerSpike()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'spike failed')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="page">
+      <header className="hero">
+        <div>
+          <p className="brand">TwinOps</p>
+          <h1>Live digital twin control plane</h1>
+          <p className="lede">
+            Desired · Rendered · Observed — streaming reconciliation for industrial OpenUSD twins.
+          </p>
+        </div>
+        <div className="hero-actions">
+          <span className={`link ${connected ? 'ok' : 'bad'}`}>
+            {connected ? 'LIVE' : 'OFFLINE'}
+          </span>
+          <button type="button" onClick={onSpike} disabled={busy}>
+            {busy ? 'Spiking…' : 'Trigger heat spike'}
+          </button>
+        </div>
+      </header>
+
+      {error ? <div className="banner error">{error}</div> : null}
+
+      <section className="status-row">
+        <article>
+          <span className="label">Twin</span>
+          <strong>{snap?.twin?.name ?? '—'}</strong>
+          <small>variant {snap?.twin?.variant ?? '—'}</small>
+        </article>
+        <article>
+          <span className="label">Robot01</span>
+          <strong>
+            {display(temp)}°C · {display(robotStatus)}
+          </strong>
+          <small>firmware {display(snap?.simulator?.robot_firmware)}</small>
+        </article>
+        <article>
+          <span className="label">Drift</span>
+          <strong className={hasDrift ? 'bad-text' : 'ok-text'}>
+            {hasDrift ? 'DETECTED' : 'SYNCED'}
+          </strong>
+          <small>{snap?.drift?.metadata?.generatedAt ?? 'waiting for stream'}</small>
+        </article>
+      </section>
+
+      <div className="chips">
+        {summaryChips.map(([key, value]) => (
+          <span key={key} className="chip" style={{ borderColor: STATUS_COLOR[key] ?? '#64748b' }}>
+            {key} {value}
+          </span>
+        ))}
+      </div>
+
+      <div className="grid">
+        <section className="panel">
+          <div className="panel-head">
+            <h2>Findings</h2>
+          </div>
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Prim</th>
+                  <th>Attr</th>
+                  <th>Desired</th>
+                  <th>Rendered</th>
+                  <th>Observed</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {findings.length === 0 ? (
+                  <tr>
+                    <td colSpan={6}>Waiting for drift evaluation…</td>
+                  </tr>
+                ) : (
+                  findings.map((finding) => (
+                    <tr key={`${finding.prim}-${finding.attribute}-${finding.status}-${finding.message}`}>
+                      <td>{shortPrim(finding.prim)}</td>
+                      <td>
+                        <code>{finding.attribute.replace('twinops:', '')}</code>
+                      </td>
+                      <td>{display(finding.desired)}</td>
+                      <td>{display(finding.rendered)}</td>
+                      <td>{display(finding.observed)}</td>
+                      <td>
+                        <span
+                          className="pill"
+                          style={{ background: STATUS_COLOR[finding.status] ?? '#334155' }}
+                        >
+                          {finding.status}
+                        </span>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section className="panel timeline-panel">
+          <div className="panel-head">
+            <h2>Timeline</h2>
+          </div>
+          <ol className="timeline">
+            {(snap?.timeline ?? []).map((item) => (
+              <li key={item.id} className={`tl ${item.type}`}>
+                <div className="tl-meta">
+                  <span className="tl-type">{item.type}</span>
+                  <time>{new Date(item.timestamp).toLocaleTimeString()}</time>
+                </div>
+                <p>{item.summary}</p>
+              </li>
+            ))}
+          </ol>
+        </section>
+      </div>
+    </div>
+  )
+}

@@ -3,19 +3,24 @@ PIP ?= $(PYTHON) -m pip
 VENV ?= .venv
 BIN := $(VENV)/bin
 
-.PHONY: help venv install test lint build demo drift serve clean
+.PHONY: help venv install test lint build demo drift serve web web-dev operator-build operator-run go-test clean
 
 help:
 	@echo "TwinOps targets:"
-	@echo "  make venv     - create virtualenv"
-	@echo "  make install  - install package + dev deps"
-	@echo "  make test     - run unit tests"
-	@echo "  make lint     - run ruff"
-	@echo "  make demo     - full self-healing drift demo"
-	@echo "  make drift    - build + drift against sample telemetry"
-	@echo "  make serve    - live MQTT-style simulator + drift API"
-	@echo "  make build    - build sdist/wheel"
-	@echo "  make clean    - remove build artifacts"
+	@echo "  make venv            - create virtualenv"
+	@echo "  make install         - install package + dev deps"
+	@echo "  make test            - run Python unit tests"
+	@echo "  make lint            - run ruff"
+	@echo "  make demo            - full self-healing drift demo"
+	@echo "  make drift           - build + drift against sample telemetry"
+	@echo "  make serve           - live MQTT-style simulator + drift API"
+	@echo "  make web             - build web control plane into web/dist"
+	@echo "  make web-dev         - run Vite UI (proxies API on :8080)"
+	@echo "  make operator-build  - build Go operator manager binary"
+	@echo "  make operator-run    - run operator against current kubeconfig"
+	@echo "  make go-test         - run Go tests"
+	@echo "  make build           - build sdist/wheel"
+	@echo "  make clean           - remove build artifacts"
 
 venv:
 	$(PYTHON) -m venv $(VENV)
@@ -49,7 +54,22 @@ drift:
 serve:
 	$(BIN)/twinopsctl serve --example examples/assembly-line --host 127.0.0.1 --port 8080
 
+web:
+	cd web && npm install && npm run build
+
+web-dev:
+	cd web && npm run dev -- --host 127.0.0.1 --port 5173
+
+operator-build:
+	go build -o bin/manager ./cmd/manager
+
+operator-run: operator-build
+	./bin/manager --twinopsctl=$(BIN)/twinopsctl
+
+go-test:
+	go test ./...
+
 clean:
-	rm -rf dist build *.egg-info python/*.egg-info .pytest_cache .ruff_cache .coverage
-	rm -rf examples/assembly-line/generated examples/assembly-line/demo-run usd/generated
+	rm -rf dist build bin *.egg-info python/*.egg-info .pytest_cache .ruff_cache .coverage
+	rm -rf examples/assembly-line/generated examples/assembly-line/demo-run usd/generated web/dist
 	find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true

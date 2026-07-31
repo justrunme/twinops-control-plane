@@ -1,0 +1,53 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: twinops-controller-manager
+  namespace: {{ .Values.namespace }}
+  labels:
+    app.kubernetes.io/name: twinops-operator
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: twinops-operator
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: twinops-operator
+    spec:
+      serviceAccountName: twinops-controller-manager
+      containers:
+        - name: manager
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args:
+            - --leader-elect=false
+            - --twinopsctl={{ .Values.twinopsctlPath }}
+          ports:
+            - name: metrics
+              containerPort: 8080
+            - name: health
+              containerPort: 8081
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: health
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: health
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          {{- if .Values.examples.enabled }}
+          volumeMounts:
+            - name: examples
+              mountPath: {{ .Values.examples.mountPath }}
+              readOnly: true
+          {{- end }}
+      {{- if .Values.examples.enabled }}
+      volumes:
+        - name: examples
+          hostPath:
+            path: {{ .Values.examples.hostPath }}
+            type: Directory
+      {{- end }}

@@ -18,12 +18,18 @@ examples/**/generated/
 examples/**/demo-run/
 *.usda.bak
 
-# Go (future operator)
+# Go operator
 bin/
 vendor/
 *.exe
 *.test
 coverage.out
+go.work
+go.work.sum
+
+# Web
+web/node_modules/
+web/dist/
 
 # IDE / OS
 .idea/
