@@ -1,6 +1,6 @@
 # Releasing TwinOps
 
-Experimental project — keep releases small and honest.
+Prefer theme releases (0.10 / 0.11 / 1.0), not micro-patches. Stay honest about limitations.
 
 ## Checklist
 
