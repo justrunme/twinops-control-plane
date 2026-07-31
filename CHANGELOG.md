@@ -4,6 +4,7 @@ All notable TwinOps changes are listed here. Dates are UTC.
 
 ## Unreleased
 
+- README release badge; live-demo uses `twinopsctl ready`
 - `twinopsctl ready` / `make ready`
 - Compose live stack (`deploy/demo/docker-compose.live.yml`) + `make live-spike|live-reconcile`
 - `twinopsctl metrics` / `make metrics`
