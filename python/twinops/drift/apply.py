@@ -84,6 +84,7 @@ def apply_proposal(
     target_dir: str | Path | None = None,
     branch: str | None = None,
     commit: bool = True,
+    checkout_branch: bool = True,
 ) -> ApplyResult:
     """Copy proposal artifacts into the repo and optionally commit on a branch."""
     source = Path(proposal_dir).resolve()
@@ -112,7 +113,7 @@ def apply_proposal(
     commit_sha: str | None = None
     files: list[str] = []
 
-    if _is_git_repo(repo_root):
+    if checkout_branch and _is_git_repo(repo_root):
         # Create or switch branch without failing if it already exists.
         current = _run_git(repo_root, "rev-parse", "--abbrev-ref", "HEAD")
         if current.stdout.strip() != branch_name:

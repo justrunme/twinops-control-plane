@@ -37,10 +37,6 @@ spec:
             - --mqtt-host
             - {{ .Values.live.mqtt.host | quote }}
             {{- end }}
-            {{- if .Values.live.apiToken }}
-            - --api-token
-            - {{ .Values.live.apiToken | quote }}
-            {{- end }}
           env:
             {{- if .Values.live.mqtt.strictSchema }}
             - name: TWINOPS_MQTT_STRICT_SCHEMA
@@ -48,7 +44,10 @@ spec:
             {{- end }}
             {{- if .Values.live.apiToken }}
             - name: TWINOPS_API_TOKEN
-              value: {{ .Values.live.apiToken | quote }}
+              valueFrom:
+                secretKeyRef:
+                  name: twinops-live-api
+                  key: api-token
             {{- end }}
           ports:
             - name: http

@@ -81,7 +81,8 @@ twinopsctl drift \
 
 - Optional bearer token (`TWINOPS_API_TOKEN` / `--api-token`) — ADR-0008
 - Operator `spec.liveAPIURL` → `status.live` probe
-- Remaining: Secret-mounted tokens, mTLS
+- Helm live Deployment mounts `TWINOPS_API_TOKEN` from Secret (umbrella)
+- Remaining: operator SecretRef for CR tokens, mTLS
 
 ## Milestone 9 — Industrial contour ✅ (stubs)
 
@@ -91,7 +92,8 @@ twinopsctl drift \
 - Grafana dashboard stub (`deploy/observability/grafana/`)
 - Helm umbrella notes + optional `sampleTwin.liveAPIURL`
 - Mosquitto ACL demo profile + Helm umbrella skeleton (0.5.x)
-- Remaining: production TLS MQTT, full live Deployment in umbrella
+- Lab MQTT TLS compose stub (`:8883`, self-signed) + Secret-backed live token
+- Remaining: production-grade MQTT (CA, client certs), Chart.lock / published images
 
 ## Milestone 10 — Demo credibility ✅ (docs)
 
@@ -118,13 +120,15 @@ twinopsctl drift \
 - [ADR-0009](adr/0009-mqtt-payload-schema.md) — MQTT payload schema
 - [ADR-0010](adr/0010-apply-verify-loop.md) — Apply verification loop
 
-## Next focus (0.5.x)
+## Next focus (0.5.x → 0.6)
 
-1. Apply → rebuild → re-drift verification loop (close the GitOps demo story)
-2. Mosquitto ACL demo profile (still lab-only, not production TLS)
-3. Kit highlight client WebSocket consume of `/ws/events` scene frames
-4. Minimal Helm umbrella chart (`operator` + optional `live` stubs)
-5. Recorded 5–7 minute demo using `docs/demo-script.md`
+Done in 0.5.x: apply `--verify`, MQTT ACL, Kit `--ws`, Helm umbrella + live stub,
+lab MQTT TLS compose, Secret-mounted live API token, `make demo-gitops`.
+
+1. Real Kit App Streaming session + browser WebRTC (still mock today)
+2. Operator `liveAPIToken` from SecretRef (CR plaintext remains demo-only)
+3. Helm `dependency update` / Chart.lock + published GHCR image tags
+4. Recorded 5–7 minute demo using `docs/demo-script.md` / `make demo-gitops`
 
 ## Non-goals (for now)
 

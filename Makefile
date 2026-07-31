@@ -3,7 +3,7 @@ PIP ?= $(PYTHON) -m pip
 VENV ?= .venv
 BIN := $(VENV)/bin
 
-.PHONY: help venv install test lint build demo live-demo live-demo-smoke mqtt-up mqtt-down mqtt-smoke mqtt-topics mqtt-topics-sync mqtt-topics-check mqtt-acl-up mqtt-acl-down drift serve web web-dev operator-build operator-run operator-demo operator-demo-watch operator-demo-cleanup scene scene-live scene-highlight plm-demo verify-all doctor health ready wait-ready timeline proposal metrics live-status live-spike live-reconcile openapi version docker-live docker-operator docker-live-up docker-live-down go-test clean apply apply-live apply-verify
+.PHONY: help venv install test lint build demo live-demo live-demo-smoke demo-gitops mqtt-up mqtt-down mqtt-smoke mqtt-topics mqtt-topics-sync mqtt-topics-check mqtt-acl-up mqtt-acl-down mqtt-tls-certs mqtt-tls-up mqtt-tls-down drift serve web web-dev operator-build operator-run operator-demo operator-demo-watch operator-demo-cleanup scene scene-live scene-highlight plm-demo verify-all doctor health ready wait-ready timeline proposal metrics live-status live-spike live-reconcile openapi version docker-live docker-operator docker-live-up docker-live-down go-test clean apply apply-live apply-verify
 
 help:
 	@echo "TwinOps targets:"
@@ -45,7 +45,10 @@ help:
 	@echo "  make apply           - reconcile sample + local GitOps apply (no push)"
 	@echo "  make apply-live      - apply latest live proposal bundle from :8080"
 	@echo "  make apply-verify    - apply sample proposal then rebuild+re-drift"
+	@echo "  make demo-gitops     - offline GitOps script (reconcile+apply --verify)"
 	@echo "  make mqtt-acl-up     - Mosquitto with password+ACL (lab only)"
+	@echo "  make mqtt-tls-certs  - generate lab self-signed MQTT TLS certs"
+	@echo "  make mqtt-tls-up     - Mosquitto TLS listener on :8883 (lab only)"
 	@echo "  make serve           - live MQTT-style simulator + drift API"
 	@echo "  make web             - build web control plane into web/dist"
 	@echo "  make web-dev         - run Vite UI (proxies API on :8080)"
@@ -166,7 +169,7 @@ version:
 	$(BIN)/twinopsctl version
 
 docker-live:
-	docker build -f Dockerfile.live -t twinops-live:0.5.2 .
+	docker build -f Dockerfile.live -t twinops-live:0.5.3 .
 
 docker-live-up:
 	docker compose -f deploy/demo/docker-compose.live.yml up --build -d
@@ -175,7 +178,7 @@ docker-live-down:
 	docker compose -f deploy/demo/docker-compose.live.yml down
 
 docker-operator:
-	docker build -f Dockerfile.operator -t twinops-operator:0.5.2 .
+	docker build -f Dockerfile.operator -t twinops-operator:0.5.3 .
 
 drift:
 	$(BIN)/twinopsctl build examples/assembly-line/twin.yaml --out examples/assembly-line/generated
@@ -194,10 +197,10 @@ apply: drift
 		--observed examples/assembly-line/telemetry.json \
 		--manifest examples/assembly-line/twin.yaml \
 		--out examples/assembly-line/generated/proposal
-	$(BIN)/twinopsctl apply examples/assembly-line/generated/proposal --no-commit --print-pr
+	$(BIN)/twinopsctl apply examples/assembly-line/generated/proposal --no-commit --no-branch --print-pr
 
 apply-live:
-	$(BIN)/twinopsctl apply --from-url http://127.0.0.1:8080 --no-commit --print-pr
+	$(BIN)/twinopsctl apply --from-url http://127.0.0.1:8080 --no-commit --no-branch --print-pr
 
 apply-verify: drift
 	$(BIN)/twinopsctl reconcile \
@@ -206,7 +209,7 @@ apply-verify: drift
 		--observed examples/assembly-line/telemetry.json \
 		--manifest examples/assembly-line/twin.yaml \
 		--out examples/assembly-line/generated/proposal
-	-$(BIN)/twinopsctl apply examples/assembly-line/generated/proposal --no-commit --verify \
+	-$(BIN)/twinopsctl apply examples/assembly-line/generated/proposal --no-commit --no-branch --verify \
 		--manifest examples/assembly-line/twin.yaml \
 		--desired examples/assembly-line/desired.yaml \
 		--observed examples/assembly-line/telemetry.json \
@@ -218,6 +221,18 @@ mqtt-acl-up:
 
 mqtt-acl-down:
 	docker compose -f deploy/demo/docker-compose.mqtt-acl.yml down
+
+mqtt-tls-certs:
+	./scripts/gen_mqtt_tls_certs.sh
+
+mqtt-tls-up: mqtt-tls-certs
+	docker compose -f deploy/demo/docker-compose.mqtt-tls.yml up -d
+
+mqtt-tls-down:
+	docker compose -f deploy/demo/docker-compose.mqtt-tls.yml down
+
+demo-gitops:
+	./scripts/demo_gitops.sh
 
 serve:
 	$(BIN)/twinopsctl serve --example examples/assembly-line --host 127.0.0.1 --port 8080

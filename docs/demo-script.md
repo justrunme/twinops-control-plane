@@ -21,6 +21,14 @@ make docker-live-up   # or: make live-demo
 
 ## Offline GitOps path
 
+One command:
+
+```bash
+make demo-gitops
+```
+
+Or step-by-step:
+
 ```bash
 make build drift
 twinopsctl reconcile \
