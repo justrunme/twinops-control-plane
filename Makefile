@@ -29,6 +29,7 @@ help:
 	@echo "  make live-spike      - POST heat spike to live API on :8080"
 	@echo "  make live-reconcile  - POST reconcile to live API on :8080"
 	@echo "  make openapi         - dump live API OpenAPI schema to /tmp"
+	@echo "  make scene-live      - fetch/validate live /api/scene snapshot"
 	@echo "  make scene-highlight - poll /api/scene and print Kit highlight plan"
 	@echo "  make scene           - offline highlight snapshot from sample drift"
 	@echo "  make plm-demo        - mock PLM bump → compare → show drift"
