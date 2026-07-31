@@ -33,3 +33,16 @@ liveMetrics:
   path: /metrics
   port: 8080
   enabled: false
+
+# Optional sample DigitalTwin CR (demo clusters only).
+sampleTwin:
+  enabled: false
+  name: assembly-line-a
+  manifestPath: /examples/assembly-line/twin.yaml
+  desiredPath: /examples/assembly-line/desired.yaml
+  observedPath: /examples/assembly-line/telemetry.json
+  outputDir: /tmp/twinops/assembly-line-a
+  intervalSeconds: 30
+  # Point at a twinopsctl serve Service to populate status.live
+  liveAPIURL: ""
+  liveAPIToken: ""

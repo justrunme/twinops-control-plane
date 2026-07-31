@@ -1,0 +1,19 @@
+{{- if .Values.sampleTwin.enabled }}
+apiVersion: twinops.io/v1alpha1
+kind: DigitalTwin
+metadata:
+  name: {{ .Values.sampleTwin.name }}
+  namespace: {{ .Values.namespace }}
+spec:
+  manifestPath: {{ .Values.sampleTwin.manifestPath | quote }}
+  desiredPath: {{ .Values.sampleTwin.desiredPath | quote }}
+  observedPath: {{ .Values.sampleTwin.observedPath | quote }}
+  outputDir: {{ .Values.sampleTwin.outputDir | quote }}
+  intervalSeconds: {{ .Values.sampleTwin.intervalSeconds }}
+  {{- if .Values.sampleTwin.liveAPIURL }}
+  liveAPIURL: {{ .Values.sampleTwin.liveAPIURL | quote }}
+  {{- end }}
+  {{- if .Values.sampleTwin.liveAPIToken }}
+  liveAPIToken: {{ .Values.sampleTwin.liveAPIToken | quote }}
+  {{- end }}
+{{- end }}
