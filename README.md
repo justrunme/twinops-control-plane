@@ -113,6 +113,24 @@ make serve
 
 See [docs/live-telemetry.md](docs/live-telemetry.md).
 
+Web control plane (timeline UI):
+
+```bash
+# terminal 1
+make serve
+
+# terminal 2
+make web-dev
+# open http://127.0.0.1:5173
+```
+
+Or build UI into the API:
+
+```bash
+make web && make serve
+# open http://127.0.0.1:8080/
+```
+
 Run tests:
 
 ```bash
@@ -205,7 +223,7 @@ Milestones 1–2 deliver composition, drift detection, HTML report, and a reconc
 | 2         | Drift engine + reconcile proposal + demo   | **done**    |
 | 3         | Kubernetes operator + DigitalTwin CRD      | planned     |
 | 4         | Live MQTT telemetry + drift API            | in progress |
-| 5         | Web control plane (timeline UI)            | planned     |
+| 5         | Web control plane (timeline UI)            | in progress |
 | 6         | Omniverse Kit extension / GPU streaming    | planned     |
 
 See [docs/roadmap.md](docs/roadmap.md) and [docs/architecture.md](docs/architecture.md).
