@@ -38,6 +38,19 @@ jobs:
       - name: Demo build
         run: twinopsctl build examples/assembly-line/twin.yaml --out /tmp/twinops-demo
 
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Live demo smoke
+        run: |
+          npm --prefix web ci
+          npm --prefix web run build
+          bash scripts/live_demo.sh --smoke
+
   go:
     name: Go operator
     runs-on: ubuntu-latest
