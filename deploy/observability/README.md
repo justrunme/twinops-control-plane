@@ -2,7 +2,8 @@
 
 ## Prometheus
 
-Scrape the live API Prometheus exposition:
+Scrape the live API Prometheus exposition. Ready-to-merge snippet:
+[`prometheus-scrape.snippet.yml`](prometheus-scrape.snippet.yml).
 
 ```yaml
 # scrape snippet (add to your Prometheus config)

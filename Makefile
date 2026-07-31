@@ -3,7 +3,7 @@ PIP ?= $(PYTHON) -m pip
 VENV ?= .venv
 BIN := $(VENV)/bin
 
-.PHONY: help venv install test lint build demo live-demo live-demo-smoke mqtt-up mqtt-down mqtt-smoke mqtt-topics mqtt-topics-sync mqtt-topics-check drift serve web web-dev operator-build operator-run operator-demo operator-demo-watch operator-demo-cleanup scene scene-live scene-highlight plm-demo verify-all doctor health ready wait-ready timeline proposal metrics live-status live-spike live-reconcile openapi version docker-live docker-operator docker-live-up docker-live-down go-test clean apply
+.PHONY: help venv install test lint build demo live-demo live-demo-smoke mqtt-up mqtt-down mqtt-smoke mqtt-topics mqtt-topics-sync mqtt-topics-check drift serve web web-dev operator-build operator-run operator-demo operator-demo-watch operator-demo-cleanup scene scene-live scene-highlight plm-demo verify-all doctor health ready wait-ready timeline proposal metrics live-status live-spike live-reconcile openapi version docker-live docker-operator docker-live-up docker-live-down go-test clean apply apply-live
 
 help:
 	@echo "TwinOps targets:"
@@ -43,6 +43,7 @@ help:
 	@echo "  make demo            - offline self-healing drift demo"
 	@echo "  make drift           - build + drift against sample telemetry"
 	@echo "  make apply           - reconcile sample + local GitOps apply (no push)"
+	@echo "  make apply-live      - apply latest live proposal bundle from :8080"
 	@echo "  make serve           - live MQTT-style simulator + drift API"
 	@echo "  make web             - build web control plane into web/dist"
 	@echo "  make web-dev         - run Vite UI (proxies API on :8080)"
@@ -190,7 +191,10 @@ apply: drift
 		--observed examples/assembly-line/telemetry.json \
 		--manifest examples/assembly-line/twin.yaml \
 		--out examples/assembly-line/generated/proposal
-	$(BIN)/twinopsctl apply examples/assembly-line/generated/proposal --no-commit
+	$(BIN)/twinopsctl apply examples/assembly-line/generated/proposal --no-commit --print-pr
+
+apply-live:
+	$(BIN)/twinopsctl apply --from-url http://127.0.0.1:8080 --no-commit --print-pr
 
 serve:
 	$(BIN)/twinopsctl serve --example examples/assembly-line --host 127.0.0.1 --port 8080
