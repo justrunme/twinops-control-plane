@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/justrunme/twinops-control-plane/schemas/twinops.highlight.v1.json",
+  "title": "twinops.highlight.v1",
+  "type": "object",
+  "required": ["twin", "hasDrift", "prims", "protocol"],
+  "additionalProperties": true,
+  "properties": {
+    "twin": { "type": "string", "minLength": 1 },
+    "generatedAt": { "type": ["string", "null"] },
+    "hasDrift": { "type": "boolean" },
+    "protocol": {
+      "type": "object",
+      "required": ["name"],
+      "properties": {
+        "name": { "const": "twinops.highlight.v1" },
+        "version": { "type": "string" }
+      }
+    },
+    "prims": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["prim", "label", "status", "highlight"],
+        "properties": {
+          "prim": { "type": "string", "minLength": 1 },
+          "label": { "type": "string" },
+          "status": {
+            "type": "string",
+            "enum": ["SYNCED", "WARNING", "MISSING", "DRIFT", "CRITICAL"]
+          },
+          "highlight": {
+            "type": "object",
+            "required": ["enabled", "color", "intensity"],
+            "properties": {
+              "enabled": { "type": "boolean" },
+              "color": {
+                "type": "array",
+                "minItems": 3,
+                "maxItems": 3,
+                "items": { "type": "number" }
+              },
+              "intensity": { "type": "number", "minimum": 0 }
+            }
+          },
+          "findings": { "type": "array" }
+        }
+      }
+    }
+  }
+}

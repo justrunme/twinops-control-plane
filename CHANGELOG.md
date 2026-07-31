@@ -4,6 +4,7 @@ All notable TwinOps changes are listed here. Dates are UTC.
 
 ## Unreleased
 
+- `schemas/twinops.highlight.v1.json` + `twinopsctl scene --strict`
 - `twinopsctl proposal` / `make proposal` + README DX refresh
 - `twinopsctl timeline` / `make timeline`
 - `Dockerfile.live` + Go 1.26 operator image base; UI hotkeys 1/2

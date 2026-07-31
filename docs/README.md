@@ -33,6 +33,12 @@ Navigation index for the control plane docs.
 | [0005](adr/0005-drift-sarif-export.md) | Drift findings as SARIF |
 | [0006](adr/0006-mqtt-topic-catalog.md) | Shared MQTT topic catalog |
 
+## Schemas
+
+| Schema | Path |
+| --- | --- |
+| Scene highlight | [`schemas/twinops.highlight.v1.json`](../schemas/twinops.highlight.v1.json) |
+
 ## Examples
 
 See [examples/README.md](../examples/README.md).
