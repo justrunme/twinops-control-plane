@@ -4,6 +4,9 @@ Milestone 4 starter: an in-process MQTT-style simulator feeds observed twin stat
 
 ## Run
 
+Optional API token: set `TWINOPS_API_TOKEN` or `twinopsctl serve --api-token …` (health/ready stay public). Validate MQTT JSON with `twinopsctl mqtt validate examples/assembly-line/mqtt-payload.example.json`.
+
+
 ```bash
 make install
 make serve
@@ -28,6 +31,7 @@ API:
 | `POST /api/simulate/spike` | force overheating robot event |
 | `POST /api/reconcile` | generate proposal, apply USD overlay, heal line |
 | `GET /api/proposal/latest` | last reconciliation proposal |
+| `GET /api/streaming/session` | mock Kit App Streaming session descriptor |
 | `WS /ws/events` | live event stream (includes `scene` on drift/reconcile) |
 | `GET /docs` | Swagger UI (FastAPI) |
 | `GET /openapi.json` | OpenAPI schema |

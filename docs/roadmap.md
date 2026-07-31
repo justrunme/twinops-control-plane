@@ -113,6 +113,7 @@ twinopsctl drift \
 - [ADR-0006](adr/0006-mqtt-topic-catalog.md) — Shared MQTT topic catalog
 - [ADR-0007](adr/0007-local-gitops-apply.md) — Local GitOps apply
 - [ADR-0008](adr/0008-live-api-token-auth.md) — Optional live API token
+- [ADR-0009](adr/0009-mqtt-payload-schema.md) — MQTT payload schema
 
 ## Non-goals (for now)
 
