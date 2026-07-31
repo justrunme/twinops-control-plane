@@ -4,6 +4,7 @@ All notable TwinOps changes are listed here. Dates are UTC.
 
 ## Unreleased
 
+- Makefile help lists `scene-live`
 - `make scene-live` + docs for `scene --from-url`
 - `twinopsctl scene --from-url` fetch/validate live highlight snapshots
 
