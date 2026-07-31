@@ -88,3 +88,13 @@ docker build -f Dockerfile.operator -t ghcr.io/justrunme/twinops-operator:0.1.0 
 | Ready | Stage composed; drift synced or not configured |
 | DriftDetected | Three-way drift present |
 | Error | Compose/drift execution failed |
+
+Printer columns include `Drift`, `Critical`, and `Findings`:
+
+```bash
+kubectl get dtwin -A
+# NAME              PHASE           DRIFT      CRITICAL   FINDINGS   AGE
+# assembly-line-a   DriftDetected   Detected   1          5          12s
+```
+
+`status.drift` also carries `warning`, `summary`, and `reportPath` (filesystem path to `drift-report.json`).
