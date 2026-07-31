@@ -3,7 +3,7 @@ PIP ?= $(PYTHON) -m pip
 VENV ?= .venv
 BIN := $(VENV)/bin
 
-.PHONY: help venv install test lint build demo live-demo live-demo-smoke mqtt-up mqtt-down mqtt-smoke mqtt-topics mqtt-topics-sync drift serve web web-dev operator-build operator-run operator-demo operator-demo-watch operator-demo-cleanup scene scene-highlight plm-demo verify-all doctor health timeline proposal metrics openapi version docker-live docker-operator go-test clean
+.PHONY: help venv install test lint build demo live-demo live-demo-smoke mqtt-up mqtt-down mqtt-smoke mqtt-topics mqtt-topics-sync drift serve web web-dev operator-build operator-run operator-demo operator-demo-watch operator-demo-cleanup scene scene-highlight plm-demo verify-all doctor health timeline proposal metrics live-spike live-reconcile openapi version docker-live docker-operator docker-live-up docker-live-down go-test clean
 
 help:
 	@echo "TwinOps targets:"
@@ -22,6 +22,8 @@ help:
 	@echo "  make timeline        - print live API timeline on :8080"
 	@echo "  make proposal        - print latest live reconcile proposal"
 	@echo "  make metrics         - print live API metrics on :8080"
+	@echo "  make live-spike      - POST heat spike to live API on :8080"
+	@echo "  make live-reconcile  - POST reconcile to live API on :8080"
 	@echo "  make openapi         - dump live API OpenAPI schema to /tmp"
 	@echo "  make scene-highlight - poll /api/scene and print Kit highlight plan"
 	@echo "  make scene           - offline highlight snapshot from sample drift"
@@ -30,6 +32,8 @@ help:
 	@echo "  make doctor          - check local demo prerequisites"
 	@echo "  make version         - print twinopsctl version"
 	@echo "  make docker-live     - build demo live API container image"
+	@echo "  make docker-live-up  - compose Mosquitto + live API/UI"
+	@echo "  make docker-live-down - stop compose live stack"
 	@echo "  make docker-operator - build operator manager container image"
 	@echo "  make demo            - offline self-healing drift demo"
 	@echo "  make drift           - build + drift against sample telemetry"
@@ -97,6 +101,12 @@ proposal:
 metrics:
 	$(BIN)/twinopsctl metrics --base-url http://127.0.0.1:8080
 
+live-spike:
+	$(BIN)/twinopsctl live spike --base-url http://127.0.0.1:8080
+
+live-reconcile:
+	$(BIN)/twinopsctl live reconcile --base-url http://127.0.0.1:8080
+
 openapi:
 	$(BIN)/twinopsctl openapi --out /tmp/twinops-openapi.json
 
@@ -127,6 +137,12 @@ version:
 
 docker-live:
 	docker build -f Dockerfile.live -t twinops-live:0.3.2 .
+
+docker-live-up:
+	docker compose -f deploy/demo/docker-compose.live.yml up --build -d
+
+docker-live-down:
+	docker compose -f deploy/demo/docker-compose.live.yml down
 
 docker-operator:
 	docker build -f Dockerfile.operator -t twinops-operator:0.3.2 .

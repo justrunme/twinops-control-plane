@@ -15,6 +15,7 @@
 | --- | --- | --- |
 | Live HTTP API | Unauthenticated control actions (spike/reconcile) | Bind localhost; do not expose publicly |
 | `Dockerfile.live` | Image entrypoint binds `0.0.0.0:8080` | Local/demo compose only; put a proxy/auth in front if shared |
+| `docker-compose.live.yml` | Publishes `:8080` + anonymous MQTT | Local demos only; do not expose to the internet |
 | MQTT Mosquitto demo | Open publish/subscribe | Local compose only; no TLS; not for prod |
 | Kit / streaming mock | Fake viewport may be mistaken for real GPU stream | Docs mark mock / no NVCF claims |
 | PLM catalog | Accidental commit of vendor secrets | Mock JSON only; no proprietary SDKs |

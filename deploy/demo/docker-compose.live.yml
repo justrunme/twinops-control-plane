@@ -1,0 +1,48 @@
+# TwinOps live demo stack: Mosquitto + live API/UI container.
+# Demo only — live API is unauthenticated and binds publicly inside the compose network.
+#
+#   docker compose -f deploy/demo/docker-compose.live.yml up --build
+#   open http://127.0.0.1:8080/
+#
+services:
+  mosquitto:
+    image: eclipse-mosquitto:2
+    ports:
+      - "1883:1883"
+    command: mosquitto -c /mosquitto-no-auth.conf
+    configs:
+      - source: mosquitto_conf
+        target: /mosquitto-no-auth.conf
+
+  twinops-live:
+    build:
+      context: ../..
+      dockerfile: Dockerfile.live
+    ports:
+      - "8080:8080"
+    environment:
+      # Entry point args appended via command override.
+      TWINOPS_MQTT_HOST: mosquitto
+    command:
+      [
+        "twinopsctl",
+        "serve",
+        "--host",
+        "0.0.0.0",
+        "--port",
+        "8080",
+        "--web-dist",
+        "web/dist",
+        "--mqtt-host",
+        "mosquitto",
+        "--mqtt-port",
+        "1883",
+      ]
+    depends_on:
+      - mosquitto
+
+configs:
+  mosquitto_conf:
+    content: |
+      listener 1883
+      allow_anonymous true
