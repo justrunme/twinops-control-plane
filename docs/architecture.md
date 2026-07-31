@@ -85,19 +85,23 @@ No Kubernetes, GPU, or Omniverse runtime is required for this path.
                                        Browser client
 ```
 
-## Control-plane components (planned)
+## Control-plane components
 
-| Component            | Role                                              |
-| -------------------- | ------------------------------------------------- |
-| DigitalTwin CRD      | Desired twin declaration                          |
-| TwinAsset CRD        | Versioned USD asset reference                     |
-| TwinOps Controller   | Reconciliation loop                               |
-| USD Composer         | Layer generation / stage assembly                 |
-| Drift Engine         | Compare desired / rendered / observed             |
-| PLM Adapter          | Generic mock first; vendor adapters later         |
-| Telemetry Adapter    | MQTT / simulator                                  |
-| Session Orchestrator | Kit App Streaming session lifecycle               |
-| Web UI               | Control panel, drift timeline, streaming embed    |
+| Component            | Role                                              | Status |
+| -------------------- | ------------------------------------------------- | --- |
+| DigitalTwin CRD      | Desired twin declaration                          | foundation |
+| TwinOps Controller   | Reconciliation loop (`build` + optional `drift`)  | foundation |
+| USD Composer         | Layer generation / stage assembly                 | done |
+| Drift Engine         | Compare desired / rendered / observed             | done |
+| PLM Adapter          | Generic mock first; vendor adapters later         | mock done |
+| Telemetry Adapter    | MQTT publish + ingest / in-process simulator      | done |
+| Live HTTP API        | health/ready/scene/metrics/timeline/reconcile     | done |
+| Web UI               | Drift timeline, scene inspector, mock Kit stream  | foundation |
+| TwinAsset CRD        | Versioned USD asset reference                     | planned |
+| Session Orchestrator | Kit App Streaming session lifecycle               | planned |
+
+Live API surface (local demos): see [live-telemetry.md](live-telemetry.md).
+Highlight contract: `schemas/twinops.highlight.v1.json` + [omniverse.md](omniverse.md).
 
 ## OpenUSD composition model
 
