@@ -4,7 +4,10 @@ All notable TwinOps changes are listed here. Dates are UTC.
 
 ## Unreleased
 
+## 0.4.5 — 2026-07-31
+
 - Prometheus Operator ServiceMonitor stub for twinops-live
+- Sequence diagrams for live apply + operator live probe
 
 ## 0.4.4 — 2026-07-31
 
