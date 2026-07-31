@@ -84,12 +84,11 @@ if ! curl -fsS "$BASE/api/health" >/dev/null 2>&1; then
   exit 1
 fi
 
-READY_JSON="$(curl -fsS "$BASE/api/ready")"
+"$TWINOPSCTL" ready --base-url "$BASE"
+READY_JSON="$("$TWINOPSCTL" ready --base-url "$BASE" --json)"
 printf '%s' "$READY_JSON" | "$PYTHON" -c "
 import json, sys
 payload = json.load(sys.stdin)
-if payload.get('status') != 'ready':
-    raise SystemExit(f\"expected ready, got {payload!r}\")
 print(f\"    ready: twin={payload.get('twin')} hasDriftReport={payload.get('hasDriftReport')}\")
 "
 
