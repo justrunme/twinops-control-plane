@@ -4,6 +4,8 @@ All notable TwinOps changes are listed here. Dates are UTC.
 
 ## Unreleased
 
+## 0.3.4 — 2026-07-31
+
 - Live demo / docs use `twinopsctl live status`
 - `twinopsctl live status` / `make live-status`
 - `make mqtt-topics-check` + web link to `/api/ready`
