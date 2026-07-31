@@ -364,7 +364,7 @@ def _cmd_completion(args: argparse.Namespace) -> int:
         return 2
     commands = (
         "build drift scene reconcile serve plm mqtt doctor health timeline "
-        "proposal openapi version completion"
+        "proposal live openapi version completion"
     )
     script = f"""# twinopsctl bash completion — eval "$(twinopsctl completion bash)"
 _twinopsctl_completions() {{
@@ -385,6 +385,11 @@ _twinopsctl_completions() {{
     mqtt)
       if [[ ${{COMP_CWORD}} -eq 2 ]]; then
         COMPREPLY=( $(compgen -W "topics" -- "$cur") )
+      fi
+      ;;
+    live)
+      if [[ ${{COMP_CWORD}} -eq 2 ]]; then
+        COMPREPLY=( $(compgen -W "spike reconcile" -- "$cur") )
       fi
       ;;
     completion)
@@ -414,12 +419,21 @@ def _cmd_mqtt_topics(args: argparse.Namespace) -> int:
     return 0
 
 
-def _fetch_json(url: str, *, timeout: float) -> tuple[int, str]:
+def _fetch_json(
+    url: str,
+    *,
+    timeout: float,
+    method: str = "GET",
+    data: bytes | None = None,
+) -> tuple[int, str]:
     import urllib.error
     import urllib.request
 
+    request = urllib.request.Request(url, data=data, method=method)
+    if data is not None:
+        request.add_header("Content-Type", "application/json")
     try:
-        with urllib.request.urlopen(url, timeout=timeout) as resp:
+        with urllib.request.urlopen(request, timeout=timeout) as resp:
             return resp.status, resp.read().decode("utf-8")
     except urllib.error.HTTPError as exc:
         print(f"error: HTTP {exc.code} from {url}", file=sys.stderr)
@@ -484,6 +498,49 @@ def _cmd_proposal(args: argparse.Namespace) -> int:
         print(f"  overlay: {status_block.get('overlayPath')}")
     if status_block.get("summaryPath"):
         print(f"  summary: {status_block.get('summaryPath')}")
+    return 0 if status == 200 else 1
+
+
+def _cmd_live_spike(args: argparse.Namespace) -> int:
+    """POST /api/simulate/spike against a running live API."""
+    base = args.base_url.rstrip("/")
+    url = f"{base}/api/simulate/spike"
+    status, body = _fetch_json(url, timeout=args.timeout, method="POST", data=b"{}")
+    if not body:
+        return 1
+    if args.json:
+        print(body)
+        return 0 if status == 200 else 1
+    try:
+        payload = json.loads(body)
+    except json.JSONDecodeError:
+        print(body)
+        return 0 if status == 200 else 1
+    drift = (payload.get("drift") or {}).get("status") or {}
+    print(f"spike: hasDrift={drift.get('hasDrift')} summary={drift.get('summary')}")
+    return 0 if status == 200 else 1
+
+
+def _cmd_live_reconcile(args: argparse.Namespace) -> int:
+    """POST /api/reconcile against a running live API."""
+    base = args.base_url.rstrip("/")
+    url = f"{base}/api/reconcile"
+    status, body = _fetch_json(url, timeout=args.timeout, method="POST", data=b"{}")
+    if not body:
+        return 1
+    if args.json:
+        print(body)
+        return 0 if status == 200 else 1
+    try:
+        payload = json.loads(body)
+    except json.JSONDecodeError:
+        print(body)
+        return 0 if status == 200 else 1
+    drift = (payload.get("drift") or {}).get("status") or {}
+    print(
+        f"reconcile: changes={payload.get('changes')} "
+        f"hasDrift={drift.get('hasDrift')} summary={drift.get('summary')}"
+    )
     return 0 if status == 200 else 1
 
 
@@ -719,6 +776,19 @@ def build_parser() -> argparse.ArgumentParser:
     mqtt_topics = mqtt_sub.add_parser("topics", help="print assembly-line MQTT topic catalog")
     mqtt_topics.add_argument("--json", action="store_true")
     mqtt_topics.set_defaults(func=_cmd_mqtt_topics)
+
+    live = sub.add_parser("live", help="drive a running live API (spike / reconcile)")
+    live_sub = live.add_subparsers(dest="live_command", required=True)
+    live_spike = live_sub.add_parser("spike", help="POST /api/simulate/spike")
+    live_spike.add_argument("--base-url", default="http://127.0.0.1:8080")
+    live_spike.add_argument("--timeout", type=float, default=10.0)
+    live_spike.add_argument("--json", action="store_true")
+    live_spike.set_defaults(func=_cmd_live_spike)
+    live_reconcile = live_sub.add_parser("reconcile", help="POST /api/reconcile")
+    live_reconcile.add_argument("--base-url", default="http://127.0.0.1:8080")
+    live_reconcile.add_argument("--timeout", type=float, default=30.0)
+    live_reconcile.add_argument("--json", action="store_true")
+    live_reconcile.set_defaults(func=_cmd_live_reconcile)
 
     doctor = sub.add_parser("doctor", help="check local demo prerequisites")
     doctor.add_argument("--mqtt-host", default="127.0.0.1")

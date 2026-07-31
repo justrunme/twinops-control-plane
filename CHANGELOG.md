@@ -4,6 +4,8 @@ All notable TwinOps changes are listed here. Dates are UTC.
 
 ## Unreleased
 
+- `twinopsctl live spike|reconcile` against a running live API
+
 ## 0.3.2 — 2026-07-31
 
 - `schemas/twinops.highlight.v1.json` + `twinopsctl scene --strict` (also `make scene`)
