@@ -7,6 +7,9 @@ Navigation index for the control plane docs.
 | Goal | Doc |
 | --- | --- |
 | Architecture overview | [architecture.md](architecture.md) |
+| Architecture one-pager | [architecture-one-pager.md](architecture-one-pager.md) |
+| Frozen contracts (1.0) | [stability.md](stability.md) |
+| v1.0 release brief | [release-1.0.md](release-1.0.md) |
 | 2-minute live demo | [demo.md](demo.md) |
 | E2E operational demo | [e2e-demo.md](e2e-demo.md) |
 | 5–7 minute demo script | [demo-script.md](demo-script.md) |

@@ -4,6 +4,8 @@ All notable TwinOps changes are listed here. Dates are UTC.
 
 ## Unreleased
 
+- Public 1.0 freeze docs: architecture one-pager, stability contracts, release brief
+
 ## 1.0.0 — 2026-07-31
 
 - Stable **reference architecture** release (see `docs/ops-checklist-1.0.md`)

@@ -16,7 +16,7 @@ OpenUSD layers + variants
 Runtime (optional): Omniverse Kit · web UI · lab WebRTC
 ```
 
-> Status: **stable reference architecture** (v1.0.0). TwinOps is a GitOps/Kubernetes control plane for digital twins; Omniverse Kit is an optional runtime. Not a production industrial platform.
+> Status: **stable reference architecture** (v1.0.0). Stable API and architecture baseline for demonstrations, experimentation, and extension development. Omniverse Kit is an optional runtime. **Not production-ready.**
 
 [![CI](https://github.com/justrunme/twinops-control-plane/actions/workflows/ci.yml/badge.svg)](https://github.com/justrunme/twinops-control-plane/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/justrunme/twinops-control-plane?display_name=tag)](https://github.com/justrunme/twinops-control-plane/releases/latest)
@@ -55,12 +55,30 @@ TwinOps connects both worlds:
 The distinctive feature is **three-way drift detection**:
 
 ```text
-Desired state  — Git / PLM
-Rendered state — OpenUSD Stage
-Observed state — IoT telemetry
+Desired: Git / PLM
+Rendered: OpenUSD
+Observed: MQTT / IoT
+          ↓
+       Drift
+          ↓
+ Proposal → Git apply → rebuild → verify
+          ↓
+       SYNCED
 ```
 
-When those diverge, TwinOps surfaces the drift and can propose a Git-backed reconciliation.
+```text
+Core TwinOps                         Optional runtimes
+├── compiler                         ├── Web UI
+├── drift / reconciliation           ├── Omniverse Kit
+├── operator                         └── WebRTC / streaming sidecar
+├── incidents / replay
+├── PLM adapters
+└── API / security
+```
+
+Full one-pager: [docs/architecture-one-pager.md](docs/architecture-one-pager.md).  
+Frozen contracts: [docs/stability.md](docs/stability.md).  
+Release brief: [docs/release-1.0.md](docs/release-1.0.md).
 
 ---
 

@@ -89,14 +89,15 @@ Omniverse Kit is an optional OpenUSD runtime — not the product center.
 
 ## v1.0 — Stable reference architecture ✅
 
-See [ops-checklist-1.0.md](ops-checklist-1.0.md).
+See [ops-checklist-1.0.md](ops-checklist-1.0.md), [release-1.0.md](release-1.0.md),
+and [stability.md](stability.md) (frozen contracts).
 
-- Kit scene runtime + streaming sidecar (encoder follow-up deferred)
-- Persisted incident history + verified replay
-- Generic PLM adapters + contract tests
-- Auth / TLS / audit / metrics / reproducible deploy
-- Backup/restore + compatibility matrix + on-demand security scan
-- Recorded walkthrough (owner)
+Core feature work is **frozen**. Next code epic only:
+
+## v1.1 — Real Kit GPU streaming path ⏳
+
+Single GPU · single Kit session · real RTX/NVENC → WebRTC MediaStream.
+Not multi-user, not NVCF, not autoscaling. Fallback without GPU stays working.
 
 ## Architecture decisions
 
