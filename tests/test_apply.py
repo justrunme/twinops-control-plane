@@ -7,7 +7,7 @@ import subprocess
 from pathlib import Path
 
 from twinops.cli import main
-from twinops.drift.apply import apply_proposal
+from twinops.drift.apply import apply_proposal, render_pr_create_hint
 
 
 def _git(repo: Path, *args: str) -> None:
@@ -103,3 +103,21 @@ def test_apply_cli_json(tmp_path: Path, capsys) -> None:
     payload = json.loads(capsys.readouterr().out)
     assert payload["kind"] == "ReconciliationApply"
     assert payload["status"]["committed"] is False
+
+
+def test_render_pr_create_hint(tmp_path: Path) -> None:
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    _git(repo, "init")
+    _git(repo, "config", "user.email", "test@example.com")
+    _git(repo, "config", "user.name", "Test")
+    (repo / "README").write_text("demo\n", encoding="utf-8")
+    _git(repo, "add", "README")
+    _git(repo, "commit", "-m", "init")
+    proposal = _write_proposal(tmp_path / "proposal")
+    (proposal / "PULL_REQUEST.md").write_text("# Fix robot drift\n\nbody\n", encoding="utf-8")
+    result = apply_proposal(proposal, repo=repo, commit=False)
+    hint = render_pr_create_hint(result)
+    assert "gh pr create" in hint
+    assert "Fix robot drift" in hint
+    assert result.branch in hint
