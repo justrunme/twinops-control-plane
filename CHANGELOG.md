@@ -4,6 +4,10 @@ All notable TwinOps changes are listed here. Dates are UTC.
 
 ## Unreleased
 
+## 0.3.1 — 2026-07-31
+
+- Live `GET /api/ready` readiness probe
+- `twinopsctl mqtt topics` catalog helper
 - Live `GET /api/scene/report` + `GET /api/mqtt/topics` (+ example catalog JSON)
 - Offline scene HTML report (`twinopsctl scene --html`)
 - Bash completion (`eval "$(twinopsctl completion bash)"`)
