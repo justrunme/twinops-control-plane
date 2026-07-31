@@ -1,0 +1,19 @@
+# Optional external MQTT broker for TwinOps live demos.
+# Usage:
+#   docker compose -f deploy/demo/docker-compose.mqtt.yml up -d
+#   twinopsctl serve --mqtt-host 127.0.0.1 --mqtt-port 1883
+services:
+  mosquitto:
+    image: eclipse-mosquitto:2
+    ports:
+      - "1883:1883"
+    command: mosquitto -c /mosquitto-no-auth.conf
+    configs:
+      - source: mosquitto_conf
+        target: /mosquitto-no-auth.conf
+
+configs:
+  mosquitto_conf:
+    content: |
+      listener 1883
+      allow_anonymous true

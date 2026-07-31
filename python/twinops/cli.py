@@ -103,6 +103,38 @@ def _cmd_reconcile(args: argparse.Namespace) -> int:
     return 0 if proposal.changes else 0
 
 
+def _cmd_serve(args: argparse.Namespace) -> int:
+    try:
+        import uvicorn
+    except ImportError:
+        print(
+            "error: live API deps missing. Install with: pip install -e '.[live]'",
+            file=sys.stderr,
+        )
+        return 2
+
+    from twinops.api.app import create_app
+
+    example_dir = Path(args.example).resolve()
+    work_dir = Path(args.work_dir).resolve() if args.work_dir else Path("usd/generated/live")
+    app = create_app(
+        example_dir=example_dir,
+        work_dir=work_dir,
+        interval_seconds=args.interval,
+        mqtt_host=args.mqtt_host,
+        mqtt_port=args.mqtt_port,
+        autostart=True,
+    )
+    print(f"TwinOps live API on http://{args.host}:{args.port}")
+    print(f"  example: {example_dir}")
+    print(f"  workdir: {work_dir}")
+    print(f"  health:  http://{args.host}:{args.port}/api/health")
+    print(f"  twin:    http://{args.host}:{args.port}/api/twin")
+    print(f"  ws:      ws://{args.host}:{args.port}/ws/events")
+    uvicorn.run(app, host=args.host, port=args.port, log_level="info")
+    return 0
+
+
 def _cmd_version(_: argparse.Namespace) -> int:
     print(f"twinopsctl {__version__}")
     return 0
@@ -180,6 +212,36 @@ def build_parser() -> argparse.ArgumentParser:
     )
     reconcile.add_argument("--json", action="store_true", help="print proposal JSON")
     reconcile.set_defaults(func=_cmd_reconcile)
+
+    serve = sub.add_parser(
+        "serve",
+        help="run live telemetry simulator + drift API (HTTP/WebSocket)",
+    )
+    serve.add_argument(
+        "--example",
+        default="examples/assembly-line",
+        help="example directory with twin.yaml / desired.yaml",
+    )
+    serve.add_argument(
+        "--work-dir",
+        default=None,
+        help="workdir for composed stage (default: usd/generated/live)",
+    )
+    serve.add_argument("--host", default="127.0.0.1", help="bind host")
+    serve.add_argument("--port", type=int, default=8080, help="bind port")
+    serve.add_argument(
+        "--interval",
+        type=float,
+        default=1.0,
+        help="telemetry/drift tick interval seconds",
+    )
+    serve.add_argument(
+        "--mqtt-host",
+        default=None,
+        help="optional MQTT broker host (in-process bus always enabled)",
+    )
+    serve.add_argument("--mqtt-port", type=int, default=1883, help="MQTT broker port")
+    serve.set_defaults(func=_cmd_serve)
 
     version = sub.add_parser("version", help="print version")
     version.set_defaults(func=_cmd_version)
