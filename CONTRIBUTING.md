@@ -19,6 +19,12 @@ pip install pre-commit
 pre-commit install
 ```
 
+Optional bash completion:
+
+```bash
+eval "$(twinopsctl completion bash)"
+```
+
 ## Suggested PR slices
 
 1. Compiler / drift / tests  
