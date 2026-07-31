@@ -14,7 +14,7 @@ from twinops.drift.html_report import render_html_report
 from twinops.drift.loaders import load_desired_state
 from twinops.drift.model import ObservedState
 from twinops.drift.reconcile import propose_reconciliation
-from twinops.scene import build_scene_snapshot
+from twinops.scene import build_scene_snapshot, render_scene_html
 from twinops.schema import load_manifest
 from twinops.telemetry.bus import TelemetryBus
 from twinops.telemetry.ingest import ObservationIngest
@@ -140,6 +140,9 @@ class LiveDriftRuntime:
             self.evaluate_drift(record_telemetry=False)
         assert self._last_report is not None
         return render_html_report(self._last_report)
+
+    def scene_html(self) -> str:
+        return render_scene_html(self.scene_snapshot())
 
     def metrics(self) -> dict[str, Any]:
         drift = self.store.latest_drift or {}

@@ -18,6 +18,7 @@ Key files:
 - `desired.yaml` — desired three-way state
 - `telemetry.json` — static observed snapshot for offline drift
 - `plm-catalog.json` — mock PLM system of record
+- `mqtt-topics.json` — demo MQTT topic → prim bindings
 - `assets/root.usda` — base OpenUSD stage
 
 No GPU required for these demos.
