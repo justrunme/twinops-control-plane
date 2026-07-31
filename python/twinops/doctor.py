@@ -34,9 +34,13 @@ def _cmd_version(cmd: str) -> str | None:
     path = shutil.which(cmd)
     if not path:
         return None
+    args = {
+        "kubectl": [cmd, "version", "--client", "--output=yaml"],
+        "docker": [cmd, "--version"],
+    }.get(cmd, [cmd, "--version"])
     try:
         proc = subprocess.run(
-            [cmd, "--version"],
+            args,
             check=False,
             capture_output=True,
             text=True,
@@ -45,6 +49,10 @@ def _cmd_version(cmd: str) -> str | None:
     except (OSError, subprocess.TimeoutExpired):
         return path
     text = (proc.stdout or proc.stderr or "").strip().splitlines()
+    if cmd == "kubectl":
+        for line in text:
+            if "gitVersion" in line:
+                return line.strip()
     return text[0] if text else path
 
 
