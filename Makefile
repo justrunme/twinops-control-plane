@@ -3,7 +3,7 @@ PIP ?= $(PYTHON) -m pip
 VENV ?= .venv
 BIN := $(VENV)/bin
 
-.PHONY: help venv install test lint build demo live-demo live-demo-smoke mqtt-up mqtt-down mqtt-smoke mqtt-topics drift serve web web-dev operator-build operator-run operator-demo operator-demo-watch operator-demo-cleanup scene scene-highlight plm-demo verify-all doctor health openapi go-test clean
+.PHONY: help venv install test lint build demo live-demo live-demo-smoke mqtt-up mqtt-down mqtt-smoke mqtt-topics drift serve web web-dev operator-build operator-run operator-demo operator-demo-watch operator-demo-cleanup scene scene-highlight plm-demo verify-all doctor health openapi version go-test clean
 
 help:
 	@echo "TwinOps targets:"
@@ -24,6 +24,7 @@ help:
 	@echo "  make plm-demo        - mock PLM bump → compare → show drift"
 	@echo "  make verify-all      - local gate: test/lint/go/plm/live-smoke"
 	@echo "  make doctor          - check local demo prerequisites"
+	@echo "  make version         - print twinopsctl version"
 	@echo "  make demo            - offline self-healing drift demo"
 	@echo "  make drift           - build + drift against sample telemetry"
 	@echo "  make serve           - live MQTT-style simulator + drift API"
@@ -101,6 +102,9 @@ verify-all:
 
 doctor:
 	$(BIN)/twinopsctl doctor
+
+version:
+	$(BIN)/twinopsctl version
 
 drift:
 	$(BIN)/twinopsctl build examples/assembly-line/twin.yaml --out examples/assembly-line/generated
