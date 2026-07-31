@@ -96,6 +96,14 @@ def create_app(
     def simulate_spike() -> dict[str, Any]:
         return runtime.trigger_spike()
 
+    @app.post("/api/reconcile")
+    def reconcile() -> dict[str, Any]:
+        return runtime.reconcile()
+
+    @app.get("/api/proposal/latest")
+    def proposal_latest() -> dict[str, Any]:
+        return store.latest_proposal or {}
+
     @app.post("/api/drift/refresh")
     def drift_refresh() -> dict[str, Any]:
         return runtime.evaluate_drift(record_telemetry=True)

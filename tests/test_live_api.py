@@ -43,6 +43,20 @@ def test_live_api_health_and_spike(tmp_path: Path) -> None:
         assert spike.status_code == 200
         assert spike.json()["drift"]["status"]["hasDrift"] is True
 
+        reconcile = client.post("/api/reconcile")
+        assert reconcile.status_code == 200
+        body = reconcile.json()
+        assert body["changes"] >= 1
+        assert body["healed"]["robot_firmware"] == "4.14"
+        assert body["healed"]["robot_status"] == "running"
+        assert body["drift"]["status"]["hasDrift"] is False
+
+        proposal = client.get("/api/proposal/latest")
+        assert proposal.status_code == 200
+        assert proposal.json()["status"]["applied"] is True
+
         timeline = client.get("/api/timeline")
         assert timeline.status_code == 200
+        types = {item["type"] for item in timeline.json()["items"]}
+        assert "reconcile" in types
         assert len(timeline.json()["items"]) >= 1

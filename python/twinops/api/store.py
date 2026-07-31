@@ -33,6 +33,7 @@ class TwinStore:
         self._seq = 0
         self.latest_drift: dict[str, Any] | None = None
         self.latest_observed: dict[str, Any] | None = None
+        self.latest_proposal: dict[str, Any] | None = None
         self.twin_meta: dict[str, Any] = {}
         self.simulator_state: dict[str, Any] = {}
 
@@ -72,6 +73,10 @@ class TwinStore:
         with self._lock:
             self.simulator_state = state
 
+    def set_proposal(self, proposal: dict[str, Any]) -> None:
+        with self._lock:
+            self.latest_proposal = proposal
+
     def timeline(self, limit: int = 50) -> list[dict[str, Any]]:
         with self._lock:
             items = list(self._timeline)[: max(1, min(limit, 200))]
@@ -84,5 +89,6 @@ class TwinStore:
                 "simulator": self.simulator_state,
                 "observed": self.latest_observed,
                 "drift": self.latest_drift,
+                "proposal": self.latest_proposal,
                 "timeline": [item.to_dict() for item in list(self._timeline)[:50]],
             }
