@@ -14,7 +14,19 @@ reconcile against rendered stage and observed telemetry
 optionally serve an Omniverse runtime session
 ```
 
-## Current scope (Milestone 0–2)
+## Current scope (Milestone 0–6 foundation)
+
+Live path:
+
+```text
+simulator / MQTT ingest
+      → observed state
+      → drift loop
+      → /api/scene highlight + WebSocket
+      → web UI / Kit stub
+```
+
+Compiler + drift path (Milestone 0–2):
 
 ```text
 DigitalTwin YAML
