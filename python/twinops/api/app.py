@@ -93,6 +93,11 @@ def create_app(
     def drift_latest() -> dict[str, Any]:
         return store.latest_drift or {}
 
+    @app.get("/api/scene")
+    def scene() -> dict[str, Any]:
+        """OpenUSD prim highlight snapshot (Omniverse-ready, GPU not required)."""
+        return runtime.scene_snapshot()
+
     @app.get("/api/timeline")
     def timeline(limit: int = 50) -> dict[str, Any]:
         return {"items": store.timeline(limit=limit)}

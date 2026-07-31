@@ -211,7 +211,7 @@ Milestones 1–2 deliver composition, drift detection, HTML report, and a reconc
 | 3         | Kubernetes operator + DigitalTwin CRD      | **done**    |
 | 4         | Live MQTT telemetry + drift API            | **done**    |
 | 5         | Web control plane + one-command live demo  | **done**    |
-| 6         | Omniverse Kit extension / GPU streaming    | planned     |
+| 6         | Omniverse highlight contract + Kit stub    | **foundation** |
 
 See [docs/roadmap.md](docs/roadmap.md) and [docs/architecture.md](docs/architecture.md).
 
