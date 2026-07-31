@@ -23,3 +23,10 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
+    # Major Kubernetes bumps must stay coordinated (client-go + apimachinery +
+    # controller-runtime). Isolated majors previously broke the Go operator job.
+    ignore:
+      - dependency-name: "k8s.io/*"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "sigs.k8s.io/controller-runtime"
+        update-types: ["version-update:semver-major"]
