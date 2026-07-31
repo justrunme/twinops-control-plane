@@ -4,6 +4,8 @@ All notable TwinOps changes are listed here. Dates are UTC.
 
 ## Unreleased
 
+## 0.3.8 — 2026-07-31
+
 - CONTRIBUTING documents the CLI `--json` stdout contract
 - `twinopsctl build --json` emits JSON-only stdout
 
