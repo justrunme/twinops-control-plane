@@ -1,5 +1,5 @@
 # Experimental TwinOps live API + static web UI image (demo only).
-# Bind to localhost in production-like environments — API is unauthenticated.
+# Prefer localhost binds; set TWINOPS_API_TOKEN / Helm Secret before sharing.
 FROM node:22-bookworm AS web
 WORKDIR /web
 COPY web/package.json web/package-lock.json ./
