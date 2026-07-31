@@ -8,14 +8,16 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, HTMLResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 
 from twinops import __version__
+from twinops.api.auth import authorize_headers, build_http_auth_middleware, resolve_api_token
 from twinops.api.live import LiveDriftRuntime
 from twinops.api.store import TwinStore
+from twinops.api.streaming import mock_streaming_session
 
 
 class _WsClient:
@@ -40,6 +42,7 @@ def create_app(
     mqtt_ingest: bool = True,
     autostart: bool = True,
     web_dist: str | Path | None = None,
+    api_token: str | None = None,
 ) -> FastAPI:
     store = TwinStore()
     runtime = LiveDriftRuntime(
@@ -75,8 +78,12 @@ def create_app(
         allow_methods=["*"],
         allow_headers=["*"],
     )
+    token = resolve_api_token(api_token)
+    if token:
+        app.middleware("http")(build_http_auth_middleware(token))
     app.state.store = store
     app.state.runtime = runtime
+    app.state.api_token_configured = bool(token)
 
     @app.get("/api/health")
     def health() -> dict[str, Any]:
@@ -85,6 +92,7 @@ def create_app(
             "version": __version__,
             "service": "twinops-live",
             "mqtt": runtime.mqtt_status(),
+            "auth": {"required": bool(token)},
         }
 
     @app.get("/api/ready")
@@ -174,12 +182,25 @@ def create_app(
     def proposal_latest() -> dict[str, Any]:
         return store.latest_proposal or {}
 
+    @app.get("/api/streaming/session")
+    def streaming_session(request: Request) -> dict[str, Any]:
+        """Mock Kit App Streaming session descriptor (GPU-free placeholder)."""
+        base = str(request.base_url).rstrip("/")
+        return mock_streaming_session(base_url=base)
+
     @app.post("/api/drift/refresh")
     def drift_refresh() -> dict[str, Any]:
         return runtime.evaluate_drift(record_telemetry=True)
 
     @app.websocket("/ws/events")
     async def ws_events(websocket: WebSocket) -> None:
+        if token and not authorize_headers(
+            authorization=websocket.headers.get("authorization"),
+            header_token=websocket.headers.get("x-twinops-token"),
+            expected=token,
+        ):
+            await websocket.close(code=4401)
+            return
         await websocket.accept()
         client = _WsClient(websocket, asyncio.get_running_loop())
         runtime.register_ws(client)

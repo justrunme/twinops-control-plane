@@ -4,6 +4,18 @@ All notable TwinOps changes are listed here. Dates are UTC.
 
 ## Unreleased
 
+## 0.4.0 — 2026-07-31
+
+- Milestone 0.4 foundations: local GitOps apply, live API token auth, operator live status sync
+- `twinopsctl apply` copies proposal artifacts onto a local branch (no push)
+- Optional `TWINOPS_API_TOKEN` / `--api-token` for live API + CLI live helpers
+- `GET /api/streaming/session` mock Kit streaming descriptor
+- Operator `spec.liveAPIURL` probes live ready/metrics into `status.live`
+- `PlmAdapter` protocol + MQTT payload schema `twinops.mqtt.payload.v1`
+- Grafana overview dashboard stub + Helm umbrella notes
+- ADR-0007/0008 + demo script for portfolio walkthroughs
+- `twinopsctl completion zsh` (from 0.3.10)
+
 ## 0.3.10 — 2026-07-31
 
 - `twinopsctl completion zsh` shell completion script

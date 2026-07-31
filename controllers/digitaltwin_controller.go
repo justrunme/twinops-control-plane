@@ -15,6 +15,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	twinopsv1alpha1 "github.com/justrunme/twinops-control-plane/api/v1alpha1"
+	"github.com/justrunme/twinops-control-plane/internal/livesync"
 	"github.com/justrunme/twinops-control-plane/internal/twinbuild"
 )
 
@@ -149,11 +150,41 @@ func (r *DigitalTwinReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		}
 	}
 
+	liveStatus := twin.Status.Live
+	if twin.Spec.LiveAPIURL != "" {
+		snap, liveErr := livesync.Fetch(ctx, twin.Spec.LiveAPIURL, twin.Spec.LiveAPIToken)
+		now := metav1.Now()
+		if liveErr != nil {
+			logger.Error(liveErr, "live API probe failed")
+			liveStatus = twinopsv1alpha1.LiveStatus{
+				Ready:      false,
+				Message:    liveErr.Error(),
+				LastSynced: &now,
+			}
+		} else {
+			liveStatus = twinopsv1alpha1.LiveStatus{
+				Ready:            snap.Ready,
+				Version:          snap.Version,
+				Twin:             snap.Twin,
+				HasDrift:         snap.HasDrift,
+				HighlightedPrims: snap.HighlightedPrims,
+				TimelineEvents:   snap.TimelineEvents,
+				LastSynced:       &now,
+				Message:          "live API probe ok",
+			}
+			if snap.HasDrift && phase == "Ready" {
+				phase = "DriftDetected"
+				message = fmt.Sprintf("%s; live hasDrift=true", message)
+			}
+		}
+	}
+
 	_, err = r.patchStatus(ctx, &twin, func(status *twinopsv1alpha1.DigitalTwinStatus) {
 		status.Phase = phase
 		status.Message = message
 		status.StagePath = stagePath
 		status.Drift = driftStatus
+		status.Live = liveStatus
 		status.ObservedGeneration = twin.Generation
 		ready := metav1.ConditionTrue
 		reason := "Reconciled"

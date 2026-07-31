@@ -37,7 +37,8 @@ class ReconciliationProposal:
                 "recommendedAction": "open-pull-request",
                 "notes": [
                     "Review generated USD overlay before merge",
-                    "Operator apply path is planned for Milestone 3",
+                    "Apply locally with: twinopsctl apply <proposal-dir>",
+                    "Local apply never pushes — open a PR after review",
                 ],
             },
         }

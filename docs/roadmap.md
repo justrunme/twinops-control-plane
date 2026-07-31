@@ -68,13 +68,40 @@ twinopsctl drift \
 - Kit extension stub that polls TwinOps without Omniverse installed
 - GPU Operator / Kit App Streaming notes (`docs/omniverse.md`)
 - Mock Kit streaming viewport in web UI (GPU placeholder)
-- Remaining: real Kit App Streaming session + browser client
+- `GET /api/streaming/session` mock session descriptor
+- Remaining: real Kit App Streaming session + browser WebRTC client
+
+## Milestone 7 — GitOps apply loop ✅ (foundation)
+
+- `twinopsctl apply` local branch + artifact copy (no remote push)
+- Apply receipt + ADR-0007
+- Remaining: GitHub App / remote PR automation
+
+## Milestone 8 — Live API auth + operator sync ✅ (foundation)
+
+- Optional bearer token (`TWINOPS_API_TOKEN` / `--api-token`) — ADR-0008
+- Operator `spec.liveAPIURL` → `status.live` probe
+- Remaining: Secret-mounted tokens, mTLS
+
+## Milestone 9 — Industrial contour ✅ (stubs)
+
+- `PlmAdapter` protocol (mock implements it)
+- MQTT payload schema `schemas/twinops.mqtt.payload.v1.json`
+- Grafana dashboard stub (`deploy/observability/grafana/`)
+- Helm umbrella notes (`deploy/helm/README.md`)
+- Remaining: second PLM stub, MQTT ACL/TLS, umbrella chart
+
+## Milestone 10 — Demo credibility ✅ (docs)
+
+- [Demo script](demo-script.md) for 5–7 minute walkthrough
+- Portfolio sync for public narrative
 
 ## PLM adapter ✅ (mock)
 
 - JSON catalog (`examples/assembly-line/plm-catalog.json`)
 - `twinopsctl plm show|compare|bump|sync|desired`
 - Vendor-neutral mock only — no proprietary PLM SDK
+- `PlmAdapter` protocol for future vendor stubs
 
 ## Architecture decisions
 
@@ -84,6 +111,8 @@ twinopsctl drift \
 - [ADR-0004](adr/0004-bidirectional-mqtt-bridge.md) — Bidirectional MQTT bridge
 - [ADR-0005](adr/0005-drift-sarif-export.md) — Drift findings as SARIF
 - [ADR-0006](adr/0006-mqtt-topic-catalog.md) — Shared MQTT topic catalog
+- [ADR-0007](adr/0007-local-gitops-apply.md) — Local GitOps apply
+- [ADR-0008](adr/0008-live-api-token-auth.md) — Optional live API token
 
 ## Non-goals (for now)
 
