@@ -3,7 +3,7 @@ PIP ?= $(PYTHON) -m pip
 VENV ?= .venv
 BIN := $(VENV)/bin
 
-.PHONY: help venv install test lint build demo live-demo live-demo-smoke demo-gitops mqtt-up mqtt-down mqtt-smoke mqtt-topics mqtt-topics-sync mqtt-topics-check mqtt-acl-up mqtt-acl-down mqtt-tls-certs mqtt-tls-up mqtt-tls-down mqtt-tls-smoke drift serve live-tls-certs serve-webrtc web web-dev operator-build operator-run operator-demo operator-demo-watch operator-demo-cleanup scene scene-live scene-highlight plm-demo verify-all doctor health ready wait-ready timeline proposal metrics live-status live-spike live-reconcile openapi version docker-live docker-operator docker-live-up docker-live-down go-test clean apply apply-live apply-verify helm-deps helm-template
+.PHONY: help venv install test lint build demo live-demo live-demo-smoke demo-gitops mqtt-up mqtt-down mqtt-smoke mqtt-topics mqtt-topics-sync mqtt-topics-check mqtt-acl-up mqtt-acl-down mqtt-tls-certs mqtt-tls-up mqtt-tls-down mqtt-tls-smoke drift serve live-tls-certs serve-webrtc web web-dev operator-build operator-run operator-demo operator-demo-watch operator-demo-cleanup scene scene-live scene-highlight plm-demo verify-all doctor health ready wait-ready timeline proposal metrics live-status live-spike live-reconcile openapi version docker-live docker-operator docker-live-up docker-live-down go-test clean apply apply-live apply-verify helm-deps helm-template deploy-smoke usd-validate
 
 help:
 	@echo "TwinOps targets:"
@@ -50,7 +50,9 @@ help:
 	@echo "  make mqtt-tls-certs  - generate lab self-signed MQTT TLS certs"
 	@echo "  make mqtt-tls-up     - Mosquitto TLS listener on :8883 (lab only)"
 	@echo "  make helm-deps       - helm dependency update for umbrella chart"
-	@echo "  make helm-template   - render umbrella chart (live stub enabled)"
+	@echo "  make helm-template   - render umbrella chart (live enabled)"
+	@echo "  make deploy-smoke    - helm render + release container health"
+	@echo "  make usd-validate    - optional pxr OpenUSD stage validation"
 	@echo "  make serve           - live MQTT-style simulator + drift API"
 	@echo "  make live-tls-certs  - generate lab HTTPS/mTLS certs for serve"
 	@echo "  make serve-webrtc    - serve with lab WebRTC enabled"
@@ -191,7 +193,7 @@ version:
 	$(BIN)/twinopsctl version
 
 docker-live:
-	docker build -f Dockerfile.live -t twinops-live:1.1.0 .
+	docker build -f Dockerfile.live -t twinops-live:1.2.0 .
 
 docker-live-up:
 	docker compose -f deploy/demo/docker-compose.live.yml up --build -d
@@ -200,7 +202,7 @@ docker-live-down:
 	docker compose -f deploy/demo/docker-compose.live.yml down
 
 docker-operator:
-	docker build -f Dockerfile.operator -t twinops-operator:1.1.0 .
+	docker build -f Dockerfile.operator -t twinops-operator:1.2.0 .
 
 drift:
 	$(BIN)/twinopsctl build examples/assembly-line/twin.yaml --out examples/assembly-line/generated
@@ -267,6 +269,13 @@ helm-template: helm-deps
 		--namespace twinops-system \
 		--set live.enabled=true \
 		--set live.apiToken=demo-token
+
+deploy-smoke:
+	bash scripts/deploy_smoke.sh
+
+usd-validate:
+	$(BIN)/twinopsctl build examples/assembly-line/twin.yaml --out /tmp/twinops-usd-validate
+	$(BIN)/python scripts/validate_usd.py /tmp/twinops-usd-validate/root.usda --json
 
 serve:
 	$(BIN)/twinopsctl serve --example examples/assembly-line --host 127.0.0.1 --port 8080

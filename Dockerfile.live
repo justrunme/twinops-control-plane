@@ -1,4 +1,4 @@
-# Experimental TwinOps live API + static web UI image (demo only).
+# TwinOps live API + static web UI image.
 # Prefer localhost binds; set TWINOPS_API_TOKEN / Helm Secret before sharing.
 FROM node:22-bookworm AS web
 WORKDIR /web
@@ -16,6 +16,10 @@ COPY python ./python
 COPY examples ./examples
 RUN pip install --no-cache-dir ".[live]"
 COPY --from=web /web/dist ./web/dist
+RUN mkdir -p /tmp/twinops && chmod 1777 /tmp/twinops
+ENV TWINOPS_WORK_DIR=/tmp/twinops/live
 EXPOSE 8080
 USER 65532:65532
-ENTRYPOINT ["twinopsctl", "serve", "--host", "0.0.0.0", "--port", "8080", "--web-dist", "web/dist"]
+# ENTRYPOINT is only the binary so Helm/K8s `args` replace CMD cleanly.
+ENTRYPOINT ["twinopsctl"]
+CMD ["serve", "--host", "0.0.0.0", "--port", "8080", "--web-dist", "web/dist", "--work-dir", "/tmp/twinops/live", "--example", "examples/assembly-line"]

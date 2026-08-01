@@ -100,6 +100,12 @@ Single GPU · single Kit session · software/NVENC host path → WebRTC MediaStr
 (or lab-echo fallback). Not multi-user, not NVCF, not autoscaling.
 See [ADR-0020](adr/0020-kit-gpu-encoder-path.md), [gpu-streaming.md](gpu-streaming.md).
 
+## v1.2 — Production hardening ✅
+
+Helm/container deploy path fixed and CI-tested; DigitalTwin artifactSource;
+software WebRTC test + host NVENC ffmpeg bridge; optional pxr validation.
+See [release-1.2.md](release-1.2.md).
+
 ## Architecture decisions
 
 - [ADR-0001](adr/0001-gitops-for-digital-twins.md) — GitOps for digital twins

@@ -5,9 +5,19 @@ metadata:
   name: {{ .Values.sampleTwin.name }}
   namespace: {{ .Values.namespace }}
 spec:
-  manifestPath: {{ .Values.sampleTwin.manifestPath | quote }}
+  {{- if and .Values.sampleTwin.artifactSource (or .Values.sampleTwin.artifactSource.configMapName .Values.sampleTwin.artifactSource.url) }}
+  artifactSource:
+    {{- if .Values.sampleTwin.artifactSource.configMapName }}
+    configMapName: {{ .Values.sampleTwin.artifactSource.configMapName | quote }}
+    {{- end }}
+    {{- if .Values.sampleTwin.artifactSource.url }}
+    url: {{ .Values.sampleTwin.artifactSource.url | quote }}
+    {{- end }}
+  {{- else }}
+  manifestPath: {{ required "sampleTwin.manifestPath or artifactSource required" .Values.sampleTwin.manifestPath | quote }}
   desiredPath: {{ .Values.sampleTwin.desiredPath | quote }}
   observedPath: {{ .Values.sampleTwin.observedPath | quote }}
+  {{- end }}
   outputDir: {{ .Values.sampleTwin.outputDir | quote }}
   intervalSeconds: {{ .Values.sampleTwin.intervalSeconds }}
   {{- if .Values.sampleTwin.liveAPIURL }}

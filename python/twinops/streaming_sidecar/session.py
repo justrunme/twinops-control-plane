@@ -65,11 +65,15 @@ class StreamingSessionManager:
         max_sessions: int = 1,
         encoder: str = "auto",
         input_mirror: str | Path | None = None,
+        kit_frame_dir: str | Path | None = None,
+        gpu_index: int = 0,
     ) -> None:
         self.frame_source: FrameSource = frame_source or MockFrameSource()
         self.idle_timeout_seconds = idle_timeout_seconds
         self.max_sessions = max_sessions
         self.capability: EncoderCapability = probe_encoder(encoder)
+        self.kit_frame_dir = Path(kit_frame_dir) if kit_frame_dir else None
+        self.gpu_index = gpu_index
         mirror = Path(input_mirror) if input_mirror else None
         self.input_bridge = KitInputBridge(mirror_path=mirror)
         self._lock = threading.RLock()
@@ -122,6 +126,8 @@ class StreamingSessionManager:
                 capability=self.capability,
                 input_bridge=self.input_bridge,
                 stats=session.stats,
+                kit_frame_dir=self.kit_frame_dir,
+                gpu_index=self.gpu_index,
             )
             return session
 
@@ -215,6 +221,7 @@ class StreamingSessionManager:
     def status(self) -> dict[str, Any]:
         with self._lock:
             session = self._session.to_dict() if self._session else None
+        media = self._media
         return {
             "startedAt": self.started_at,
             "shuttingDown": self.shutting_down,
@@ -223,6 +230,8 @@ class StreamingSessionManager:
             "session": session,
             "frameSource": self.frame_source.status(),
             "encoder": self.capability.to_dict(),
+            "encoderInUse": media.encoder_in_use if media else "none",
+            "mediaPath": media.media_path if media else "idle",
             "input": self.input_bridge.status(),
         }
 
