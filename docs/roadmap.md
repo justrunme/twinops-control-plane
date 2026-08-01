@@ -94,10 +94,11 @@ and [stability.md](stability.md) (frozen contracts).
 
 Core feature work is **frozen**. Next code epic only:
 
-## v1.1 — Real Kit GPU streaming path ⏳
+## v1.1 — Real Kit GPU streaming path ✅
 
-Single GPU · single Kit session · real RTX/NVENC → WebRTC MediaStream.
-Not multi-user, not NVCF, not autoscaling. Fallback without GPU stays working.
+Single GPU · single Kit session · software/NVENC host path → WebRTC MediaStream
+(or lab-echo fallback). Not multi-user, not NVCF, not autoscaling.
+See [ADR-0020](adr/0020-kit-gpu-encoder-path.md), [gpu-streaming.md](gpu-streaming.md).
 
 ## Architecture decisions
 
@@ -120,6 +121,7 @@ Not multi-user, not NVCF, not autoscaling. Fallback without GPU stays working.
 - [ADR-0017](adr/0017-generic-plm-adapters.md) — Generic File and REST PLM adapters
 - [ADR-0018](adr/0018-productization-e2e.md) — Productization end-to-end scenario
 - [ADR-0019](adr/0019-kit-streaming-sidecar.md) — Single-session Kit streaming sidecar
+- [ADR-0020](adr/0020-kit-gpu-encoder-path.md) — Real Kit GPU encoder path (v1.1)
 
 ## Non-goals (for now)
 

@@ -15,14 +15,30 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--idle-timeout", type=float, default=None)
     parser.add_argument(
         "--frame-source",
-        choices=("mock", "kit"),
+        choices=("mock", "kit", "kit-file"),
         default=None,
-        help="mock synthetic frames (default) or kit process supervisor",
+        help="mock | kit process | kit-file drop directory",
+    )
+    parser.add_argument(
+        "--encoder",
+        choices=("auto", "mock", "software", "nvenc"),
+        default=None,
+        help="media encoder selection (auto prefers nvenc→software→mock)",
     )
     parser.add_argument(
         "--kit-command",
         default=None,
         help="shell command to launch Kit when --frame-source kit",
+    )
+    parser.add_argument(
+        "--kit-frame-dir",
+        default=None,
+        help="directory where Kit drops JPEG/PNG frames (kit-file)",
+    )
+    parser.add_argument(
+        "--input-mirror",
+        default=None,
+        help="JSONL path mirroring browser input events for Kit",
     )
     args = parser.parse_args(argv)
 
@@ -37,7 +53,10 @@ def main(argv: list[str] | None = None) -> int:
         ),
         max_sessions=1,
         frame_source=args.frame_source or cfg.frame_source,
+        encoder=args.encoder or cfg.encoder,
         kit_command=args.kit_command or cfg.kit_command,
+        kit_frame_dir=args.kit_frame_dir or cfg.kit_frame_dir,
+        input_mirror=args.input_mirror or cfg.input_mirror,
         twinops_api=cfg.twinops_api,
         gpu_index=cfg.gpu_index,
     )
@@ -50,6 +69,7 @@ def main(argv: list[str] | None = None) -> int:
     app = create_sidecar_app(cfg)
     print(f"TwinOps streaming sidecar on http://{cfg.host}:{cfg.port}")
     print(f"  frame-source: {cfg.frame_source}")
+    print(f"  encoder:      {cfg.encoder}")
     print(f"  idle-timeout: {cfg.idle_timeout_seconds}s")
     print(f"  health: http://{cfg.host}:{cfg.port}/health")
     uvicorn.run(app, host=cfg.host, port=cfg.port, log_level="info")

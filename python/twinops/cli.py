@@ -651,8 +651,14 @@ def _cmd_streaming_sidecar(args: argparse.Namespace) -> int:
         argv.extend(["--idle-timeout", str(args.idle_timeout)])
     if args.frame_source:
         argv.extend(["--frame-source", args.frame_source])
+    if args.encoder:
+        argv.extend(["--encoder", args.encoder])
     if args.kit_command:
         argv.extend(["--kit-command", args.kit_command])
+    if args.kit_frame_dir:
+        argv.extend(["--kit-frame-dir", args.kit_frame_dir])
+    if args.input_mirror:
+        argv.extend(["--input-mirror", args.input_mirror])
     return sidecar_main(argv)
 
 
@@ -1360,17 +1366,33 @@ def build_parser() -> argparse.ArgumentParser:
 
     streaming = sub.add_parser(
         "streaming-sidecar",
-        help="run single-session Kit streaming sidecar (mock frames / Kit supervisor)",
+        help="run single-session Kit streaming sidecar (mock/kit-file/NVENC path)",
     )
     streaming.add_argument("--host", default=None)
     streaming.add_argument("--port", type=int, default=None)
     streaming.add_argument("--idle-timeout", type=float, default=None)
     streaming.add_argument(
         "--frame-source",
-        choices=("mock", "kit"),
+        choices=("mock", "kit", "kit-file"),
         default=None,
     )
+    streaming.add_argument(
+        "--encoder",
+        choices=("auto", "mock", "software", "nvenc"),
+        default=None,
+        help="media encoder (auto: nvenc→software→mock)",
+    )
     streaming.add_argument("--kit-command", default=None)
+    streaming.add_argument(
+        "--kit-frame-dir",
+        default=None,
+        help="Kit JPEG/PNG drop directory for --frame-source kit-file",
+    )
+    streaming.add_argument(
+        "--input-mirror",
+        default=None,
+        help="JSONL mirror of browser input events for Kit",
+    )
     streaming.set_defaults(func=_cmd_streaming_sidecar)
 
     state = sub.add_parser("state", help="backup / restore SQLite control-plane state")

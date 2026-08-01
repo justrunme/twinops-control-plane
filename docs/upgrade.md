@@ -16,11 +16,20 @@
 - SQLite files from 0.10/0.11 remain readable (same schema)
 - Streaming sidecar still uses mock frames by default; NVENC encoder remains a follow-up
 
+## 1.0.x → 1.1.0
+
+- Optional media extra: `pip install 'twinops[streaming]'` for real WebRTC tracks
+- New sidecar flags/env: `--encoder`, `--kit-frame-dir`, `--input-mirror`,
+  `TWINOPS_SIDECAR_ENCODER`, `TWINOPS_KIT_FRAME_DIR`, `TWINOPS_KIT_INPUT_MIRROR`
+- New API: `POST /v1/sessions/{id}/input`; richer `/v1/status` + Prometheus stream gauges
+- Default install without streaming extras still uses **lab-echo** (no break for CI)
+- See [gpu-streaming.md](gpu-streaming.md)
+
 ## Recommended upgrade path
 
 ```bash
 git fetch --tags
-git checkout v1.0.0
+git checkout v1.1.0
 make install
 make verify-all          # local; heavy — use before cutting releases
 # or lighter:
