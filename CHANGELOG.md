@@ -4,12 +4,18 @@ All notable TwinOps changes are listed here. Dates are UTC.
 
 ## Unreleased
 
+## 1.3.0 — 2026-08-01
+
+**Single-twin pilot ready** control plane:
+
 - Durable output publish: `status.output.{uri,digest,revision}` → ConfigMap `{name}-output` (ADR-0021)
 - `status.inputDigest` (+ keep `artifactDigest` alias); build idempotency on generation+inputDigest
 - Reconcile `--build-timeout` / `--max-concurrent-reconciles`; Prometheus metrics; K8s Events
-- Operator E2E asserts published output ConfigMap digest
-- Helm `rbac.mode=cluster|namespaced` + `--watch-namespaces`; in-cluster Helm kind E2E + Pod restart recovery
+- Operator out-of-cluster E2E asserts published output ConfigMap digest
+- Helm `rbac.mode=cluster|namespaced` + `--watch-namespaces`
+- In-cluster Helm kind E2E: image load → helm install → digest change → Pod restart recovery
 - Supply-chain: govulncheck, npm audit, Trivy image scan, Syft SBOM (security workflow)
+- Includes 1.2.1 correctness (Helm sample `outputDir`, finalizer cleanup, artifact size/DNS fail-closed)
 
 ## 1.2.1 — 2026-08-01
 

@@ -18,7 +18,7 @@ OpenUSD layers + variants
 Runtime (optional): Omniverse Kit · web UI · lab WebRTC
 ```
 
-> Status: **v1.2.0** — hardened deploy path (Helm/containers), ConfigMap/URL twin artifacts, software WebRTC + host NVENC bridge. Omniverse Kit remains optional. Still a reference architecture, not a turnkey plant platform.
+> Status: **v1.3.0** — single-twin pilot control plane: durable ConfigMap output, in-cluster Helm E2E, namespaced RBAC, reconcile guards. Omniverse Kit remains optional. Still a reference architecture / pilot prototype — not a multi-site plant platform.
 
 [![CI](https://github.com/justrunme/twinops-control-plane/actions/workflows/ci.yml/badge.svg)](https://github.com/justrunme/twinops-control-plane/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/justrunme/twinops-control-plane?display_name=tag)](https://github.com/justrunme/twinops-control-plane/releases/latest)

@@ -10,7 +10,7 @@ rbac:
 
 image:
   repository: ghcr.io/justrunme/twinops-operator
-  tag: "1.2.1"
+  tag: "1.3.0"
   pullPolicy: IfNotPresent
 
 replicaCount: 1
