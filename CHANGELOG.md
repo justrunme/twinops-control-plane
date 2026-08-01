@@ -4,6 +4,11 @@ All notable TwinOps changes are listed here. Dates are UTC.
 
 ## Unreleased
 
+- Durable output publish: `status.output.{uri,digest,revision}` → ConfigMap `{name}-output` (ADR-0021)
+- `status.inputDigest` (+ keep `artifactDigest` alias); build idempotency on generation+inputDigest
+- Reconcile `--build-timeout` / `--max-concurrent-reconciles`; Prometheus metrics; K8s Events
+- Operator E2E asserts published output ConfigMap digest
+
 ## 1.2.1 — 2026-08-01
 
 Correctness patch (no new product surface):

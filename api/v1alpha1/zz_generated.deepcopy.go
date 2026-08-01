@@ -20,11 +20,51 @@ func (in *DigitalTwinSpec) DeepCopyInto(out *DigitalTwinSpec) {
 		*out = new(ArtifactSource)
 		**out = **in
 	}
+	if in.OutputPublish != nil {
+		in, out := &in.OutputPublish, &out.OutputPublish
+		*out = new(OutputPublish)
+		(*in).DeepCopyInto(*out)
+	}
 	if in.LiveAPITokenSecretRef != nil {
 		in, out := &in.LiveAPITokenSecretRef, &out.LiveAPITokenSecretRef
 		*out = new(SecretKeyRef)
 		**out = **in
 	}
+}
+
+func (in *OutputPublish) DeepCopyInto(out *OutputPublish) {
+	*out = *in
+	if in.Enabled != nil {
+		in, out := &in.Enabled, &out.Enabled
+		*out = new(bool)
+		**out = **in
+	}
+}
+
+func (in *OutputPublish) DeepCopy() *OutputPublish {
+	if in == nil {
+		return nil
+	}
+	out := new(OutputPublish)
+	in.DeepCopyInto(out)
+	return out
+}
+
+func (in *OutputArtifact) DeepCopyInto(out *OutputArtifact) {
+	*out = *in
+	if in.PublishedAt != nil {
+		in, out := &in.PublishedAt, &out.PublishedAt
+		*out = (*in).DeepCopy()
+	}
+}
+
+func (in *OutputArtifact) DeepCopy() *OutputArtifact {
+	if in == nil {
+		return nil
+	}
+	out := new(OutputArtifact)
+	in.DeepCopyInto(out)
+	return out
 }
 
 func (in *DigitalTwinSpec) DeepCopy() *DigitalTwinSpec {
@@ -103,6 +143,7 @@ func (in *DigitalTwinList) DeepCopyObject() runtime.Object {
 
 func (in *DigitalTwinStatus) DeepCopyInto(out *DigitalTwinStatus) {
 	*out = *in
+	in.Output.DeepCopyInto(&out.Output)
 	in.Drift.DeepCopyInto(&out.Drift)
 	in.Live.DeepCopyInto(&out.Live)
 	if in.Conditions != nil {

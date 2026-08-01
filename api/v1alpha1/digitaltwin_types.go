@@ -22,6 +22,20 @@ type ArtifactSource struct {
 	ExpectedDigest string `json:"expectedDigest,omitempty"`
 }
 
+// OutputPublish controls durable publish of composed twin outputs.
+type OutputPublish struct {
+	// Enabled publishes composed stage files after a successful build.
+	// +optional
+	// +kubebuilder:default=true
+	Enabled *bool `json:"enabled,omitempty"`
+
+	// Mode is configmap (default). Future: oci, s3.
+	// +optional
+	// +kubebuilder:default=configmap
+	// +kubebuilder:validation:Enum=configmap
+	Mode string `json:"mode,omitempty"`
+}
+
 // DigitalTwinSpec defines the desired state of a digital twin.
 type DigitalTwinSpec struct {
 	// ArtifactSource materializes twin inputs into the operator workspace.
@@ -45,6 +59,11 @@ type DigitalTwinSpec struct {
 	// +optional
 	OutputDir string `json:"outputDir,omitempty"`
 
+	// OutputPublish publishes composed artifacts to a durable cluster reference.
+	// Default: ConfigMap {name}-output with digest + configmap:// URI.
+	// +optional
+	OutputPublish *OutputPublish `json:"outputPublish,omitempty"`
+
 	// IntervalSeconds controls requeue period for continuous drift checks.
 	// +optional
 	// +kubebuilder:default=30
@@ -67,6 +86,25 @@ type DigitalTwinSpec struct {
 	// namespace. When set, it takes precedence over liveAPIToken.
 	// +optional
 	LiveAPITokenSecretRef *SecretKeyRef `json:"liveAPITokenSecretRef,omitempty"`
+}
+
+// OutputArtifact is a durable reference to the last published composition.
+type OutputArtifact struct {
+	// Digest is sha256 of published stage files (sorted name+payload).
+	// +optional
+	Digest string `json:"digest,omitempty"`
+	// URI is a cluster-stable reference, e.g. configmap://ns/name.
+	// +optional
+	URI string `json:"uri,omitempty"`
+	// Revision increments when the published digest changes.
+	// +optional
+	Revision int64 `json:"revision,omitempty"`
+	// StageKey is the primary stage object key (usually root.usda).
+	// +optional
+	StageKey string `json:"stageKey,omitempty"`
+	// PublishedAt is the last successful publish time.
+	// +optional
+	PublishedAt *metav1.Time `json:"publishedAt,omitempty"`
 }
 
 // SecretKeyRef selects a key from a namespaced Secret.
@@ -123,14 +161,21 @@ type LiveStatus struct {
 type DigitalTwinStatus struct {
 	// Phase is Pending, Composing, Ready, DriftDetected, or Error.
 	Phase string `json:"phase,omitempty"`
-	// StagePath is the composed root.usda path.
+	// StagePath is the composed root.usda path (local to the operator pod).
 	StagePath string `json:"stagePath,omitempty"`
 	// ArtifactDigest is sha256 of materialized artifact inputs when artifactSource is used.
+	// Deprecated alias of InputDigest — kept for 1.2 clients.
 	// +optional
 	ArtifactDigest string `json:"artifactDigest,omitempty"`
+	// InputDigest is sha256 of materialized artifact inputs (preferred).
+	// +optional
+	InputDigest string `json:"inputDigest,omitempty"`
 	// WorkspacePath is the materialized input directory when artifactSource is used.
 	// +optional
 	WorkspacePath string `json:"workspacePath,omitempty"`
+	// Output is the durable published composition (ConfigMap URI + digest).
+	// +optional
+	Output OutputArtifact `json:"output,omitempty"`
 	// Message is a human-readable status detail.
 	Message string `json:"message,omitempty"`
 	// Drift summarizes the latest drift evaluation.
@@ -140,6 +185,9 @@ type DigitalTwinStatus struct {
 	Live LiveStatus `json:"live,omitempty"`
 	// ObservedGeneration is the last reconciled generation.
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
+	// LastComposeGeneration is the generation for which compose+publish last succeeded.
+	// +optional
+	LastComposeGeneration int64 `json:"lastComposeGeneration,omitempty"`
 	// Conditions mirror Kubernetes conventional status signals.
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }

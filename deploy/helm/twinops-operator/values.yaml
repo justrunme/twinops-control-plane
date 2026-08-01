@@ -9,6 +9,10 @@ replicaCount: 1
 
 twinopsctlPath: /usr/local/bin/twinopsctl
 
+# Subprocess + concurrency guards (single-twin pilot defaults).
+buildTimeout: 120s
+maxConcurrentReconciles: 2
+
 # Optional hostPath mount for kind/k3d demos. Prefer artifactSource (ConfigMap/URL).
 examples:
   enabled: false
