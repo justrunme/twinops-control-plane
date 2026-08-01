@@ -50,9 +50,22 @@ proposal (USD overlay + PR draft), optional local apply, and verify → SYNCED.
 See [stability.md](stability.md). Breaking changes require a migration note or a
 new API version.
 
+## Operator path (1.3+)
+
+```text
+ConfigMap / URL artifact
+  → materialize (atomic)
+  → twinopsctl build + drift
+  → bundle.tar.gz → ConfigMap {name}-output
+  → status.output.{uri,digest,revision}
+```
+
+See [operator.md](operator.md), [ADR-0022](adr/0022-deterministic-output-bundle.md).
+
 ## Related
 
 - [architecture.md](architecture.md) — longer overview
+- [release-1.3.1.md](release-1.3.1.md) — current pilot release
 - [e2e-demo.md](e2e-demo.md) — one-command operational scenario
 - [streaming-sidecar.md](streaming-sidecar.md) — optional Kit streaming path
 - [gpu-streaming.md](gpu-streaming.md) — GPU/driver compatibility for v1.1
