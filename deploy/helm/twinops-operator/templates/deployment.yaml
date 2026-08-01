@@ -25,6 +25,14 @@ spec:
             - --twinopsctl={{ .Values.twinopsctlPath }}
             - --build-timeout={{ .Values.buildTimeout | default "120s" }}
             - --max-concurrent-reconciles={{ .Values.maxConcurrentReconciles | default 2 }}
+            {{- if and (eq (.Values.rbac.mode | default "cluster") "namespaced") }}
+            {{- $wn := .Values.rbac.watchNamespaces | default (list) }}
+            {{- if eq (len $wn) 0 }}
+            - --watch-namespaces={{ .Values.namespace }}
+            {{- else }}
+            - --watch-namespaces={{ join "," $wn }}
+            {{- end }}
+            {{- end }}
           ports:
             - name: metrics
               containerPort: 8080

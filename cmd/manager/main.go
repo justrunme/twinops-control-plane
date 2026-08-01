@@ -3,12 +3,14 @@ package main
 import (
 	"flag"
 	"os"
+	"strings"
 	"time"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
@@ -32,6 +34,7 @@ func main() {
 	var twinopsctl string
 	var buildTimeout time.Duration
 	var maxConcurrent int
+	var watchNamespaces string
 
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "metrics endpoint")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "health probe endpoint")
@@ -39,6 +42,7 @@ func main() {
 	flag.StringVar(&twinopsctl, "twinopsctl", "", "path to twinopsctl binary")
 	flag.DurationVar(&buildTimeout, "build-timeout", 120*time.Second, "timeout for twinopsctl build/drift")
 	flag.IntVar(&maxConcurrent, "max-concurrent-reconciles", 2, "max concurrent DigitalTwin reconciles")
+	flag.StringVar(&watchNamespaces, "watch-namespaces", "", "comma-separated namespaces to watch (empty = all / cluster-scoped)")
 	opts := zap.Options{Development: true}
 	opts.BindFlags(flag.CommandLine)
 	flag.Parse()
@@ -46,7 +50,7 @@ func main() {
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 	setupLog := ctrl.Log.WithName("setup")
 
-	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
+	mgrOpts := ctrl.Options{
 		Scheme: scheme,
 		Metrics: metricsserver.Options{
 			BindAddress: metricsAddr,
@@ -54,7 +58,17 @@ func main() {
 		HealthProbeBindAddress: probeAddr,
 		LeaderElection:         enableLeaderElection,
 		LeaderElectionID:       "twinops-control-plane.twinops.io",
-	})
+	}
+	if nsList := parseNamespaces(watchNamespaces); len(nsList) > 0 {
+		setupLog.Info("namespace-scoped cache", "namespaces", nsList)
+		nsMap := map[string]cache.Config{}
+		for _, ns := range nsList {
+			nsMap[ns] = cache.Config{}
+		}
+		mgrOpts.Cache = cache.Options{DefaultNamespaces: nsMap}
+	}
+
+	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), mgrOpts)
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
 		os.Exit(1)
@@ -86,4 +100,20 @@ func main() {
 		setupLog.Error(err, "problem running manager")
 		os.Exit(1)
 	}
+}
+
+func parseNamespaces(raw string) []string {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return nil
+	}
+	parts := strings.Split(raw, ",")
+	out := make([]string, 0, len(parts))
+	for _, p := range parts {
+		p = strings.TrimSpace(p)
+		if p != "" {
+			out = append(out, p)
+		}
+	}
+	return out
 }
