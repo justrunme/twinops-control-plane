@@ -40,7 +40,7 @@ type DigitalTwinReconciler struct {
 // +kubebuilder:rbac:groups=twinops.io,resources=digitaltwins/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=twinops.io,resources=digitaltwins/finalizers,verbs=update
 // +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch
-// +kubebuilder:rbac:groups="",resources=configmaps,verbs=get;list;watch
+// +kubebuilder:rbac:groups="",resources=configmaps,verbs=get;list;watch;create;update;patch;delete
 
 func (r *DigitalTwinReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := log.FromContext(ctx)
@@ -55,6 +55,24 @@ func (r *DigitalTwinReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 
 	if !twin.DeletionTimestamp.IsZero() {
 		if controllerutil.ContainsFinalizer(&twin, finalizerName) {
+			// Cleanup local workspace so emptyDir does not retain stale twin data.
+			outputDir := twin.Spec.OutputDir
+			if outputDir == "" {
+				outputDir = filepath.Join("/tmp/twinops", twin.Namespace, twin.Name)
+			}
+			if err := os.RemoveAll(outputDir); err != nil {
+				logger.Error(err, "workspace cleanup failed", "path", outputDir)
+				// Still remove finalizer to avoid stuck deletes; log for ops.
+			}
+			// Best-effort delete published output ConfigMap (v1.3+); ignore NotFound.
+			outCM := types.NamespacedName{
+				Namespace: twin.Namespace,
+				Name:      twin.Name + "-output",
+			}
+			var cm corev1.ConfigMap
+			if err := r.Get(ctx, outCM, &cm); err == nil {
+				_ = r.Delete(ctx, &cm)
+			}
 			controllerutil.RemoveFinalizer(&twin, finalizerName)
 			if err := r.Update(ctx, &twin); err != nil {
 				return ctrl.Result{}, err
@@ -92,12 +110,14 @@ func (r *DigitalTwinReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		(twin.Spec.ArtifactSource.ConfigMapName != "" || twin.Spec.ArtifactSource.URL != "") {
 		workspacePath = filepath.Join(outputDir, "inputs")
 		allowPrivate := os.Getenv("TWINOPS_ARTIFACT_ALLOW_PRIVATE") == "1"
+		requireDigest := os.Getenv("TWINOPS_ARTIFACT_REQUIRE_URL_DIGEST") == "1"
 		res, matErr := artifacts.Materialize(ctx, r.Client, artifacts.Source{
-			Namespace:       twin.Namespace,
-			ConfigMapName:   twin.Spec.ArtifactSource.ConfigMapName,
-			URL:             twin.Spec.ArtifactSource.URL,
-			ExpectedDigest:  twin.Spec.ArtifactSource.ExpectedDigest,
-			AllowPrivateURL: allowPrivate,
+			Namespace:             twin.Namespace,
+			ConfigMapName:         twin.Spec.ArtifactSource.ConfigMapName,
+			URL:                   twin.Spec.ArtifactSource.URL,
+			ExpectedDigest:        twin.Spec.ArtifactSource.ExpectedDigest,
+			AllowPrivateURL:       allowPrivate,
+			RequireExpectedDigest: requireDigest,
 		}, workspacePath)
 		if matErr != nil {
 			logger.Error(matErr, "artifact materialize failed")

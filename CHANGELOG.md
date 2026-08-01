@@ -4,16 +4,24 @@ All notable TwinOps changes are listed here. Dates are UTC.
 
 ## Unreleased
 
+## 1.2.1 — 2026-08-01
+
+Correctness patch (no new product surface):
+
 - Honest streaming encoder fields: `ingestEncoder` / `webrtcEncoder` / `mediaPath=nvenc-mpegts-aiortc`
 - Software WebRTC test receives frames; NVENC smoke + GPU workflow use real offer/`track.recv()`
 - Atomic artifact materialize (staging rename, stale-file cleanup, `expectedDigest`, SSRF policy)
 - Kind operator ConfigMap artifact E2E in CI (`scripts/operator_artifact_e2e.sh`)
-- Operator watches artifact ConfigMaps and re-reconciles on change; E2E uses `kubectl replace` so removed keys actually leave the ConfigMap (apply three-way merge left `desired.yaml` and stalled digest)
+- Operator watches artifact ConfigMaps and re-reconciles on change; E2E uses `kubectl replace`
+- Helm sample `outputDir` defaults to `/tmp/twinops/...` (writable emptyDir mount)
+- Finalizer cleans workspace (and best-effort `{name}-output` ConfigMap) on CR delete
+- Artifact download limits fail closed with explicit size errors; max files; duplicate basename reject
+- DNS SSRF fail-closed on lookup failure; optional `TWINOPS_ARTIFACT_REQUIRE_URL_DIGEST=1`
 
 ## 1.2.0 — 2026-08-01
 
 - Production hardening: Helm live ENTRYPOINT/args fix, synced image tags, deploy smoke CI
-- Host NVENC bridge (`ffmpeg h264_nvenc` → MPEG-TS → aiortc) + software WebRTC integration test
+- Host NVENC bridge (`ffmpeg h264_nvenc` → MPEG-TS → **aiortc** WebRTC encoder; not end-to-end NVENC RTP)
 - Publish `twinops-streaming-sidecar` image on release
 - DigitalTwin `artifactSource` (ConfigMap / HTTP bundle) with `status.artifactDigest`
 - Optional pxr OpenUSD validation (`twinops[usd]`, CI job)

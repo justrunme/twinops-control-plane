@@ -1,6 +1,6 @@
 dependencies:
 - name: twinops-operator
   repository: file://../twinops-operator
-  version: 0.1.1
-digest: sha256:f7fa698971573aadb7160dbfe8af64c9ceef3bd63031cde7409c5656035c4a09
-generated: "2026-07-31T13:16:02.833374+02:00"
+  version: 0.1.2
+digest: sha256:ec5dd99b2e8c2a5d2c37680e972ce7d33c7feadc67217a9c9621c10f7d276f0c
+generated: "2026-08-01T22:59:19.689507+02:00"
