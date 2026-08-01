@@ -15,20 +15,18 @@ DigitalTwin CR
 - Go **1.26.x** (see `go.mod` / CI `setup-go`)
 - `twinopsctl` on `PATH` (or via `make install` / `--twinopsctl=`)
 
-## Workspace / outputDir
+## Workspace (controller-owned)
 
-The manager mounts a writable **emptyDir** at `/tmp/twinops`. Default
-`spec.outputDir` (and Helm sample) must stay under that path for non-root pods:
+The manager mounts a writable **emptyDir** at `/tmp`. Every twin uses a
+**managed** path — never a free-form user absolute path for cleanup:
 
-```yaml
-spec:
-  outputDir: /tmp/twinops/assembly-line-a
+```text
+/tmp/twinops/<namespace>/<uid>/
 ```
 
-Do **not** use `/var/lib/twinops` unless you also mount a PVC there.
-
-On CR delete the finalizer removes the workspace directory (and best-effort
-`{name}-output` ConfigMap if present).
+`spec.outputDir` is **legacy and ignored** for write/cleanup (avoids one CR
+wiping another twin’s tree). On delete the finalizer removes only the managed
+workspace plus the published `{name}-output` ConfigMap.
 
 ## Durable output (v1.3.1)
 
@@ -148,32 +146,40 @@ Prefer `spec.artifactSource` (exactly one of `configMapName` / `url`):
 ```yaml
 spec:
   artifactSource:
-    configMapName: assembly-line-inputs   # keys: twin.yaml, desired.yaml, telemetry.json
+    configMapName: assembly-line-inputs   # twin.yaml + optional desired/telemetry + base USDA
     # expectedDigest: sha256:...          # optional fail-closed pin
   # or: url: https://example.com/twin-bundle.tar.gz
-  outputDir: /tmp/twinops/assembly-line-a
+  # outputDir is ignored — workspace is always /tmp/twinops/<ns>/<uid>
 ```
 
 Materialize is **atomic** (staging dir → rename; stale files from prior bundles are
 removed). HTTPS URL fetches block private/loopback hosts unless the operator sets
-`TWINOPS_ARTIFACT_ALLOW_PRIVATE=1` (lab only).
+`TWINOPS_ARTIFACT_ALLOW_PRIVATE=1` (lab only). Set
+`TWINOPS_ARTIFACT_REQUIRE_URL_DIGEST=1` (Helm: `artifactRequireURLDigest`) to require
+`expectedDigest` for URL sources.
 
-Status exposes `artifactDigest` and `workspacePath`. Verify with:
+Status exposes `inputDigest` / `artifactDigest`, `workspacePath`, and `output.*`.
+Verify with:
 
 ```bash
-make operator-artifact-e2e
+make operator-artifact-e2e      # out-of-cluster manager + bundle Stage.Open
+make operator-incluster-e2e     # Helm-installed image + restart digest stability
 ```
 
 ## Helm
 
 ```bash
-helm upgrade --install twinops-operator deploy/helm/twinops-operator
+helm upgrade --install twinops-operator deploy/helm/twinops-operator \
+  --namespace twinops-system --create-namespace \
+  --set image.tag=1.3.1
 ```
+
+Useful values: `rbac.mode`, `artifactRequireURLDigest`, `leaderElect`, `securityContext` (always on).
 
 Image build:
 
 ```bash
-docker build -f Dockerfile.operator -t ghcr.io/justrunme/twinops-operator:1.2.0 .
+docker build -f Dockerfile.operator -t ghcr.io/justrunme/twinops-operator:1.3.1 .
 ```
 
 ## Status phases

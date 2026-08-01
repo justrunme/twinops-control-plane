@@ -80,7 +80,7 @@ Core TwinOps                         Optional runtimes
 
 Full one-pager: [docs/architecture-one-pager.md](docs/architecture-one-pager.md).  
 Frozen contracts: [docs/stability.md](docs/stability.md).  
-Release brief: [docs/release-1.0.md](docs/release-1.0.md).
+Current release: [docs/release-1.3.1.md](docs/release-1.3.1.md) · operator: [docs/operator.md](docs/operator.md).
 
 ---
 
@@ -193,16 +193,13 @@ make web-dev    # terminal 2 — UI  :5173
 ### Kubernetes operator
 
 ```bash
-make operator-demo          # k3d preferred, kind fallback
+make operator-demo              # out-of-cluster manager (k3d/kind)
+make operator-incluster-e2e     # docker build → kind load → Helm → restart recovery
 make operator-demo-cleanup
-
-# or against an existing kubeconfig:
-make operator-build
-# kubectl apply -f config/crd/bases/twinops.io_digitaltwins.yaml
-# make operator-run
 ```
 
-See [docs/images.md](docs/images.md), [docs/operator.md](docs/operator.md), and [docs/live-telemetry.md](docs/live-telemetry.md).
+In-cluster path publishes a durable `bundle.tar.gz` on the twin (`status.output.uri`).
+See [docs/operator.md](docs/operator.md), [docs/images.md](docs/images.md).
 
 ### Tests
 
@@ -294,33 +291,31 @@ Milestones 1–2 deliver composition, drift detection, HTML report, and a reconc
 
 ---
 
-## Roadmap
+## Roadmap (summary)
 
-| Milestone | Focus                                      | Status      |
-| --------- | ------------------------------------------ | ----------- |
-| 0         | Repository foundation, docs, sample scene  | **done**    |
-| 1         | OpenUSD Digital Twin Compiler + CLI        | **done**    |
-| 2         | Drift engine + reconcile proposal + demo   | **done**    |
-| 3         | Kubernetes operator + DigitalTwin CRD      | **done**    |
-| 4         | Live MQTT telemetry + drift API            | **done**    |
-| 5         | Web control plane + one-command live demo  | **done**    |
-| 6         | Omniverse highlight + mock Kit viewport    | **foundation** |
-| —         | Mock PLM adapter CLI                       | **done**    |
+| Track | Focus | Status |
+| ----- | ----- | ------ |
+| 0–5 | Compiler, drift, live API, web demo | **done** |
+| Operator | CRD, Helm, durable ConfigMap output, in-cluster E2E | **done (1.3.1)** |
+| Kit / media | Highlight contract, lab WebRTC, single-session NVENC ingest | **lab / optional** |
+| Next | OCI output artifacts, isolated reconcile jobs | planned (1.4+) |
 
-See [docs/roadmap.md](docs/roadmap.md) and [docs/architecture.md](docs/architecture.md).
+See full [docs/roadmap.md](docs/roadmap.md) and [docs/architecture.md](docs/architecture.md).
 
 ---
 
 ## What we will not claim yet
 
-Until the corresponding runtime exists, this project does **not** claim:
+Honest positioning: **single-twin pilot / reference control plane**, not a plant platform.
 
-- production-ready / enterprise-ready
-- NVCF support
-- vendor-specific PLM product integration
-- full Omniverse Kit App Streaming deployment
+This project does **not** claim:
 
-PLM integration starts as a **generic mock adapter**.
+- multi-site / multi-tenant enterprise readiness
+- NVCF or production Omniverse App Streaming
+- vendor-specific PLM product SDKs (generic File/REST adapters only)
+- multi-user GPU streaming farm
+
+PLM integration ships as **mock + File/REST adapters**.
 
 ---
 
