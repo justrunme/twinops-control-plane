@@ -7,13 +7,19 @@ import (
 	"path/filepath"
 	"time"
 
+	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	twinopsv1alpha1 "github.com/justrunme/twinops-control-plane/api/v1alpha1"
 	"github.com/justrunme/twinops-control-plane/internal/artifacts"
@@ -102,12 +108,17 @@ func (r *DigitalTwinReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 				setCondition(status, "Ready", metav1.ConditionFalse, "ArtifactFailed", matErr.Error())
 			})
 		}
+		// Artifact bundle owns input paths: absent keys clear prior workspace files.
 		manifestPath = res.ManifestPath
 		if res.DesiredPath != "" {
 			desiredPath = res.DesiredPath
+		} else {
+			desiredPath = twin.Spec.DesiredPath
 		}
 		if res.ObservedPath != "" {
 			observedPath = res.ObservedPath
+		} else {
+			observedPath = twin.Spec.ObservedPath
 		}
 		artifactDigest = res.Digest
 	}
@@ -298,5 +309,38 @@ func setCondition(status *twinopsv1alpha1.DigitalTwinStatus, ctype string, condS
 func (r *DigitalTwinReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&twinopsv1alpha1.DigitalTwin{}).
+		// Re-materialize immediately when a referenced artifact ConfigMap changes.
+		Watches(
+			&corev1.ConfigMap{},
+			handler.EnqueueRequestsFromMapFunc(r.mapConfigMapToTwins),
+			builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
+		).
 		Complete(r)
+}
+
+// mapConfigMapToTwins enqueues DigitalTwins whose artifactSource.configMapName matches.
+func (r *DigitalTwinReconciler) mapConfigMapToTwins(ctx context.Context, obj client.Object) []reconcile.Request {
+	cm, ok := obj.(*corev1.ConfigMap)
+	if !ok || cm == nil {
+		return nil
+	}
+	var list twinopsv1alpha1.DigitalTwinList
+	if err := r.List(ctx, &list, client.InNamespace(cm.Namespace)); err != nil {
+		return nil
+	}
+	var reqs []reconcile.Request
+	for i := range list.Items {
+		twin := &list.Items[i]
+		src := twin.Spec.ArtifactSource
+		if src == nil || src.ConfigMapName == "" || src.ConfigMapName != cm.Name {
+			continue
+		}
+		reqs = append(reqs, reconcile.Request{
+			NamespacedName: types.NamespacedName{
+				Namespace: twin.Namespace,
+				Name:      twin.Name,
+			},
+		})
+	}
+	return reqs
 }
