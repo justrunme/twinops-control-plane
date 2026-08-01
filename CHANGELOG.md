@@ -4,6 +4,11 @@ All notable TwinOps changes are listed here. Dates are UTC.
 
 ## Unreleased
 
+- Honest streaming encoder fields: `ingestEncoder` / `webrtcEncoder` / `mediaPath=nvenc-mpegts-aiortc`
+- Software WebRTC test receives frames; NVENC smoke + GPU workflow use real offer/`track.recv()`
+- Atomic artifact materialize (staging rename, stale-file cleanup, `expectedDigest`, SSRF policy)
+- Kind operator ConfigMap artifact E2E in CI (`scripts/operator_artifact_e2e.sh`)
+
 ## 1.2.0 — 2026-08-01
 
 - Production hardening: Helm live ENTRYPOINT/args fix, synced image tags, deploy smoke CI

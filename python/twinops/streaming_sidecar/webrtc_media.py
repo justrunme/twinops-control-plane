@@ -1,4 +1,13 @@
-"""WebRTC media path — aiortc PeerConnection with software or NVENC bridge."""
+"""WebRTC media path — aiortc PeerConnection with software or NVENC ingest bridge.
+
+Honest encoder reporting:
+- ``ingestEncoder`` — how pixels enter the sidecar (none / software / h264_nvenc)
+- ``webrtcEncoder`` — what actually produces RTP (none / aiortc)
+- ``mediaPath`` — lab-echo | webrtc-software | nvenc-mpegts-aiortc
+
+NVENC today is an ffmpeg ingest bridge (encode → MPEG-TS → MediaPlayer decode),
+not an end-to-end NVENC RTP encoder.
+"""
 
 from __future__ import annotations
 
@@ -24,6 +33,9 @@ def lab_echo_answer(offer: dict[str, Any], *, capability: EncoderCapability) -> 
         "labEcho": True,
         "provider": "twinops-kit-sidecar",
         "encoder": capability.backend,
+        "ingestEncoder": "none",
+        "webrtcEncoder": "none",
+        # Deprecated alias — do not treat as the RTP codec.
         "encoderInUse": "none",
         "mediaPath": "lab-echo",
         "note": (
@@ -56,17 +68,34 @@ class WebRTCMediaSession:
         self._player: Any | None = None
         self._nvenc: NVENCBridge | None = None
         self._loop: asyncio.AbstractEventLoop | None = None
-        self.encoder_in_use: str = "none"
+        self.ingest_encoder: str = "none"
+        self.webrtc_encoder: str = "none"
         self.media_path: str = "idle"
 
     @property
     def active(self) -> bool:
         return self._pc is not None
 
+    @property
+    def encoder_in_use(self) -> str:
+        """Deprecated alias kept for older clients — prefer ingest/webrtc fields."""
+        if self.media_path == "nvenc-mpegts-aiortc":
+            return "nvenc-mpegts-aiortc"
+        return self.webrtc_encoder if self.webrtc_encoder != "none" else self.ingest_encoder
+
+    def media_report(self) -> dict[str, Any]:
+        return {
+            "ingestEncoder": self.ingest_encoder,
+            "webrtcEncoder": self.webrtc_encoder,
+            "encoderInUse": self.encoder_in_use,
+            "mediaPath": self.media_path,
+        }
+
     async def answer_offer(self, offer: dict[str, Any]) -> dict[str, Any]:
         if not aiortc_available() or self.capability.backend == "mock":
             answer = lab_echo_answer(offer, capability=self.capability)
-            self.encoder_in_use = "none"
+            self.ingest_encoder = "none"
+            self.webrtc_encoder = "none"
             self.media_path = "lab-echo"
             self.stats.mark_media_ready()
             return answer
@@ -101,20 +130,20 @@ class WebRTCMediaSession:
         pc.addTrack(player.video)
         self._wire_input_and_state(pc)
         answer = await self._complete_sdp(pc, offer)
-        self.encoder_in_use = "h264_nvenc"
-        self.media_path = "webrtc-nvenc"
+        self.ingest_encoder = "h264_nvenc"
+        self.webrtc_encoder = "aiortc"
+        self.media_path = "nvenc-mpegts-aiortc"
         self.stats.mark_media_ready()
         return {
             **answer,
             "labEcho": False,
             "provider": "twinops-kit-sidecar",
             "encoder": self.capability.backend,
-            "encoderInUse": "h264_nvenc",
-            "mediaPath": "webrtc-nvenc",
+            **self.media_report(),
             "nvenc": bridge.status(),
             "note": (
-                "Real WebRTC video via host ffmpeg h264_nvenc → MPEG-TS → aiortc. "
-                "Send mouse/keyboard JSON on datachannel 'twinops-input'."
+                "NVENC ingest bridge: ffmpeg h264_nvenc → MPEG-TS → aiortc MediaPlayer "
+                "decode → aiortc re-encodes RTP. Not end-to-end NVENC WebRTC."
             ),
         }
 
@@ -151,7 +180,8 @@ class WebRTCMediaSession:
         pc.addTrack(TwinOpsVideoTrack())
         self._wire_input_and_state(pc)
         answer = await self._complete_sdp(pc, offer)
-        self.encoder_in_use = "software"
+        self.ingest_encoder = "software"
+        self.webrtc_encoder = "aiortc"
         self.media_path = "webrtc-software"
         self.stats.mark_media_ready()
         return {
@@ -159,11 +189,10 @@ class WebRTCMediaSession:
             "labEcho": False,
             "provider": "twinops-kit-sidecar",
             "encoder": self.capability.backend,
-            "encoderInUse": "software",
-            "mediaPath": "webrtc-software",
+            **self.media_report(),
             "note": (
-                "Real WebRTC video track (software encode via aiortc). "
-                "NVENC path activates when ffmpeg h264_nvenc + nvidia-smi are present."
+                "Real WebRTC video track; RTP encoder is aiortc (software). "
+                "NVENC path is an ingest bridge only (see mediaPath=nvenc-mpegts-aiortc)."
             ),
         }
 
@@ -200,6 +229,7 @@ class WebRTCMediaSession:
         await pc.setRemoteDescription(remote)
         answer = await pc.createAnswer()
         await pc.setLocalDescription(answer)
+        await _wait_ice_complete(pc)
         assert pc.localDescription is not None
         return {
             "type": pc.localDescription.type,
@@ -213,7 +243,8 @@ class WebRTCMediaSession:
         self._pc = None
         self._player = None
         self._nvenc = None
-        self.encoder_in_use = "none"
+        self.ingest_encoder = "none"
+        self.webrtc_encoder = "none"
         self.media_path = "idle"
         if pc is not None:
             try:
@@ -229,6 +260,24 @@ class WebRTCMediaSession:
                         pass
         if nvenc is not None:
             await asyncio.to_thread(nvenc.stop)
+
+
+async def _wait_ice_complete(pc: Any, *, timeout: float = 5.0) -> None:
+    if getattr(pc, "iceGatheringState", None) == "complete":
+        return
+    done = asyncio.Event()
+
+    @pc.on("icegatheringstatechange")
+    def _on_state() -> None:
+        if pc.iceGatheringState == "complete":
+            done.set()
+
+    if pc.iceGatheringState == "complete":
+        return
+    try:
+        await asyncio.wait_for(done.wait(), timeout=timeout)
+    except TimeoutError:
+        logger.debug("ICE gathering timeout — continuing with partial candidates")
 
 
 def _frame_from_tick(

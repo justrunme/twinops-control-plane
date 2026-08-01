@@ -1,35 +1,39 @@
-# GPU streaming (v1.2)
+# GPU streaming (post-1.2 honesty)
 
 Single GPU · single Kit session · no NVCF.
 
-## Paths
+## Honest encoder fields
 
-| Path | When | What happens |
-| --- | --- | --- |
-| `lab-echo` | no `twinops[streaming]` or `--encoder mock` | SDP echo; browser keeps local MediaStream (CI default) |
-| `webrtc-software` | `aiortc` installed, NVENC absent or forced software | Real WebRTC video track from mock/kit-file frames |
-| `webrtc-nvenc` | `ffmpeg` has `h264_nvenc` + `nvidia-smi` | ffmpeg encodes on GPU → MPEG-TS UDP → aiortc `MediaPlayer` |
-
-Status exposes `encoderInUse` (`none` / `software` / `h264_nvenc`) and `mediaPath`.
-
-## Host prerequisites (NVENC)
-
-| Component | Check |
+| Field | Meaning |
 | --- | --- |
-| NVIDIA driver | `nvidia-smi` |
-| ffmpeg NVENC | `ffmpeg -encoders \| grep h264_nvenc` |
-| Python extras | `pip install -e '.[live,streaming]'` |
-| Kit frames (optional) | JPEG/PNG in `TWINOPS_KIT_FRAME_DIR` |
+| `ingestEncoder` | How pixels enter the sidecar (`none` / `software` / `h264_nvenc`) |
+| `webrtcEncoder` | What produces WebRTC RTP (`none` / `aiortc`) |
+| `mediaPath` | `lab-echo` · `webrtc-software` · `nvenc-mpegts-aiortc` |
+| `encoderInUse` | Deprecated alias — do **not** treat as the RTP codec |
 
-Manual validation workflow (self-hosted GPU runner):
-[`.github/workflows/gpu-validate.yml`](../.github/workflows/gpu-validate.yml).
+### NVENC path today
 
-## Input
+```text
+kit-file / testsrc
+   → ffmpeg h264_nvenc
+   → MPEG-TS (UDP)
+   → aiortc MediaPlayer (decode)
+   → aiortc re-encodes RTP
+```
 
-`POST /v1/sessions/{id}/input` or datachannel `twinops-input` → optional JSONL mirror.
+So NVENC is a real **ingest** GPU encode, not the final WebRTC encoder.
+Kit-file drops are watched; ffmpeg restarts when a newer JPEG/PNG appears.
+
+## Smokes
+
+```bash
+make streaming-sidecar-smoke          # mock / lab-echo (CI)
+bash scripts/streaming_nvenc_smoke.sh # skips if no NVENC; else offer+track.recv()
+```
+
+Manual self-hosted workflow: [`.github/workflows/gpu-validate.yml`](../.github/workflows/gpu-validate.yml)
+(runs the NVENC smoke, not mock).
 
 ## Non-goals
 
-NVCF, multi-user, multi-GPU, TURN clusters, autoscaling.
-
-See [ADR-0020](adr/0020-kit-gpu-encoder-path.md) and [streaming-sidecar.md](streaming-sidecar.md).
+NVCF, multi-user, multi-GPU, TURN, end-to-end NVENC RTP (passthrough / webrtcbin).
