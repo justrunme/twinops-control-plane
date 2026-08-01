@@ -1,6 +1,7 @@
 package output
 
 import (
+	"bytes"
 	"context"
 	"os"
 	"path/filepath"
@@ -15,7 +16,7 @@ import (
 	twinopsv1alpha1 "github.com/justrunme/twinops-control-plane/api/v1alpha1"
 )
 
-func TestPublishDirConfigMap(t *testing.T) {
+func TestPublishDirBundleIncludesAssets(t *testing.T) {
 	scheme := runtime.NewScheme()
 	_ = corev1.AddToScheme(scheme)
 	_ = twinopsv1alpha1.AddToScheme(scheme)
@@ -30,13 +31,28 @@ func TestPublishDirConfigMap(t *testing.T) {
 	c := fake.NewClientBuilder().WithScheme(scheme).WithObjects(twin).Build()
 
 	dir := t.TempDir()
-	if err := os.WriteFile(filepath.Join(dir, "root.usda"), []byte("#usda 1.0\n"), 0o644); err != nil {
+	_ = os.MkdirAll(filepath.Join(dir, "assets"), 0o755)
+	_ = os.MkdirAll(filepath.Join(dir, "inputs"), 0o755)
+	_ = os.MkdirAll(filepath.Join(dir, "drift"), 0o755)
+	if err := os.WriteFile(filepath.Join(dir, "root.usda"), []byte("#usda 1.0\n(\n    subLayers = [@./assets/root.usda@]\n)\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(dir, "overlay.usda"), []byte("#usda overlay\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "variant-overlay.usda"), []byte("#usda 1.0\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	_ = os.Mkdir(filepath.Join(dir, "inputs"), 0o755)
+	if err := os.WriteFile(filepath.Join(dir, "assets", "root.usda"), []byte("#usda 1.0\ndef Xform \"World\" {}\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	// Volatile / excluded
+	if err := os.WriteFile(filepath.Join(dir, "reconciliation-report.json"), []byte(`{"generatedAt":"now"}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "inputs", "twin.yaml"), []byte("x: 1\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "drift", "drift-report.json"), []byte(`{}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
 
 	res, err := PublishDir(context.Background(), c, twin, dir, "sha256:input")
 	if err != nil {
@@ -45,11 +61,11 @@ func TestPublishDirConfigMap(t *testing.T) {
 	if res.URI != "configmap://twinops-system/assembly-line-a-output" {
 		t.Fatalf("uri: %s", res.URI)
 	}
-	if res.StageKey != "root.usda" {
-		t.Fatalf("stageKey: %s", res.StageKey)
+	if res.BundleKey != BundleKey || res.MediaType != MediaType {
+		t.Fatalf("bundle meta: %+v", res)
 	}
-	if res.Digest == "" {
-		t.Fatal("empty digest")
+	if res.StageKey != StageEntry {
+		t.Fatalf("stageKey: %s", res.StageKey)
 	}
 
 	var cm corev1.ConfigMap
@@ -59,11 +75,54 @@ func TestPublishDirConfigMap(t *testing.T) {
 	}, &cm); err != nil {
 		t.Fatal(err)
 	}
-	if cm.Annotations["twinops.io/output-digest"] != res.Digest {
-		t.Fatalf("annotation mismatch")
+	bundle := cm.BinaryData[BundleKey]
+	if len(bundle) == 0 {
+		t.Fatal("missing bundle.tar.gz")
 	}
-	if string(cm.BinaryData["root.usda"]) != "#usda 1.0\n" {
-		t.Fatalf("payload: %q", cm.BinaryData["root.usda"])
+
+	extract := t.TempDir()
+	if err := UnpackBundle(bytes.NewReader(bundle), extract); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(extract, "assets", "root.usda")); err != nil {
+		t.Fatalf("assets/root.usda missing from bundle: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(extract, "root.usda")); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(extract, "reconciliation-report.json")); !os.IsNotExist(err) {
+		t.Fatal("report should not be in content bundle")
+	}
+	if _, err := os.Stat(filepath.Join(extract, "inputs")); !os.IsNotExist(err) {
+		t.Fatal("inputs/ should not be in content bundle")
+	}
+
+	// Deterministic: same content → same digest even if report changes on disk.
+	_ = os.WriteFile(filepath.Join(dir, "reconciliation-report.json"), []byte(`{"generatedAt":"later"}`), 0o644)
+	res2, err := PublishDir(context.Background(), c, twin, dir, "sha256:input")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res2.Digest != res.Digest {
+		t.Fatalf("content digest not stable: %s vs %s", res.Digest, res2.Digest)
+	}
+}
+
+func TestPackTarGzDeterministic(t *testing.T) {
+	files := map[string][]byte{
+		"b.usda": []byte("b"),
+		"a.usda": []byte("a"),
+	}
+	a, err := packTarGz(files)
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, err := packTarGz(files)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(a, b) {
+		t.Fatal("tar.gz not deterministic")
 	}
 }
 

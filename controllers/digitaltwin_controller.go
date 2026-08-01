@@ -29,6 +29,7 @@ import (
 	twinmetrics "github.com/justrunme/twinops-control-plane/internal/metrics"
 	"github.com/justrunme/twinops-control-plane/internal/output"
 	"github.com/justrunme/twinops-control-plane/internal/twinbuild"
+	"github.com/justrunme/twinops-control-plane/internal/workspace"
 )
 
 const finalizerName = "twinops.io/finalizer"
@@ -65,12 +66,12 @@ func (r *DigitalTwinReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 
 	if !twin.DeletionTimestamp.IsZero() {
 		if controllerutil.ContainsFinalizer(&twin, finalizerName) {
-			outputDir := twin.Spec.OutputDir
-			if outputDir == "" {
-				outputDir = filepath.Join("/tmp/twinops", twin.Namespace, twin.Name)
-			}
-			if err := os.RemoveAll(outputDir); err != nil {
-				logger.Error(err, "workspace cleanup failed", "path", outputDir)
+			// Only delete controller-owned workspace — never Spec.OutputDir (user path).
+			managed := workspace.CleanupPath(&twin)
+			if managed != "" {
+				if err := os.RemoveAll(managed); err != nil {
+					logger.Error(err, "workspace cleanup failed", "path", managed)
+				}
 			}
 			if err := output.DeleteConfigMap(ctx, r.Client, twin.Namespace, twin.Name); err != nil {
 				logger.Error(err, "output configmap cleanup failed")
@@ -91,10 +92,10 @@ func (r *DigitalTwinReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		return ctrl.Result{Requeue: true}, nil
 	}
 
-	outputDir := twin.Spec.OutputDir
-	if outputDir == "" {
-		outputDir = filepath.Join("/tmp/twinops", twin.Namespace, twin.Name)
-	}
+	// Always use managed workspace under /tmp/twinops/<ns>/<uid>.
+	// Spec.OutputDir is legacy and ignored for write/cleanup safety.
+	outputDir := workspace.Managed(&twin)
+	prevPhase := twin.Status.Phase
 
 	interval := twin.Spec.IntervalSeconds
 	if interval <= 0 {
@@ -229,15 +230,20 @@ func (r *DigitalTwinReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 			if rev == 0 {
 				rev = 1
 			}
+			digestChanged := twin.Status.Output.Digest != pub.Digest
 			outArtifact = twinopsv1alpha1.OutputArtifact{
 				Digest:      pub.Digest,
 				URI:         pub.URI,
 				Revision:    rev,
 				StageKey:    pub.StageKey,
+				MediaType:   pub.MediaType,
+				BundleKey:   pub.BundleKey,
 				PublishedAt: &now,
 			}
-			r.event(&twin, corev1.EventTypeNormal, "OutputPublished",
-				fmt.Sprintf("published %s digest=%s rev=%d", pub.URI, pub.Digest, rev))
+			if digestChanged || twin.Status.Output.URI == "" {
+				r.event(&twin, corev1.EventTypeNormal, "OutputPublished",
+					fmt.Sprintf("published %s digest=%s rev=%d", pub.URI, pub.Digest, rev))
+			}
 		}
 	}
 
@@ -290,7 +296,6 @@ func (r *DigitalTwinReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 			driftStatus.Status = "Detected"
 			phase = "DriftDetected"
 			message = fmt.Sprintf("drift detected (%s)", result.Summary)
-			r.event(&twin, corev1.EventTypeWarning, "DriftDetected", message)
 		} else {
 			message = fmt.Sprintf("synced (%s)", result.Summary)
 		}
@@ -361,8 +366,16 @@ func (r *DigitalTwinReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		return ctrl.Result{}, err
 	}
 
-	if phase == "Ready" {
-		r.event(&twin, corev1.EventTypeNormal, "Reconciled", message)
+	// Events only on phase transitions (avoid spam every interval).
+	if phase != prevPhase {
+		switch phase {
+		case "Ready":
+			r.event(&twin, corev1.EventTypeNormal, "Reconciled", message)
+		case "DriftDetected":
+			r.event(&twin, corev1.EventTypeWarning, "DriftDetected", message)
+		case "Error":
+			r.event(&twin, corev1.EventTypeWarning, "Error", message)
+		}
 	}
 	twinmetrics.ReconcileTotal.WithLabelValues(phase).Inc()
 	return ctrl.Result{RequeueAfter: time.Duration(interval) * time.Second}, nil
@@ -405,14 +418,21 @@ func (r *DigitalTwinReconciler) patchStatus(
 func setCondition(status *twinopsv1alpha1.DigitalTwinStatus, ctype string, condStatus metav1.ConditionStatus, reason, message string) {
 	now := metav1.Now()
 	for i := range status.Conditions {
-		if status.Conditions[i].Type == ctype {
-			status.Conditions[i].Status = condStatus
-			status.Conditions[i].Reason = reason
-			status.Conditions[i].Message = message
-			status.Conditions[i].LastTransitionTime = now
-			status.Conditions[i].ObservedGeneration = status.ObservedGeneration
-			return
+		if status.Conditions[i].Type != ctype {
+			continue
 		}
+		changed := status.Conditions[i].Status != condStatus ||
+			status.Conditions[i].Reason != reason ||
+			status.Conditions[i].Message != message
+		status.Conditions[i].Status = condStatus
+		status.Conditions[i].Reason = reason
+		status.Conditions[i].Message = message
+		status.Conditions[i].ObservedGeneration = status.ObservedGeneration
+		// LastTransitionTime only when the condition actually changes.
+		if changed {
+			status.Conditions[i].LastTransitionTime = now
+		}
+		return
 	}
 	status.Conditions = append(status.Conditions, metav1.Condition{
 		Type:               ctype,
