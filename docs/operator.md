@@ -71,18 +71,26 @@ kubectl apply -f config/samples/twinops_v1alpha1_digitaltwin.yaml
 kubectl get digitaltwins -A
 ```
 
-Prefer immutable inputs via `spec.artifactSource`:
+Prefer `spec.artifactSource` (exactly one of `configMapName` / `url`):
 
 ```yaml
 spec:
   artifactSource:
     configMapName: assembly-line-inputs   # keys: twin.yaml, desired.yaml, telemetry.json
+    # expectedDigest: sha256:...          # optional fail-closed pin
   # or: url: https://example.com/twin-bundle.tar.gz
   outputDir: /tmp/twinops/assembly-line-a
 ```
 
-Status exposes `artifactDigest` (`sha256:...`) and `workspacePath` after materialize.
-Legacy `manifestPath` / hostPath remains for local demos only.
+Materialize is **atomic** (staging dir → rename; stale files from prior bundles are
+removed). HTTPS URL fetches block private/loopback hosts unless the operator sets
+`TWINOPS_ARTIFACT_ALLOW_PRIVATE=1` (lab only).
+
+Status exposes `artifactDigest` and `workspacePath`. Verify with:
+
+```bash
+make operator-artifact-e2e
+```
 
 ## Helm
 

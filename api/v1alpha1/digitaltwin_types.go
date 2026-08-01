@@ -4,15 +4,22 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// ArtifactSource is an immutable reference to twin inputs (preferred over hostPath).
+// ArtifactSource references twin inputs (preferred over hostPath).
+// Set exactly one of ConfigMapName or URL. Prefer ExpectedDigest for immutability.
 type ArtifactSource struct {
 	// ConfigMapName loads twin.yaml (+ optional desired.yaml / telemetry.json) keys.
 	// +optional
 	ConfigMapName string `json:"configMapName,omitempty"`
 
-	// URL fetches a .tar.gz / .zip bundle or a bare twin.yaml over HTTP(S).
+	// URL fetches a .tar.gz / .zip bundle or a bare twin.yaml over HTTPS.
+	// Private/loopback hosts are blocked unless the operator enables lab mode.
 	// +optional
 	URL string `json:"url,omitempty"`
+
+	// ExpectedDigest is an optional sha256:<hex> of the materialized file set.
+	// Reconcile fails closed on mismatch.
+	// +optional
+	ExpectedDigest string `json:"expectedDigest,omitempty"`
 }
 
 // DigitalTwinSpec defines the desired state of a digital twin.

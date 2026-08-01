@@ -15,20 +15,19 @@ Browser ↔ WebRTC ↔ sidecar ↔ Kit frame drop / mock ↔ software or NVENC h
 
 1. Keep **one session / one GPU index / one browser client**.
 2. Encoder probe: `auto | mock | software | nvenc`.
-3. Media paths:
+3. Media paths (honest):
    - **lab-echo** without `aiortc`
-   - **webrtc-software** via aiortc `VideoStreamTrack`
-   - **webrtc-nvenc** via host `ffmpeg -c:v h264_nvenc` → MPEG-TS UDP → aiortc `MediaPlayer`
-4. Frame sources: `mock`, `kit`, `kit-file` (`TWINOPS_KIT_FRAME_DIR`).
+   - **webrtc-software** — ingest=`software`, webrtc=`aiortc`
+   - **nvenc-mpegts-aiortc** — ingest=`h264_nvenc` (ffmpeg), webrtc=`aiortc` (re-encode)
+4. Frame sources: `mock`, `kit`, `kit-file` (watched; ffmpeg restarts on newer stills).
 5. Input: REST `/input` + datachannel → optional JSONL mirror.
-6. Expose `encoderInUse`, `mediaPath`, startup/FPS/bitrate/disconnect metrics.
-7. Non-goals: NVCF, multi-GPU, TURN cluster, multi-tenant.
+6. Expose `ingestEncoder` / `webrtcEncoder` / `mediaPath` (+ deprecated `encoderInUse`).
+7. Non-goals: NVCF, multi-GPU, TURN, end-to-end NVENC RTP passthrough.
 
 ## Consequences
 
-- Software path is CI-testable; NVENC path is host-proven via ffmpeg bridge
-- Kit integration remains file-drop + input mirror (no proprietary SDK)
-- Status/metrics report the encoder actually in use (`h264_nvenc` vs `software`)
+- Claims match the pipeline: NVENC is an ingest bridge until passthrough lands
+- Software path is CI-testable with `track.recv()`; NVENC has a dedicated smoke
 
 ## References
 

@@ -52,14 +52,17 @@ spec:
               properties:
                 artifactSource:
                   type: object
-                  description: Immutable twin inputs (ConfigMap or HTTP bundle); preferred over hostPath
+                  description: Twin inputs (exactly one of configMapName or url); preferred over hostPath
                   properties:
                     configMapName:
                       type: string
                       description: ConfigMap with twin.yaml (+ optional desired.yaml, telemetry.json)
                     url:
                       type: string
-                      description: HTTP(S) URL to .tar.gz / .zip bundle or twin.yaml
+                      description: HTTPS URL to .tar.gz / .zip bundle or twin.yaml
+                    expectedDigest:
+                      type: string
+                      description: Optional sha256 digest of materialized inputs (fail closed on mismatch)
                 manifestPath:
                   type: string
                   description: Legacy filesystem path to twin.yaml (hostPath demos)
