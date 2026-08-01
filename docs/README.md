@@ -8,18 +8,27 @@ Navigation index for the control plane docs.
 | --- | --- |
 | Architecture overview | [architecture.md](architecture.md) |
 | Architecture one-pager | [architecture-one-pager.md](architecture-one-pager.md) |
-| Frozen contracts (1.0) | [stability.md](stability.md) |
-| v1.0 release brief | [release-1.0.md](release-1.0.md) |
+| **Current release (1.3.1)** | [release-1.3.1.md](release-1.3.1.md) |
+| Frozen contracts (1.0 baseline) | [stability.md](stability.md) |
 | 2-minute live demo | [demo.md](demo.md) |
 | E2E operational demo | [e2e-demo.md](e2e-demo.md) |
-| 5–7 minute demo script | [demo-script.md](demo-script.md) |
-| Backup / restore | [backup-restore.md](backup-restore.md) |
+| Kubernetes operator + durable output | [operator.md](operator.md) |
 | Upgrade notes | [upgrade.md](upgrade.md) |
 | Compatibility matrix | [compatibility.md](compatibility.md) |
-| 1.0 ops checklist | [ops-checklist-1.0.md](ops-checklist-1.0.md) |
+| Backup / restore | [backup-restore.md](backup-restore.md) |
 | Sequence diagrams | [sequences.md](sequences.md) |
 | Local prerequisites | `make doctor` / [CONTRIBUTING.md](../CONTRIBUTING.md) |
 | Cutting a release | [RELEASING.md](../RELEASING.md) |
+
+### Release history
+
+| Version | Doc |
+| --- | --- |
+| 1.3.1 pilot correctness | [release-1.3.1.md](release-1.3.1.md) |
+| 1.3.0 pilot control plane | [release-1.3.md](release-1.3.md) |
+| 1.2.x hardening | [release-1.2.md](release-1.2.md) · [release-1.2.1.md](release-1.2.1.md) |
+| 1.1 GPU path | [release-1.1.md](release-1.1.md) |
+| 1.0 freeze | [release-1.0.md](release-1.0.md) · [ops-checklist-1.0.md](ops-checklist-1.0.md) |
 
 ## Subsystems
 
@@ -59,6 +68,8 @@ Navigation index for the control plane docs.
 | [0018](adr/0018-productization-e2e.md) | Productization end-to-end scenario |
 | [0019](adr/0019-kit-streaming-sidecar.md) | Single-session Kit streaming sidecar |
 | [0020](adr/0020-kit-gpu-encoder-path.md) | Real Kit GPU encoder path (v1.1) |
+| [0021](adr/0021-durable-output-configmap.md) | Durable twin output via ConfigMap (v1.3) |
+| [0022](adr/0022-deterministic-output-bundle.md) | Deterministic ConfigMap output bundle (v1.3.1) |
 
 ## Schemas
 
