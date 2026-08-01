@@ -1,4 +1,4 @@
-"""Single-session manager with idle timeout and signaling state."""
+"""Single-session manager with idle timeout, media, and input bridge."""
 
 from __future__ import annotations
 
@@ -6,10 +6,15 @@ import threading
 import time
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
+from twinops.streaming_sidecar.encoder import EncoderCapability, probe_encoder
 from twinops.streaming_sidecar.frames import FrameSource, MockFrameSource
+from twinops.streaming_sidecar.input_bridge import KitInputBridge
+from twinops.streaming_sidecar.stats import StreamStats
+from twinops.streaming_sidecar.webrtc_media import WebRTCMediaSession
 
 
 def _utcnow() -> str:
@@ -28,6 +33,7 @@ class StreamingSession:
     local_candidates: list[dict[str, Any]] = field(default_factory=list)
     last_seen: float = field(default_factory=time.time)
     frames: int = 0
+    stats: StreamStats = field(default_factory=StreamStats)
 
     def touch(self) -> None:
         self.last_seen = time.time()
@@ -44,6 +50,7 @@ class StreamingSession:
             "localCandidates": list(self.local_candidates),
             "frames": self.frames,
             "idleSeconds": max(0.0, time.time() - self.last_seen),
+            "stats": self.stats.snapshot(),
         }
 
 
@@ -56,12 +63,18 @@ class StreamingSessionManager:
         frame_source: FrameSource | None = None,
         idle_timeout_seconds: float = 300.0,
         max_sessions: int = 1,
+        encoder: str = "auto",
+        input_mirror: str | Path | None = None,
     ) -> None:
         self.frame_source: FrameSource = frame_source or MockFrameSource()
         self.idle_timeout_seconds = idle_timeout_seconds
         self.max_sessions = max_sessions
+        self.capability: EncoderCapability = probe_encoder(encoder)
+        mirror = Path(input_mirror) if input_mirror else None
+        self.input_bridge = KitInputBridge(mirror_path=mirror)
         self._lock = threading.RLock()
         self._session: StreamingSession | None = None
+        self._media: WebRTCMediaSession | None = None
         self._stop = threading.Event()
         self._reaper: threading.Thread | None = None
         self.started_at = _utcnow()
@@ -104,6 +117,12 @@ class StreamingSessionManager:
                 phase="Ready",
             )
             self._session = session
+            self._media = WebRTCMediaSession(
+                frame_source=self.frame_source,
+                capability=self.capability,
+                input_bridge=self.input_bridge,
+                stats=session.stats,
+            )
             return session
 
     def get(self, session_id: str) -> StreamingSession | None:
@@ -123,30 +142,39 @@ class StreamingSessionManager:
     def _delete_unlocked(self, session_id: str) -> bool:
         if self._session is None or self._session.session_id != session_id:
             return False
+        media = self._media
+        self._media = None
         self._session.phase = "Deleted"
         self._session = None
+        if media is not None:
+            # Best-effort sync close from worker thread / sync callers.
+            import asyncio
+
+            try:
+                loop = asyncio.get_running_loop()
+            except RuntimeError:
+                asyncio.run(media.close())
+            else:
+                loop.create_task(media.close())
         return True
 
-    def set_offer(self, session_id: str, offer: dict[str, Any]) -> dict[str, Any]:
+    async def answer_offer(
+        self, session_id: str, offer: dict[str, Any]
+    ) -> dict[str, Any]:
         with self._lock:
             session = self._require(session_id)
             session.offer = offer
             session.touch()
-            # Lab/sidecar answer contract — real Kit encoder replaces labEcho later.
-            answer = {
-                "type": "answer",
-                "sdp": offer.get("sdp", ""),
-                "labEcho": True,
-                "provider": "twinops-kit-sidecar",
-                "frameSource": self.frame_source.name,
-                "note": (
-                    "Sidecar accepted offer. Mock/lab path echoes SDP; "
-                    "Kit NVENC/App Streaming answer not wired yet."
-                ),
-            }
-            session.answer = answer
-            session.phase = "Streaming"
-            return answer
+            media = self._media
+        if media is None:
+            raise RuntimeError("media session missing")
+        answer = await media.answer_offer(offer)
+        with self._lock:
+            if self._session and self._session.session_id == session_id:
+                self._session.answer = answer
+                self._session.phase = "Streaming"
+                self._session.touch()
+        return answer
 
     def add_candidate(
         self,
@@ -165,13 +193,24 @@ class StreamingSessionManager:
         with self._lock:
             session = self._require(session_id)
             session.touch()
+            stats = session.stats
         payload = self.frame_source.tick()
         if payload.get("ok"):
+            width = int(payload.get("width") or 0)
+            height = int(payload.get("height") or 0)
+            stats.record_frame(bytes_estimate=max(0, width * height * 3))
             with self._lock:
                 if self._session and self._session.session_id == session_id:
                     self._session.frames += 1
                     payload["sessionFrames"] = self._session.frames
+                    payload["stats"] = stats.snapshot()
         return payload
+
+    def push_input(self, session_id: str, event: dict[str, Any]) -> dict[str, Any]:
+        with self._lock:
+            session = self._require(session_id)
+            session.touch()
+        return self.input_bridge.push(event)
 
     def status(self) -> dict[str, Any]:
         with self._lock:
@@ -183,6 +222,8 @@ class StreamingSessionManager:
             "idleTimeoutSeconds": self.idle_timeout_seconds,
             "session": session,
             "frameSource": self.frame_source.status(),
+            "encoder": self.capability.to_dict(),
+            "input": self.input_bridge.status(),
         }
 
     def _require(self, session_id: str) -> StreamingSession:
@@ -199,4 +240,4 @@ class StreamingSessionManager:
                 idle = time.time() - session.last_seen
                 if idle >= self.idle_timeout_seconds:
                     session.phase = "IdleTimeout"
-                    self._session = None
+                    self._delete_unlocked(session.session_id)

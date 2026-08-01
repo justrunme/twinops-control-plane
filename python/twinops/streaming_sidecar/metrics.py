@@ -63,7 +63,15 @@ def gpu_metrics(*, gpu_index: int = 0) -> dict[str, Any]:
     }
 
 
-def prometheus_text(metrics: dict[str, Any], *, sessions: int, frames: int) -> str:
+def prometheus_text(
+    metrics: dict[str, Any],
+    *,
+    sessions: int,
+    frames: int,
+    stats: dict[str, Any] | None = None,
+    encoder: str = "mock",
+) -> str:
+    stats = stats or {}
     gpu_up = 1 if metrics.get("available") else 0
     lines = [
         "# HELP twinops_sidecar_gpu_available GPU metrics source available (1/0).",
@@ -78,9 +86,24 @@ def prometheus_text(metrics: dict[str, Any], *, sessions: int, frames: int) -> s
         "# HELP twinops_sidecar_sessions Active streaming sessions.",
         "# TYPE twinops_sidecar_sessions gauge",
         f"twinops_sidecar_sessions {sessions}",
-        "# HELP twinops_sidecar_frames_emitted_total Synthetic/Kit frames emitted.",
+        "# HELP twinops_sidecar_frames_emitted_total Frames emitted into the media path.",
         "# TYPE twinops_sidecar_frames_emitted_total counter",
         f"twinops_sidecar_frames_emitted_total {frames}",
+        "# HELP twinops_sidecar_stream_fps Estimated stream FPS.",
+        "# TYPE twinops_sidecar_stream_fps gauge",
+        f"twinops_sidecar_stream_fps {float(stats.get('fps') or 0)}",
+        "# HELP twinops_sidecar_stream_bitrate_kbps Estimated bitrate.",
+        "# TYPE twinops_sidecar_stream_bitrate_kbps gauge",
+        f"twinops_sidecar_stream_bitrate_kbps {float(stats.get('bitrateKbps') or 0)}",
+        "# HELP twinops_sidecar_stream_disconnects_total Peer disconnects.",
+        "# TYPE twinops_sidecar_stream_disconnects_total counter",
+        f"twinops_sidecar_stream_disconnects_total {int(stats.get('disconnects') or 0)}",
+        "# HELP twinops_sidecar_stream_startup_ms Media ready startup time.",
+        "# TYPE twinops_sidecar_stream_startup_ms gauge",
+        f"twinops_sidecar_stream_startup_ms {float(stats.get('startupTimeMs') or 0)}",
+        "# HELP twinops_sidecar_encoder Encoder backend label info.",
+        "# TYPE twinops_sidecar_encoder gauge",
+        f'twinops_sidecar_encoder{{backend="{encoder}"}} 1',
         "",
     ]
     return "\n".join(lines)

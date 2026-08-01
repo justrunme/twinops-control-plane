@@ -12,8 +12,11 @@ class SidecarConfig:
     port: int = 8091
     idle_timeout_seconds: float = 300.0
     max_sessions: int = 1
-    frame_source: str = "mock"  # mock | kit
+    frame_source: str = "mock"  # mock | kit | kit-file
+    encoder: str = "auto"  # auto | mock | software | nvenc
     kit_command: str | None = None
+    kit_frame_dir: str | None = None
+    input_mirror: str | None = None
     twinops_api: str | None = None
     gpu_index: int = 0
 
@@ -29,7 +32,10 @@ class SidecarConfig:
             frame_source=(
                 os.environ.get("TWINOPS_SIDECAR_FRAME_SOURCE", "mock").strip().lower()
             ),
+            encoder=os.environ.get("TWINOPS_SIDECAR_ENCODER", "auto").strip().lower(),
             kit_command=os.environ.get("TWINOPS_KIT_COMMAND") or None,
+            kit_frame_dir=os.environ.get("TWINOPS_KIT_FRAME_DIR") or None,
+            input_mirror=os.environ.get("TWINOPS_KIT_INPUT_MIRROR") or None,
             twinops_api=os.environ.get("TWINOPS_API_URL") or None,
             gpu_index=int(os.environ.get("TWINOPS_GPU_INDEX", "0")),
         )

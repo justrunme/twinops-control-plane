@@ -148,20 +148,107 @@ class KitFrameSource:
                 "framesEmitted": self.frames_emitted,
                 "limitations": [
                     "Starts Kit via TWINOPS_KIT_COMMAND only",
-                    "No NVENC/App Streaming encoder in this release",
+                    "Pair with frame_source=kit-file for RGBA/JPEG drop directory",
                     "Single GPU / single session assumed",
                 ],
             }
+
+
+@dataclass
+class KitFileFrameSource:
+    """Read latest frame dropped by Kit (JPEG/PNG/PPM) from a directory."""
+
+    directory: Path
+    width: int = 1280
+    height: int = 720
+    fps: float = 30.0
+    name: str = "kit-file"
+    frames_emitted: int = 0
+    _running: bool = False
+    _lock: threading.Lock = field(default_factory=threading.Lock)
+    _last_path: str | None = None
+
+    def start(self) -> None:
+        self.directory.mkdir(parents=True, exist_ok=True)
+        with self._lock:
+            self._running = True
+
+    def stop(self) -> None:
+        with self._lock:
+            self._running = False
+
+    def tick(self) -> dict[str, Any]:
+        with self._lock:
+            if not self._running:
+                return {"ok": False, "error": "not running"}
+            candidates = sorted(
+                [
+                    *self.directory.glob("*.jpg"),
+                    *self.directory.glob("*.jpeg"),
+                    *self.directory.glob("*.png"),
+                    *self.directory.glob("*.ppm"),
+                ],
+                key=lambda path: path.stat().st_mtime,
+            )
+            if not candidates:
+                # Keep WebRTC alive with a deterministic placeholder until Kit drops frames.
+                self.frames_emitted += 1
+                n = self.frames_emitted
+                return {
+                    "ok": True,
+                    "frame": n,
+                    "width": self.width,
+                    "height": self.height,
+                    "fps": self.fps,
+                    "pixel": [(n * 11) % 256, 32, 64],
+                    "source": self.name,
+                    "waitingForKitFrame": True,
+                    "ts": time.time(),
+                }
+            latest = candidates[-1]
+            self._last_path = str(latest)
+            self.frames_emitted += 1
+            # Pixel hint from file size — decoder fills the WebRTC track separately.
+            size = latest.stat().st_size
+            return {
+                "ok": True,
+                "frame": self.frames_emitted,
+                "width": self.width,
+                "height": self.height,
+                "fps": self.fps,
+                "pixel": [size % 256, (size // 3) % 256, (size // 7) % 256],
+                "path": self._last_path,
+                "bytes": size,
+                "source": self.name,
+                "ts": time.time(),
+            }
+
+    def status(self) -> dict[str, Any]:
+        return {
+            "name": self.name,
+            "running": self._running,
+            "directory": str(self.directory),
+            "framesEmitted": self.frames_emitted,
+            "lastPath": self._last_path,
+            "limitations": [
+                "Kit (or a helper) must write JPEG/PNG/PPM into the directory",
+                "WebRTC track samples color/metadata; full texture decode is best-effort",
+            ],
+        }
 
 
 def select_frame_source(
     kind: str,
     *,
     kit_command: str | None = None,
+    kit_frame_dir: str | Path | None = None,
 ) -> FrameSource:
     kind = (kind or "mock").strip().lower()
     if kind == "kit":
         if not kit_command:
             raise ValueError("frame_source=kit requires TWINOPS_KIT_COMMAND")
         return KitFrameSource(command=kit_command)
+    if kind in {"kit-file", "file"}:
+        path = Path(kit_frame_dir or "/tmp/twinops-kit-frames")
+        return KitFileFrameSource(directory=path)
     return MockFrameSource()
