@@ -2,16 +2,16 @@ namespace: twinops-system
 
 image:
   repository: ghcr.io/justrunme/twinops-operator
-  tag: 0.1.0
+  tag: "1.2.0"
   pullPolicy: IfNotPresent
 
 replicaCount: 1
 
 twinopsctlPath: /usr/local/bin/twinopsctl
 
-# Mount host examples for demos (kind/k3d local path style).
+# Optional hostPath mount for kind/k3d demos. Prefer artifactSource (ConfigMap/URL).
 examples:
-  enabled: true
+  enabled: false
   hostPath: /examples
   mountPath: /examples
 
@@ -23,30 +23,27 @@ resources:
     cpu: 500m
     memory: 256Mi
 
-# Live API metrics (twinopsctl serve) are scraped separately from the operator.
-# When co-locating a live demo Deployment, annotate the Pod with:
-#   prometheus.io/scrape: "true"
-#   prometheus.io/port: "8080"
-#   prometheus.io/path: "/metrics"
-# JSON form: GET /api/metrics
 liveMetrics:
   path: /metrics
   port: 8080
   enabled: false
 
 # Optional sample DigitalTwin CR (demo clusters only).
+# Prefer artifactSource.configMapName over hostPath manifestPath.
 sampleTwin:
   enabled: false
   name: assembly-line-a
-  manifestPath: /examples/assembly-line/twin.yaml
-  desiredPath: /examples/assembly-line/desired.yaml
-  observedPath: /examples/assembly-line/telemetry.json
-  outputDir: /tmp/twinops/assembly-line-a
+  # Legacy filesystem layout (only when examples.enabled=true).
+  manifestPath: ""
+  desiredPath: ""
+  observedPath: ""
+  outputDir: /var/lib/twinops/assembly-line-a
   intervalSeconds: 30
-  # Point at a twinopsctl serve Service to populate status.live
+  artifactSource:
+    configMapName: ""
+    url: ""
   liveAPIURL: ""
   liveAPIToken: ""
-  # Prefer SecretRef over plaintext liveAPIToken outside local demos.
   liveAPITokenSecretRef:
     name: ""
     key: api-token

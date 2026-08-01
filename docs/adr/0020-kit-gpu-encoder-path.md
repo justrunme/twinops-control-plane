@@ -14,24 +14,21 @@ Browser ↔ WebRTC ↔ sidecar ↔ Kit frame drop / mock ↔ software or NVENC h
 ## Decision
 
 1. Keep **one session / one GPU index / one browser client**.
-2. Add encoder probe: `auto | mock | software | nvenc`.
-   - `nvenc` requires host `ffmpeg` with `h264_nvenc` + `nvidia-smi`.
-   - Real PeerConnection requires optional extra `twinops[streaming]` (`aiortc`, `av`).
-3. Without `aiortc`, signaling stays **lab-echo** so GPU-free CI/demo still works.
-4. Frame sources: `mock` (CI), `kit` (process supervisor), `kit-file` (JPEG/PNG/PPM
-   drop directory via `TWINOPS_KIT_FRAME_DIR`).
-5. Input: `POST /v1/sessions/{id}/input` and WebRTC datachannel messages mirrored
-   optionally to JSONL (`TWINOPS_KIT_INPUT_MIRROR`) for Kit extensions.
-6. Expose stream quality stats: `startupTimeMs`, `fps`, `bitrateKbps`, `disconnects`
-   on session status and Prometheus `/metrics`.
-7. Explicit non-goals remain: NVCF, multi-GPU, TURN cluster, multi-tenant.
+2. Encoder probe: `auto | mock | software | nvenc`.
+3. Media paths:
+   - **lab-echo** without `aiortc`
+   - **webrtc-software** via aiortc `VideoStreamTrack`
+   - **webrtc-nvenc** via host `ffmpeg -c:v h264_nvenc` → MPEG-TS UDP → aiortc `MediaPlayer`
+4. Frame sources: `mock`, `kit`, `kit-file` (`TWINOPS_KIT_FRAME_DIR`).
+5. Input: REST `/input` + datachannel → optional JSONL mirror.
+6. Expose `encoderInUse`, `mediaPath`, startup/FPS/bitrate/disconnect metrics.
+7. Non-goals: NVCF, multi-GPU, TURN cluster, multi-tenant.
 
 ## Consequences
 
-- Honest dual path: lab-echo without streaming extras; real video track with them
-- NVENC is a **host capability**, not a cloud product claim
-- Kit integration is file-drop + input mirror — not a proprietary Omniverse SDK
-- Opens a clear ops doc for GPU/driver compatibility
+- Software path is CI-testable; NVENC path is host-proven via ffmpeg bridge
+- Kit integration remains file-drop + input mirror (no proprietary SDK)
+- Status/metrics report the encoder actually in use (`h264_nvenc` vs `software`)
 
 ## References
 

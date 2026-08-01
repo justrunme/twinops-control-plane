@@ -4,6 +4,15 @@ All notable TwinOps changes are listed here. Dates are UTC.
 
 ## Unreleased
 
+## 1.2.0 — 2026-08-01
+
+- Production hardening: Helm live ENTRYPOINT/args fix, synced image tags, deploy smoke CI
+- Host NVENC bridge (`ffmpeg h264_nvenc` → MPEG-TS → aiortc) + software WebRTC integration test
+- Publish `twinops-streaming-sidecar` image on release
+- DigitalTwin `artifactSource` (ConfigMap / HTTP bundle) with `status.artifactDigest`
+- Optional pxr OpenUSD validation (`twinops[usd]`, CI job)
+- Manual GPU validation workflow; README lifecycle visual; drop unmeasured “70%” claim
+
 ## 1.1.0 — 2026-08-01
 
 - Real Kit GPU encoder path (ADR-0020): `auto|mock|software|nvenc` probe

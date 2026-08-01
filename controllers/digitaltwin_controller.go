@@ -15,6 +15,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	twinopsv1alpha1 "github.com/justrunme/twinops-control-plane/api/v1alpha1"
+	"github.com/justrunme/twinops-control-plane/internal/artifacts"
 	"github.com/justrunme/twinops-control-plane/internal/livesync"
 	"github.com/justrunme/twinops-control-plane/internal/twinbuild"
 )
@@ -32,6 +33,7 @@ type DigitalTwinReconciler struct {
 // +kubebuilder:rbac:groups=twinops.io,resources=digitaltwins/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=twinops.io,resources=digitaltwins/finalizers,verbs=update
 // +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch
+// +kubebuilder:rbac:groups="",resources=configmaps,verbs=get;list;watch
 
 func (r *DigitalTwinReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := log.FromContext(ctx)
@@ -62,22 +64,56 @@ func (r *DigitalTwinReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		return ctrl.Result{Requeue: true}, nil
 	}
 
-	if twin.Spec.ManifestPath == "" {
-		return r.patchStatus(ctx, &twin, func(status *twinopsv1alpha1.DigitalTwinStatus) {
-			status.Phase = "Error"
-			status.Message = "spec.manifestPath is required"
-			status.ObservedGeneration = twin.Generation
-		})
-	}
-
 	outputDir := twin.Spec.OutputDir
 	if outputDir == "" {
+		// Writable by non-root manager (emptyDir /tmp). Prefer PVC via outputDir.
 		outputDir = filepath.Join("/tmp/twinops", twin.Namespace, twin.Name)
 	}
 
 	interval := twin.Spec.IntervalSeconds
 	if interval <= 0 {
 		interval = 30
+	}
+
+	manifestPath := twin.Spec.ManifestPath
+	desiredPath := twin.Spec.DesiredPath
+	observedPath := twin.Spec.ObservedPath
+	artifactDigest := ""
+	workspacePath := ""
+
+	if twin.Spec.ArtifactSource != nil &&
+		(twin.Spec.ArtifactSource.ConfigMapName != "" || twin.Spec.ArtifactSource.URL != "") {
+		workspacePath = filepath.Join(outputDir, "inputs")
+		res, matErr := artifacts.Materialize(ctx, r.Client, artifacts.Source{
+			Namespace:     twin.Namespace,
+			ConfigMapName: twin.Spec.ArtifactSource.ConfigMapName,
+			URL:           twin.Spec.ArtifactSource.URL,
+		}, workspacePath)
+		if matErr != nil {
+			logger.Error(matErr, "artifact materialize failed")
+			return r.patchStatus(ctx, &twin, func(status *twinopsv1alpha1.DigitalTwinStatus) {
+				status.Phase = "Error"
+				status.Message = matErr.Error()
+				status.ObservedGeneration = twin.Generation
+				setCondition(status, "Ready", metav1.ConditionFalse, "ArtifactFailed", matErr.Error())
+			})
+		}
+		manifestPath = res.ManifestPath
+		if res.DesiredPath != "" {
+			desiredPath = res.DesiredPath
+		}
+		if res.ObservedPath != "" {
+			observedPath = res.ObservedPath
+		}
+		artifactDigest = res.Digest
+	}
+
+	if manifestPath == "" {
+		return r.patchStatus(ctx, &twin, func(status *twinopsv1alpha1.DigitalTwinStatus) {
+			status.Phase = "Error"
+			status.Message = "spec.artifactSource or spec.manifestPath is required"
+			status.ObservedGeneration = twin.Generation
+		})
 	}
 
 	runner := r.Runner
@@ -88,10 +124,12 @@ func (r *DigitalTwinReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	_, _ = r.patchStatus(ctx, &twin, func(status *twinopsv1alpha1.DigitalTwinStatus) {
 		status.Phase = "Composing"
 		status.Message = "composing OpenUSD stage"
+		status.ArtifactDigest = artifactDigest
+		status.WorkspacePath = workspacePath
 		status.ObservedGeneration = twin.Generation
 	})
 
-	stagePath, err := runner.Build(ctx, twin.Spec.ManifestPath, outputDir)
+	stagePath, err := runner.Build(ctx, manifestPath, outputDir)
 	if err != nil {
 		logger.Error(err, "compose failed")
 		_, _ = r.patchStatus(ctx, &twin, func(status *twinopsv1alpha1.DigitalTwinStatus) {
@@ -107,14 +145,14 @@ func (r *DigitalTwinReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	message := "stage composed"
 	driftStatus := twinopsv1alpha1.DriftStatus{Status: "Unknown"}
 
-	if twin.Spec.DesiredPath != "" && twin.Spec.ObservedPath != "" {
+	if desiredPath != "" && observedPath != "" {
 		driftOut := filepath.Join(outputDir, "drift")
 		result, driftErr := runner.Drift(
 			ctx,
-			twin.Spec.DesiredPath,
+			desiredPath,
 			stagePath,
-			twin.Spec.ObservedPath,
-			twin.Spec.ManifestPath,
+			observedPath,
+			manifestPath,
 			driftOut,
 		)
 		if driftErr != nil {
@@ -191,6 +229,8 @@ func (r *DigitalTwinReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		status.Phase = phase
 		status.Message = message
 		status.StagePath = stagePath
+		status.ArtifactDigest = artifactDigest
+		status.WorkspacePath = workspacePath
 		status.Drift = driftStatus
 		status.Live = liveStatus
 		status.ObservedGeneration = twin.Generation

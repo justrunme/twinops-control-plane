@@ -5,7 +5,6 @@ Installs the TwinOps Kubernetes operator that reconciles `DigitalTwin` CRs.
 ## Prerequisites
 
 - Kubernetes 1.27+ (k3d/kind work for demos)
-- `twinopsctl` available in the manager image / hostPath for demos
 - CRDs bundled under `crds/`
 
 ## Install
@@ -16,37 +15,31 @@ helm upgrade --install twinops-operator deploy/helm/twinops-operator \
   --create-namespace
 ```
 
-Apply a sample CR after install (see `docs/operator.md` and `make operator-demo`).
+Prefer `spec.artifactSource` (ConfigMap / HTTP bundle) over hostPath `manifestPath`.
 
 ## Values
 
 | Key | Default | Notes |
 | --- | --- | --- |
 | `image.repository` | `ghcr.io/justrunme/twinops-operator` | Build via `Dockerfile.operator` |
-| `image.tag` | `0.1.0` | Keep in sync with Chart `appVersion` |
+| `image.tag` | `1.2.0` | Keep in sync with Chart `appVersion` |
 | `twinopsctlPath` | `/usr/local/bin/twinopsctl` | Path inside the manager container |
-| `examples.enabled` | `true` | HostPath mount for local demos |
-| `liveMetrics.enabled` | `false` | Scrape notes for co-located live API |
+| `examples.enabled` | `false` | Optional hostPath mount for local demos |
 | `sampleTwin.enabled` | `false` | Optionally install a demo DigitalTwin CR |
+| `sampleTwin.artifactSource.configMapName` | `""` | Preferred input source |
 | `sampleTwin.liveAPIURL` | `""` | Populate `status.live` via live API probe |
-| `sampleTwin.liveAPITokenSecretRef` | `name: ""` | Prefer Secret over plaintext `liveAPIToken` |
-
-Enable a sample twin that also probes a live API:
 
 ```bash
+kubectl -n twinops-system create configmap assembly-line-inputs \
+  --from-file=twin.yaml=examples/assembly-line/twin.yaml \
+  --from-file=desired.yaml=examples/assembly-line/desired.yaml \
+  --from-file=telemetry.json=examples/assembly-line/telemetry.json
+
 helm upgrade --install twinops-operator deploy/helm/twinops-operator \
   --namespace twinops-system --create-namespace \
   --set sampleTwin.enabled=true \
-  --set sampleTwin.liveAPIURL=http://twinops-live.twinops-system.svc:8080 \
-  --set sampleTwin.liveAPITokenSecretRef.name=twinops-live-api
+  --set sampleTwin.artifactSource.configMapName=assembly-line-inputs \
+  --set sampleTwin.liveAPIURL=http://twinops-live.twinops-system.svc:8080
 ```
 
-## Metrics
-
-The operator itself does not expose the live MQTT metrics endpoint. When you
-co-locate `twinopsctl serve`, scrape annotations are documented in `values.yaml`
-(`prometheus.io/scrape` → `/metrics` on port `8080`).
-
-## Honesty
-
-Experimental. Not production-hardened RBAC / multi-tenant controls.
+Status reports `artifactDigest` (sha256 of materialized inputs).
