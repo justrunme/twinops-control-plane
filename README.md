@@ -16,7 +16,7 @@ OpenUSD layers + variants
 Runtime (optional): Omniverse Kit · web UI · lab WebRTC
 ```
 
-> Status: **stable reference architecture** (v1.0.0). Stable API and architecture baseline for demonstrations, experimentation, and extension development. Omniverse Kit is an optional runtime. **Not production-ready.**
+> Status: **stable reference architecture** (v1.1.0). Stable API baseline plus optional single-GPU Kit streaming path. Omniverse Kit is an optional runtime. **Not production-ready.**
 
 [![CI](https://github.com/justrunme/twinops-control-plane/actions/workflows/ci.yml/badge.svg)](https://github.com/justrunme/twinops-control-plane/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/justrunme/twinops-control-plane?display_name=tag)](https://github.com/justrunme/twinops-control-plane/releases/latest)

@@ -58,6 +58,7 @@ Navigation index for the control plane docs.
 | [0017](adr/0017-generic-plm-adapters.md) | Generic File and REST PLM adapters |
 | [0018](adr/0018-productization-e2e.md) | Productization end-to-end scenario |
 | [0019](adr/0019-kit-streaming-sidecar.md) | Single-session Kit streaming sidecar |
+| [0020](adr/0020-kit-gpu-encoder-path.md) | Real Kit GPU encoder path (v1.1) |
 
 ## Schemas
 

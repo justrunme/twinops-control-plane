@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Smoke: start streaming sidecar, create session, offer, frame, delete.
+# Smoke: start streaming sidecar, create session, offer, frame, input, delete.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -16,7 +16,8 @@ if [[ ! -x "${TWINOPSCTL}" ]]; then
   make install
 fi
 
-"${TWINOPSCTL}" streaming-sidecar --host "${HOST}" --port "${PORT}" --idle-timeout 120 \
+"${TWINOPSCTL}" streaming-sidecar --host "${HOST}" --port "${PORT}" \
+  --idle-timeout 120 --encoder mock \
   >"${LOG}" 2>&1 &
 PID=$!
 
@@ -47,7 +48,8 @@ curl -fsS "${BASE}/ready" | "${PYTHON}" -c "
 import json,sys
 data=json.load(sys.stdin)
 assert data.get('status')=='ready', data
-print('    ready:', data)
+assert data.get('encoder',{}).get('backend')=='mock', data
+print('    ready:', data.get('status'), 'encoder=', data.get('encoder',{}).get('backend'))
 "
 
 curl -fsS -X POST "${BASE}/v1/sessions" -H 'content-type: application/json' \
@@ -60,8 +62,11 @@ curl -fsS -X POST "${BASE}/v1/sessions/${SID}/signal" \
   | "${PYTHON}" -c "
 import json,sys
 data=json.load(sys.stdin)
-assert data.get('ok') and data.get('answer',{}).get('labEcho')
-print('    offer/answer OK')
+ans=data.get('answer') or {}
+assert data.get('ok') and ans.get('type')=='answer', data
+# mock encoder ⇒ lab-echo; streaming extras may still lab-echo when encoder=mock
+assert ans.get('labEcho') is True or ans.get('mediaPath')=='webrtc-track', ans
+print('    offer/answer OK path=', ans.get('mediaPath') or ('lab-echo' if ans.get('labEcho') else 'unknown'))
 "
 
 curl -fsS -X POST "${BASE}/v1/sessions/${SID}/frame" \
@@ -69,7 +74,34 @@ curl -fsS -X POST "${BASE}/v1/sessions/${SID}/frame" \
 import json,sys
 data=json.load(sys.stdin)
 assert data.get('ok'), data
-print('    frame', data.get('frame'))
+assert 'stats' in data, data
+print('    frame', data.get('frame'), 'fps=', data.get('stats',{}).get('fps'))
+"
+
+curl -fsS -X POST "${BASE}/v1/sessions/${SID}/input" \
+  -H 'content-type: application/json' \
+  -d '{"type":"mousemove","x":1,"y":2}' \
+  | "${PYTHON}" -c "
+import json,sys
+data=json.load(sys.stdin)
+assert data.get('ok'), data
+print('    input OK accepted=', data.get('accepted'))
+"
+
+curl -fsS "${BASE}/v1/status" | "${PYTHON}" -c "
+import json,sys
+data=json.load(sys.stdin)
+assert data.get('encoder',{}).get('backend')=='mock', data
+assert data.get('input',{}).get('accepted',0)>=1, data
+print('    status encoder/input OK')
+"
+
+curl -fsS "${BASE}/metrics" | "${PYTHON}" -c "
+import sys
+text=sys.stdin.read()
+assert 'twinops_sidecar_stream_fps' in text
+assert 'twinops_sidecar_encoder' in text
+print('    metrics OK')
 "
 
 code="$(curl -s -o /dev/null -w '%{http_code}' -X POST "${BASE}/v1/sessions" -H 'content-type: application/json' -d '{}')"

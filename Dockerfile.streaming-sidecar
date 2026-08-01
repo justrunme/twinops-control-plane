@@ -8,6 +8,8 @@ RUN pip install --no-cache-dir -e ".[live]"
 ENV TWINOPS_SIDECAR_HOST=0.0.0.0
 ENV TWINOPS_SIDECAR_PORT=8091
 ENV TWINOPS_SIDECAR_FRAME_SOURCE=mock
+ENV TWINOPS_SIDECAR_ENCODER=mock
+# For real WebRTC media on a GPU host: pip install '.[live,streaming]' and set ENCODER=auto
 
 EXPOSE 8091
 CMD ["python", "-m", "twinops.streaming_sidecar", "--host", "0.0.0.0", "--port", "8091"]
