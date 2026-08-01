@@ -103,8 +103,23 @@ See [ADR-0020](adr/0020-kit-gpu-encoder-path.md), [gpu-streaming.md](gpu-streami
 ## v1.2 — Production hardening ✅
 
 Helm/container deploy path fixed and CI-tested; DigitalTwin artifactSource;
-software WebRTC test + host NVENC ffmpeg bridge; optional pxr validation.
-See [release-1.2.md](release-1.2.md).
+software WebRTC test + host NVENC **ingest** bridge (aiortc still encodes WebRTC);
+optional pxr validation. See [release-1.2.md](release-1.2.md).
+
+## v1.2.1 — Correctness patch ✅
+
+Media honesty fields/tests; atomic artifacts + ConfigMap watch + kind E2E;
+Helm sample `outputDir` under `/tmp/twinops`; finalizer workspace cleanup;
+artifact size/DNS fail-closed. See [release-1.2.1.md](release-1.2.1.md).
+
+## v1.3 — Single-twin pilot ready 🚧
+
+- Persistent output artifact URI + digest (ConfigMap publish first; OCI later)
+- In-cluster Helm operator E2E + restart recovery
+- Reconcile timeout / concurrency / build idempotency
+- Namespace-scoped RBAC mode
+- Operator metrics + Kubernetes Events
+- Supply-chain scans (govulncheck, pip-audit, Trivy, SBOM)
 
 ## Architecture decisions
 
