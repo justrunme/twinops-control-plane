@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 280" role="img" aria-label="TwinOps drift to reconcile lifecycle">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0b1220"/>
+      <stop offset="100%" stop-color="#152238"/>
+    </linearGradient>
+    <style>
+      .label { font: 700 18px ui-sans-serif, system-ui, sans-serif; fill: #e8eefc; }
+      .sub { font: 500 12px ui-sans-serif, system-ui, sans-serif; fill: #9db0d0; }
+      .box { fill: #1c2a44; stroke: #3d5a80; stroke-width: 2; rx: 10; }
+      .accent { fill: #2dd4bf; }
+      .warn { fill: #f59e0b; }
+      .ok { fill: #34d399; }
+      .flow { fill: none; stroke: #7dd3fc; stroke-width: 3; stroke-linecap: round; }
+      .pulse { offset-path: path('M 150 140 H 810'); animation: move 4s linear infinite; }
+      @keyframes move { to { offset-distance: 100%; } }
+      .fade { animation: fade 4s ease-in-out infinite; }
+      @keyframes fade { 0%,20%{opacity:.35} 40%,60%{opacity:1} 80%,100%{opacity:.35} }
+    </style>
+  </defs>
+  <rect width="960" height="280" fill="url(#bg)"/>
+  <text x="32" y="42" class="label">TwinOps</text>
+  <text x="32" y="64" class="sub">Desired / PLM ’ Rendered / OpenUSD ’ Observed / IoT ’ Drift ’ Proposal ’ Apply ’ Verify</text>
+
+  <rect class="box" x="40" y="100" width="140" height="80"/>
+  <text x="110" y="135" text-anchor="middle" class="label" font-size="14">Desired</text>
+  <text x="110" y="158" text-anchor="middle" class="sub">PLM / Git</text>
+
+  <rect class="box" x="220" y="100" width="140" height="80"/>
+  <text x="290" y="135" text-anchor="middle" class="label" font-size="14">Rendered</text>
+  <text x="290" y="158" text-anchor="middle" class="sub">OpenUSD</text>
+
+  <rect class="box" x="400" y="100" width="140" height="80"/>
+  <text x="470" y="135" text-anchor="middle" class="label" font-size="14">Observed</text>
+  <text x="470" y="158" text-anchor="middle" class="sub">IoT / MQTT</text>
+
+  <rect class="box fade" x="580" y="100" width="140" height="80" stroke="#f59e0b"/>
+  <text x="650" y="135" text-anchor="middle" class="label" font-size="14">Drift</text>
+  <text x="650" y="158" text-anchor="middle" class="sub">detect + propose</text>
+
+  <rect class="box" x="760" y="100" width="160" height="80" stroke="#34d399"/>
+  <text x="840" y="135" text-anchor="middle" class="label" font-size="14">Reconcile</text>
+  <text x="840" y="158" text-anchor="middle" class="sub">apply ’ verify</text>
+
+  <path class="flow" d="M180 140 H220"/>
+  <path class="flow" d="M360 140 H400"/>
+  <path class="flow" d="M540 140 H580"/>
+  <path class="flow" d="M720 140 H760"/>
+  <circle r="6" class="accent pulse"/>
+
+  <text x="32" y="230" class="sub">Executable reference architecture  control plane first, Omniverse Kit optional.</text>
+  <text x="32" y="252" class="sub">Telemetry spike ’ drift ’ proposal ’ apply ’ synced</text>
+</svg>

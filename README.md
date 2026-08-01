@@ -2,6 +2,8 @@
 
 **GitOps Control Plane for Industrial Digital Twins**
 
+![TwinOps lifecycle](docs/assets/twinops-lifecycle.svg)
+
 TwinOps is a **stable reference architecture** that reconciles **PLM metadata**, **OpenUSD scene composition**, and **live telemetry** into a versioned, observable digital-twin runtime.
 
 ```text
@@ -16,7 +18,7 @@ OpenUSD layers + variants
 Runtime (optional): Omniverse Kit · web UI · lab WebRTC
 ```
 
-> Status: **stable reference architecture** (v1.1.0). Stable API baseline plus optional single-GPU Kit streaming path. Omniverse Kit is an optional runtime. **Not production-ready.**
+> Status: **v1.2.0** — hardened deploy path (Helm/containers), ConfigMap/URL twin artifacts, software WebRTC + host NVENC bridge. Omniverse Kit remains optional. Still a reference architecture, not a turnkey plant platform.
 
 [![CI](https://github.com/justrunme/twinops-control-plane/actions/workflows/ci.yml/badge.svg)](https://github.com/justrunme/twinops-control-plane/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/justrunme/twinops-control-plane?display_name=tag)](https://github.com/justrunme/twinops-control-plane/releases/latest)
@@ -272,7 +274,7 @@ twinops-control-plane/
 └── web/                     # Live control-plane UI + mock Kit viewport
 ```
 
-About **70% of the platform** (compiler, drift engine, operator, GitOps, observability, mock adapters) can be built **without an NVIDIA GPU**. GPU is required only for Kit rendering and streaming.
+Compiler, drift engine, operator, GitOps, observability, and mock adapters run **without an NVIDIA GPU**. A GPU is required only for Kit rendering and the host NVENC streaming bridge.
 
 ---
 

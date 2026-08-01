@@ -71,8 +71,18 @@ kubectl apply -f config/samples/twinops_v1alpha1_digitaltwin.yaml
 kubectl get digitaltwins -A
 ```
 
-For the stock sample CR, paths are `/examples/...` (container/hostPath layout).
-The local cluster demo generates absolute host paths automatically.
+Prefer immutable inputs via `spec.artifactSource`:
+
+```yaml
+spec:
+  artifactSource:
+    configMapName: assembly-line-inputs   # keys: twin.yaml, desired.yaml, telemetry.json
+  # or: url: https://example.com/twin-bundle.tar.gz
+  outputDir: /tmp/twinops/assembly-line-a
+```
+
+Status exposes `artifactDigest` (`sha256:...`) and `workspacePath` after materialize.
+Legacy `manifestPath` / hostPath remains for local demos only.
 
 ## Helm
 
@@ -83,7 +93,7 @@ helm upgrade --install twinops-operator deploy/helm/twinops-operator
 Image build:
 
 ```bash
-docker build -f Dockerfile.operator -t ghcr.io/justrunme/twinops-operator:0.1.0 .
+docker build -f Dockerfile.operator -t ghcr.io/justrunme/twinops-operator:1.2.0 .
 ```
 
 ## Status phases

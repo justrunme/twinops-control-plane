@@ -102,8 +102,10 @@ def build_root_stage(
         f'    doc = "{escape_string(doc)}"',
         "    subLayers = [",
     ]
-    for layer in sublayers:
-        lines.append(f"        @{layer}@")
+    for index, layer in enumerate(sublayers):
+        # pxr requires commas between subLayers entries.
+        comma = "," if index < len(sublayers) - 1 else ""
+        lines.append(f"        @{layer}@{comma}")
     lines.extend(
         [
             "    ]",

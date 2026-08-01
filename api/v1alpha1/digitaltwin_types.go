@@ -4,9 +4,25 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+// ArtifactSource is an immutable reference to twin inputs (preferred over hostPath).
+type ArtifactSource struct {
+	// ConfigMapName loads twin.yaml (+ optional desired.yaml / telemetry.json) keys.
+	// +optional
+	ConfigMapName string `json:"configMapName,omitempty"`
+
+	// URL fetches a .tar.gz / .zip bundle or a bare twin.yaml over HTTP(S).
+	// +optional
+	URL string `json:"url,omitempty"`
+}
+
 // DigitalTwinSpec defines the desired state of a digital twin.
 type DigitalTwinSpec struct {
-	// ManifestPath is a filesystem path to twin.yaml (dev / sidecar layout).
+	// ArtifactSource materializes twin inputs into the operator workspace.
+	// When set, it takes precedence over filesystem manifestPath/desiredPath/observedPath.
+	// +optional
+	ArtifactSource *ArtifactSource `json:"artifactSource,omitempty"`
+
+	// ManifestPath is a filesystem path to twin.yaml (legacy / hostPath demos).
 	// +optional
 	ManifestPath string `json:"manifestPath,omitempty"`
 
@@ -102,6 +118,12 @@ type DigitalTwinStatus struct {
 	Phase string `json:"phase,omitempty"`
 	// StagePath is the composed root.usda path.
 	StagePath string `json:"stagePath,omitempty"`
+	// ArtifactDigest is sha256 of materialized artifact inputs when artifactSource is used.
+	// +optional
+	ArtifactDigest string `json:"artifactDigest,omitempty"`
+	// WorkspacePath is the materialized input directory when artifactSource is used.
+	// +optional
+	WorkspacePath string `json:"workspacePath,omitempty"`
 	// Message is a human-readable status detail.
 	Message string `json:"message,omitempty"`
 	// Drift summarizes the latest drift evaluation.

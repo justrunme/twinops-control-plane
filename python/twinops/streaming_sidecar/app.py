@@ -32,6 +32,8 @@ def create_sidecar_app(config: SidecarConfig | None = None) -> FastAPI:
         max_sessions=cfg.max_sessions,
         encoder=cfg.encoder,
         input_mirror=cfg.input_mirror,
+        kit_frame_dir=cfg.kit_frame_dir,
+        gpu_index=cfg.gpu_index,
     )
 
     @asynccontextmanager

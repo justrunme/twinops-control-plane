@@ -1,22 +1,39 @@
 operator:
   enabled: true
 
-# Live API is still primarily docker-compose for demos.
-# This stub documents the intended umbrella shape without shipping a full Deployment yet.
+# Live API Deployment (works with ghcr.io/justrunme/twinops-live).
+# docker-compose remains the fastest local demo; Helm is the cluster path.
 live:
   enabled: false
+  replicas: 1
   image:
     repository: ghcr.io/justrunme/twinops-live
-    tag: "1.1.0"
+    tag: "1.2.0"
+    pullPolicy: IfNotPresent
+  example: examples/assembly-line
+  workDir: /tmp/twinops/live
   service:
     port: 8080
   apiToken: ""
+  webrtc: false
+  streamingSidecarUrl: ""
   mqtt:
     host: ""
     strictSchema: false
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: "1"
+      memory: 512Mi
 
 # Forwarded into the operator subchart when using umbrella install.
 twinops-operator:
+  image:
+    tag: "1.2.0"
+  examples:
+    enabled: false
   sampleTwin:
     enabled: false
     liveAPIURL: ""
