@@ -1,4 +1,6 @@
 namespace: twinops-system
+# Prefer Helm --create-namespace; set true only when the chart should own the Namespace object.
+createNamespace: false
 
 # RBAC scope: cluster (default) or namespaced (+ watchNamespaces).
 rbac:
