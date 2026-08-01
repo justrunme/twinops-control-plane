@@ -12,9 +12,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -24,6 +26,8 @@ import (
 	twinopsv1alpha1 "github.com/justrunme/twinops-control-plane/api/v1alpha1"
 	"github.com/justrunme/twinops-control-plane/internal/artifacts"
 	"github.com/justrunme/twinops-control-plane/internal/livesync"
+	twinmetrics "github.com/justrunme/twinops-control-plane/internal/metrics"
+	"github.com/justrunme/twinops-control-plane/internal/output"
 	"github.com/justrunme/twinops-control-plane/internal/twinbuild"
 )
 
@@ -32,8 +36,13 @@ const finalizerName = "twinops.io/finalizer"
 // DigitalTwinReconciler reconciles DigitalTwin objects.
 type DigitalTwinReconciler struct {
 	client.Client
-	Scheme *runtime.Scheme
-	Runner twinbuild.Runner
+	Scheme   *runtime.Scheme
+	Runner   twinbuild.Runner
+	Recorder record.EventRecorder
+	// BuildTimeout bounds twinopsctl build/drift subprocesses (default 120s).
+	BuildTimeout time.Duration
+	// MaxConcurrent is passed to controller options (default 2).
+	MaxConcurrent int
 }
 
 // +kubebuilder:rbac:groups=twinops.io,resources=digitaltwins,verbs=get;list;watch;create;update;patch;delete
@@ -41,6 +50,7 @@ type DigitalTwinReconciler struct {
 // +kubebuilder:rbac:groups=twinops.io,resources=digitaltwins/finalizers,verbs=update
 // +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch
 // +kubebuilder:rbac:groups="",resources=configmaps,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups="",resources=events,verbs=create;patch
 
 func (r *DigitalTwinReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := log.FromContext(ctx)
@@ -55,23 +65,15 @@ func (r *DigitalTwinReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 
 	if !twin.DeletionTimestamp.IsZero() {
 		if controllerutil.ContainsFinalizer(&twin, finalizerName) {
-			// Cleanup local workspace so emptyDir does not retain stale twin data.
 			outputDir := twin.Spec.OutputDir
 			if outputDir == "" {
 				outputDir = filepath.Join("/tmp/twinops", twin.Namespace, twin.Name)
 			}
 			if err := os.RemoveAll(outputDir); err != nil {
 				logger.Error(err, "workspace cleanup failed", "path", outputDir)
-				// Still remove finalizer to avoid stuck deletes; log for ops.
 			}
-			// Best-effort delete published output ConfigMap (v1.3+); ignore NotFound.
-			outCM := types.NamespacedName{
-				Namespace: twin.Namespace,
-				Name:      twin.Name + "-output",
-			}
-			var cm corev1.ConfigMap
-			if err := r.Get(ctx, outCM, &cm); err == nil {
-				_ = r.Delete(ctx, &cm)
+			if err := output.DeleteConfigMap(ctx, r.Client, twin.Namespace, twin.Name); err != nil {
+				logger.Error(err, "output configmap cleanup failed")
 			}
 			controllerutil.RemoveFinalizer(&twin, finalizerName)
 			if err := r.Update(ctx, &twin); err != nil {
@@ -91,7 +93,6 @@ func (r *DigitalTwinReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 
 	outputDir := twin.Spec.OutputDir
 	if outputDir == "" {
-		// Writable by non-root manager (emptyDir /tmp). Prefer PVC via outputDir.
 		outputDir = filepath.Join("/tmp/twinops", twin.Namespace, twin.Name)
 	}
 
@@ -100,10 +101,17 @@ func (r *DigitalTwinReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		interval = 30
 	}
 
+	timeout := r.BuildTimeout
+	if timeout <= 0 {
+		timeout = 120 * time.Second
+	}
+	buildCtx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+
 	manifestPath := twin.Spec.ManifestPath
 	desiredPath := twin.Spec.DesiredPath
 	observedPath := twin.Spec.ObservedPath
-	artifactDigest := ""
+	inputDigest := ""
 	workspacePath := ""
 
 	if twin.Spec.ArtifactSource != nil &&
@@ -111,7 +119,7 @@ func (r *DigitalTwinReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		workspacePath = filepath.Join(outputDir, "inputs")
 		allowPrivate := os.Getenv("TWINOPS_ARTIFACT_ALLOW_PRIVATE") == "1"
 		requireDigest := os.Getenv("TWINOPS_ARTIFACT_REQUIRE_URL_DIGEST") == "1"
-		res, matErr := artifacts.Materialize(ctx, r.Client, artifacts.Source{
+		res, matErr := artifacts.Materialize(buildCtx, r.Client, artifacts.Source{
 			Namespace:             twin.Namespace,
 			ConfigMapName:         twin.Spec.ArtifactSource.ConfigMapName,
 			URL:                   twin.Spec.ArtifactSource.URL,
@@ -121,6 +129,8 @@ func (r *DigitalTwinReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		}, workspacePath)
 		if matErr != nil {
 			logger.Error(matErr, "artifact materialize failed")
+			r.event(&twin, corev1.EventTypeWarning, "ArtifactFailed", matErr.Error())
+			twinmetrics.ReconcileTotal.WithLabelValues("Error").Inc()
 			return r.patchStatus(ctx, &twin, func(status *twinopsv1alpha1.DigitalTwinStatus) {
 				status.Phase = "Error"
 				status.Message = matErr.Error()
@@ -128,7 +138,6 @@ func (r *DigitalTwinReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 				setCondition(status, "Ready", metav1.ConditionFalse, "ArtifactFailed", matErr.Error())
 			})
 		}
-		// Artifact bundle owns input paths: absent keys clear prior workspace files.
 		manifestPath = res.ManifestPath
 		if res.DesiredPath != "" {
 			desiredPath = res.DesiredPath
@@ -140,7 +149,7 @@ func (r *DigitalTwinReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		} else {
 			observedPath = twin.Spec.ObservedPath
 		}
-		artifactDigest = res.Digest
+		inputDigest = res.Digest
 	}
 
 	if manifestPath == "" {
@@ -156,24 +165,80 @@ func (r *DigitalTwinReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		runner.Binary = twin.Spec.TwinOpsCtl
 	}
 
-	_, _ = r.patchStatus(ctx, &twin, func(status *twinopsv1alpha1.DigitalTwinStatus) {
-		status.Phase = "Composing"
-		status.Message = "composing OpenUSD stage"
-		status.ArtifactDigest = artifactDigest
-		status.WorkspacePath = workspacePath
-		status.ObservedGeneration = twin.Generation
-	})
+	// Build idempotency: skip compose when generation+input digest match and stage exists.
+	skipCompose := twin.Status.LastComposeGeneration == twin.Generation &&
+		inputDigest != "" &&
+		(twin.Status.InputDigest == inputDigest || twin.Status.ArtifactDigest == inputDigest) &&
+		twin.Status.StagePath != ""
+	if skipCompose {
+		if _, err := os.Stat(twin.Status.StagePath); err != nil {
+			skipCompose = false
+		}
+	}
 
-	stagePath, err := runner.Build(ctx, manifestPath, outputDir)
-	if err != nil {
-		logger.Error(err, "compose failed")
+	stagePath := twin.Status.StagePath
+	outArtifact := twin.Status.Output
+
+	if !skipCompose {
 		_, _ = r.patchStatus(ctx, &twin, func(status *twinopsv1alpha1.DigitalTwinStatus) {
-			status.Phase = "Error"
-			status.Message = err.Error()
+			status.Phase = "Composing"
+			status.Message = "composing OpenUSD stage"
+			status.ArtifactDigest = inputDigest
+			status.InputDigest = inputDigest
+			status.WorkspacePath = workspacePath
 			status.ObservedGeneration = twin.Generation
-			setCondition(status, "Ready", metav1.ConditionFalse, "ComposeFailed", err.Error())
 		})
-		return ctrl.Result{RequeueAfter: time.Duration(interval) * time.Second}, nil
+
+		start := time.Now()
+		var err error
+		stagePath, err = runner.Build(buildCtx, manifestPath, outputDir)
+		twinmetrics.ComposeSeconds.Observe(time.Since(start).Seconds())
+		if err != nil {
+			logger.Error(err, "compose failed")
+			r.event(&twin, corev1.EventTypeWarning, "ComposeFailed", err.Error())
+			twinmetrics.ReconcileTotal.WithLabelValues("Error").Inc()
+			_, _ = r.patchStatus(ctx, &twin, func(status *twinopsv1alpha1.DigitalTwinStatus) {
+				status.Phase = "Error"
+				status.Message = err.Error()
+				status.ObservedGeneration = twin.Generation
+				setCondition(status, "Ready", metav1.ConditionFalse, "ComposeFailed", err.Error())
+			})
+			return ctrl.Result{RequeueAfter: time.Duration(interval) * time.Second}, nil
+		}
+
+		if publishEnabled(twin.Spec.OutputPublish) {
+			pub, pubErr := output.PublishDir(buildCtx, r.Client, &twin, outputDir, inputDigest)
+			if pubErr != nil {
+				logger.Error(pubErr, "output publish failed")
+				r.event(&twin, corev1.EventTypeWarning, "PublishFailed", pubErr.Error())
+				twinmetrics.ReconcileTotal.WithLabelValues("Error").Inc()
+				_, _ = r.patchStatus(ctx, &twin, func(status *twinopsv1alpha1.DigitalTwinStatus) {
+					status.Phase = "Error"
+					status.Message = pubErr.Error()
+					status.StagePath = stagePath
+					status.ObservedGeneration = twin.Generation
+					setCondition(status, "Ready", metav1.ConditionFalse, "PublishFailed", pubErr.Error())
+				})
+				return ctrl.Result{RequeueAfter: time.Duration(interval) * time.Second}, nil
+			}
+			now := metav1.Now()
+			rev := twin.Status.Output.Revision
+			if twin.Status.Output.Digest != pub.Digest {
+				rev++
+			}
+			if rev == 0 {
+				rev = 1
+			}
+			outArtifact = twinopsv1alpha1.OutputArtifact{
+				Digest:      pub.Digest,
+				URI:         pub.URI,
+				Revision:    rev,
+				StageKey:    pub.StageKey,
+				PublishedAt: &now,
+			}
+			r.event(&twin, corev1.EventTypeNormal, "OutputPublished",
+				fmt.Sprintf("published %s digest=%s rev=%d", pub.URI, pub.Digest, rev))
+		}
 	}
 
 	phase := "Ready"
@@ -183,7 +248,7 @@ func (r *DigitalTwinReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	if desiredPath != "" && observedPath != "" {
 		driftOut := filepath.Join(outputDir, "drift")
 		result, driftErr := runner.Drift(
-			ctx,
+			buildCtx,
 			desiredPath,
 			stagePath,
 			observedPath,
@@ -192,16 +257,21 @@ func (r *DigitalTwinReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		)
 		if driftErr != nil {
 			logger.Error(driftErr, "drift failed")
+			r.event(&twin, corev1.EventTypeWarning, "DriftFailed", driftErr.Error())
 			phase = "Error"
 			message = driftErr.Error()
-			setReady := func(status *twinopsv1alpha1.DigitalTwinStatus) {
+			twinmetrics.ReconcileTotal.WithLabelValues("Error").Inc()
+			_, _ = r.patchStatus(ctx, &twin, func(status *twinopsv1alpha1.DigitalTwinStatus) {
 				status.Phase = phase
 				status.Message = message
 				status.StagePath = stagePath
+				status.ArtifactDigest = inputDigest
+				status.InputDigest = inputDigest
+				status.WorkspacePath = workspacePath
+				status.Output = outArtifact
 				status.ObservedGeneration = twin.Generation
 				setCondition(status, "Ready", metav1.ConditionFalse, "DriftFailed", driftErr.Error())
-			}
-			_, _ = r.patchStatus(ctx, &twin, setReady)
+			})
 			return ctrl.Result{RequeueAfter: time.Duration(interval) * time.Second}, nil
 		}
 
@@ -215,10 +285,12 @@ func (r *DigitalTwinReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 			ReportPath:  result.ReportPath,
 			LastChecked: &now,
 		}
+		twinmetrics.DriftFindings.WithLabelValues(twin.Namespace, twin.Name).Set(float64(result.Findings))
 		if result.HasDrift {
 			driftStatus.Status = "Detected"
 			phase = "DriftDetected"
 			message = fmt.Sprintf("drift detected (%s)", result.Summary)
+			r.event(&twin, corev1.EventTypeWarning, "DriftDetected", message)
 		} else {
 			message = fmt.Sprintf("synced (%s)", result.Summary)
 		}
@@ -260,15 +332,20 @@ func (r *DigitalTwinReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		}
 	}
 
-	_, err = r.patchStatus(ctx, &twin, func(status *twinopsv1alpha1.DigitalTwinStatus) {
+	_, err := r.patchStatus(ctx, &twin, func(status *twinopsv1alpha1.DigitalTwinStatus) {
 		status.Phase = phase
 		status.Message = message
 		status.StagePath = stagePath
-		status.ArtifactDigest = artifactDigest
+		status.ArtifactDigest = inputDigest
+		status.InputDigest = inputDigest
 		status.WorkspacePath = workspacePath
+		status.Output = outArtifact
 		status.Drift = driftStatus
 		status.Live = liveStatus
 		status.ObservedGeneration = twin.Generation
+		if !skipCompose {
+			status.LastComposeGeneration = twin.Generation
+		}
 		ready := metav1.ConditionTrue
 		reason := "Reconciled"
 		if phase == "DriftDetected" {
@@ -284,7 +361,28 @@ func (r *DigitalTwinReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		return ctrl.Result{}, err
 	}
 
+	if phase == "Ready" {
+		r.event(&twin, corev1.EventTypeNormal, "Reconciled", message)
+	}
+	twinmetrics.ReconcileTotal.WithLabelValues(phase).Inc()
 	return ctrl.Result{RequeueAfter: time.Duration(interval) * time.Second}, nil
+}
+
+func publishEnabled(pub *twinopsv1alpha1.OutputPublish) bool {
+	if pub == nil {
+		return true // default on for pilot durability
+	}
+	if pub.Enabled == nil {
+		return true
+	}
+	return *pub.Enabled
+}
+
+func (r *DigitalTwinReconciler) event(twin *twinopsv1alpha1.DigitalTwin, typ, reason, msg string) {
+	if r.Recorder == nil {
+		return
+	}
+	r.Recorder.Event(twin, typ, reason, msg)
 }
 
 func (r *DigitalTwinReconciler) patchStatus(
@@ -327,14 +425,18 @@ func setCondition(status *twinopsv1alpha1.DigitalTwinStatus, ctype string, condS
 }
 
 func (r *DigitalTwinReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	maxConc := r.MaxConcurrent
+	if maxConc <= 0 {
+		maxConc = 2
+	}
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&twinopsv1alpha1.DigitalTwin{}).
-		// Re-materialize immediately when a referenced artifact ConfigMap changes.
 		Watches(
 			&corev1.ConfigMap{},
 			handler.EnqueueRequestsFromMapFunc(r.mapConfigMapToTwins),
 			builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
 		).
+		WithOptions(controller.Options{MaxConcurrentReconciles: maxConc}).
 		Complete(r)
 }
 
@@ -342,6 +444,10 @@ func (r *DigitalTwinReconciler) SetupWithManager(mgr ctrl.Manager) error {
 func (r *DigitalTwinReconciler) mapConfigMapToTwins(ctx context.Context, obj client.Object) []reconcile.Request {
 	cm, ok := obj.(*corev1.ConfigMap)
 	if !ok || cm == nil {
+		return nil
+	}
+	// Ignore self-published output ConfigMaps to avoid reconcile storms.
+	if cm.Labels["twinops.io/output"] == "true" {
 		return nil
 	}
 	var list twinopsv1alpha1.DigitalTwinList

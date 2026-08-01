@@ -72,6 +72,17 @@ spec:
                   type: string
                 outputDir:
                   type: string
+                outputPublish:
+                  type: object
+                  description: Publish composed artifacts to a durable cluster reference
+                  properties:
+                    enabled:
+                      type: boolean
+                      default: true
+                    mode:
+                      type: string
+                      enum: [configmap]
+                      default: configmap
                 intervalSeconds:
                   type: integer
                   format: int64
@@ -103,13 +114,36 @@ spec:
                   type: string
                 artifactDigest:
                   type: string
-                  description: sha256 digest of materialized artifact inputs
+                  description: sha256 digest of materialized artifact inputs (alias of inputDigest)
+                inputDigest:
+                  type: string
+                  description: sha256 of materialized artifact inputs
                 workspacePath:
                   type: string
                   description: Materialized input workspace path
+                output:
+                  type: object
+                  description: Durable published composition reference
+                  properties:
+                    digest:
+                      type: string
+                    uri:
+                      type: string
+                      description: e.g. configmap://namespace/name
+                    revision:
+                      type: integer
+                      format: int64
+                    stageKey:
+                      type: string
+                    publishedAt:
+                      type: string
+                      format: date-time
                 message:
                   type: string
                 observedGeneration:
+                  type: integer
+                  format: int64
+                lastComposeGeneration:
                   type: integer
                   format: int64
                 drift:
