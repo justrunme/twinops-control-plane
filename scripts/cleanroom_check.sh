@@ -24,8 +24,8 @@ echo "    cli=${CLI_VER} package=${PY_VER} pyproject=${PYPROJECT_VER}"
 echo "    helm.appVersion=${HELM_APP} operator.appVersion=${OPERATOR_APP}"
 
 for v in "${CLI_VER}" "${PY_VER}" "${PYPROJECT_VER}" "${HELM_APP}" "${OPERATOR_APP}"; do
-  if [[ "${v}" != "1.1.0" ]]; then
-    echo "error: expected version 1.1.0, got ${v}" >&2
+  if [[ "${v}" != "1.2.0" ]]; then
+    echo "error: expected version 1.2.0, got ${v}" >&2
     exit 1
   fi
 done

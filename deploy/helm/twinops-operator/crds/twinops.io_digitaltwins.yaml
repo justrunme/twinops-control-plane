@@ -50,9 +50,19 @@ spec:
             spec:
               type: object
               properties:
+                artifactSource:
+                  type: object
+                  description: Immutable twin inputs (ConfigMap or HTTP bundle); preferred over hostPath
+                  properties:
+                    configMapName:
+                      type: string
+                      description: ConfigMap with twin.yaml (+ optional desired.yaml, telemetry.json)
+                    url:
+                      type: string
+                      description: HTTP(S) URL to .tar.gz / .zip bundle or twin.yaml
                 manifestPath:
                   type: string
-                  description: Filesystem path to twin.yaml
+                  description: Legacy filesystem path to twin.yaml (hostPath demos)
                 desiredPath:
                   type: string
                 observedPath:
@@ -88,6 +98,12 @@ spec:
                   type: string
                 stagePath:
                   type: string
+                artifactDigest:
+                  type: string
+                  description: sha256 digest of materialized artifact inputs
+                workspacePath:
+                  type: string
+                  description: Materialized input workspace path
                 message:
                   type: string
                 observedGeneration:

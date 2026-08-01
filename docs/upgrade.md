@@ -25,15 +25,23 @@
 - Default install without streaming extras still uses **lab-echo** (no break for CI)
 - See [gpu-streaming.md](gpu-streaming.md)
 
+## 1.1.x → 1.2.0
+
+- **Breaking for Helm live**: Deployment `args` must be `serve ...` only (image ENTRYPOINT is `twinopsctl`)
+- Prefer `spec.artifactSource` over hostPath `manifestPath` for DigitalTwin CRs
+- Operator chart default `examples.enabled=false`; image tag **1.2.0**
+- CI includes Helm/container deploy smoke and optional pxr validation
+- See [release-1.2.md](release-1.2.md)
+
 ## Recommended upgrade path
 
 ```bash
 git fetch --tags
-git checkout v1.1.0
+git checkout v1.2.0
 make install
 make verify-all          # local; heavy — use before cutting releases
 # or lighter:
-make test && make e2e-demo && make streaming-sidecar-smoke
+make test && make e2e-demo && make streaming-sidecar-smoke && make deploy-smoke
 ```
 
 If you keep a persistent DB across upgrades:

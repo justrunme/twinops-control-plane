@@ -31,7 +31,7 @@ OpenUSD is the composition substrate because layers, references, payloads, and v
 ### Positive
 
 - Familiar DevOps workflows apply to industrial 3D systems.
-- ~70% of the stack is GPU-free and CI-friendly.
+- Core stack (compiler, drift, operator, GitOps) is GPU-free and CI-friendly.
 - Keeps the control plane portable and reviewable without a GPU runtime.
 
 ### Negative / trade-offs

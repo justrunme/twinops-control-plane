@@ -1,15 +1,17 @@
-"""WebRTC media path — real PeerConnection when aiortc is installed."""
+"""WebRTC media path — aiortc PeerConnection with software or NVENC bridge."""
 
 from __future__ import annotations
 
 import asyncio
 import fractions
 import logging
+from pathlib import Path
 from typing import Any
 
 from twinops.streaming_sidecar.encoder import EncoderCapability, aiortc_available
 from twinops.streaming_sidecar.frames import FrameSource
 from twinops.streaming_sidecar.input_bridge import KitInputBridge
+from twinops.streaming_sidecar.nvenc_bridge import NVENCBridge
 from twinops.streaming_sidecar.stats import StreamStats
 
 logger = logging.getLogger(__name__)
@@ -22,6 +24,7 @@ def lab_echo_answer(offer: dict[str, Any], *, capability: EncoderCapability) -> 
         "labEcho": True,
         "provider": "twinops-kit-sidecar",
         "encoder": capability.backend,
+        "encoderInUse": "none",
         "mediaPath": "lab-echo",
         "note": (
             "Lab-echo SDP — browser keeps local MediaStream. "
@@ -40,13 +43,21 @@ class WebRTCMediaSession:
         capability: EncoderCapability,
         input_bridge: KitInputBridge,
         stats: StreamStats,
+        kit_frame_dir: str | Path | None = None,
+        gpu_index: int = 0,
     ) -> None:
         self.frame_source = frame_source
         self.capability = capability
         self.input_bridge = input_bridge
         self.stats = stats
+        self.kit_frame_dir = Path(kit_frame_dir) if kit_frame_dir else None
+        self.gpu_index = gpu_index
         self._pc: Any | None = None
+        self._player: Any | None = None
+        self._nvenc: NVENCBridge | None = None
         self._loop: asyncio.AbstractEventLoop | None = None
+        self.encoder_in_use: str = "none"
+        self.media_path: str = "idle"
 
     @property
     def active(self) -> bool:
@@ -55,12 +66,60 @@ class WebRTCMediaSession:
     async def answer_offer(self, offer: dict[str, Any]) -> dict[str, Any]:
         if not aiortc_available() or self.capability.backend == "mock":
             answer = lab_echo_answer(offer, capability=self.capability)
+            self.encoder_in_use = "none"
+            self.media_path = "lab-echo"
             self.stats.mark_media_ready()
             return answer
-        return await self._answer_with_aiortc(offer)
+        if self.capability.backend == "nvenc" and self.capability.nvenc:
+            try:
+                return await self._answer_with_nvenc(offer)
+            except Exception as exc:  # noqa: BLE001 - fall back to software track
+                logger.warning("NVENC bridge failed, falling back to software: %s", exc)
+        return await self._answer_with_software(offer)
 
-    async def _answer_with_aiortc(self, offer: dict[str, Any]) -> dict[str, Any]:
-        from aiortc import RTCPeerConnection, RTCSessionDescription
+    async def _answer_with_nvenc(self, offer: dict[str, Any]) -> dict[str, Any]:
+        from aiortc import RTCPeerConnection
+        from aiortc.contrib.media import MediaPlayer
+
+        await self.close()
+        frame_dir = self.kit_frame_dir
+        if frame_dir is None and getattr(self.frame_source, "directory", None):
+            frame_dir = Path(self.frame_source.directory)  # type: ignore[attr-defined]
+        bridge = NVENCBridge(frame_dir=frame_dir, gpu_index=self.gpu_index)
+        url = await asyncio.to_thread(bridge.start)
+        self._nvenc = bridge
+        player = MediaPlayer(url, format="mpegts")
+        self._player = player
+        if player.video is None:
+            bridge.stop()
+            self._nvenc = None
+            raise RuntimeError("MediaPlayer produced no video track from NVENC MPEG-TS")
+
+        pc = RTCPeerConnection()
+        self._pc = pc
+        self._loop = asyncio.get_running_loop()
+        pc.addTrack(player.video)
+        self._wire_input_and_state(pc)
+        answer = await self._complete_sdp(pc, offer)
+        self.encoder_in_use = "h264_nvenc"
+        self.media_path = "webrtc-nvenc"
+        self.stats.mark_media_ready()
+        return {
+            **answer,
+            "labEcho": False,
+            "provider": "twinops-kit-sidecar",
+            "encoder": self.capability.backend,
+            "encoderInUse": "h264_nvenc",
+            "mediaPath": "webrtc-nvenc",
+            "nvenc": bridge.status(),
+            "note": (
+                "Real WebRTC video via host ffmpeg h264_nvenc → MPEG-TS → aiortc. "
+                "Send mouse/keyboard JSON on datachannel 'twinops-input'."
+            ),
+        }
+
+    async def _answer_with_software(self, offer: dict[str, Any]) -> dict[str, Any]:
+        from aiortc import RTCPeerConnection
         from aiortc.mediastreams import VideoStreamTrack
 
         await self.close()
@@ -69,7 +128,6 @@ class WebRTCMediaSession:
         self._loop = asyncio.get_running_loop()
         source = self.frame_source
         stats = self.stats
-        bridge = self.input_bridge
 
         class TwinOpsVideoTrack(VideoStreamTrack):
             kind = "video"
@@ -91,6 +149,27 @@ class WebRTCMediaSession:
                 return frame
 
         pc.addTrack(TwinOpsVideoTrack())
+        self._wire_input_and_state(pc)
+        answer = await self._complete_sdp(pc, offer)
+        self.encoder_in_use = "software"
+        self.media_path = "webrtc-software"
+        self.stats.mark_media_ready()
+        return {
+            **answer,
+            "labEcho": False,
+            "provider": "twinops-kit-sidecar",
+            "encoder": self.capability.backend,
+            "encoderInUse": "software",
+            "mediaPath": "webrtc-software",
+            "note": (
+                "Real WebRTC video track (software encode via aiortc). "
+                "NVENC path activates when ffmpeg h264_nvenc + nvidia-smi are present."
+            ),
+        }
+
+    def _wire_input_and_state(self, pc: Any) -> None:
+        bridge = self.input_bridge
+        stats = self.stats
 
         @pc.on("datachannel")
         def on_datachannel(channel: Any) -> None:
@@ -111,6 +190,9 @@ class WebRTCMediaSession:
             if state in {"failed", "closed", "disconnected"}:
                 stats.record_disconnect()
 
+    async def _complete_sdp(self, pc: Any, offer: dict[str, Any]) -> dict[str, Any]:
+        from aiortc import RTCSessionDescription
+
         remote = RTCSessionDescription(
             sdp=str(offer.get("sdp") or ""),
             type=str(offer.get("type") or "offer"),
@@ -118,29 +200,35 @@ class WebRTCMediaSession:
         await pc.setRemoteDescription(remote)
         answer = await pc.createAnswer()
         await pc.setLocalDescription(answer)
-        stats.mark_media_ready()
         assert pc.localDescription is not None
         return {
             "type": pc.localDescription.type,
             "sdp": pc.localDescription.sdp,
-            "labEcho": False,
-            "provider": "twinops-kit-sidecar",
-            "encoder": self.capability.backend,
-            "mediaPath": "webrtc-track",
-            "note": (
-                f"Real WebRTC video track from sidecar ({self.capability.backend}). "
-                "Send mouse/keyboard JSON on a datachannel named 'twinops-input'."
-            ),
         }
 
     async def close(self) -> None:
         pc = self._pc
+        player = self._player
+        nvenc = self._nvenc
         self._pc = None
+        self._player = None
+        self._nvenc = None
+        self.encoder_in_use = "none"
+        self.media_path = "idle"
         if pc is not None:
             try:
                 await pc.close()
             except Exception:  # noqa: BLE001
                 logger.debug("peer close failed", exc_info=True)
+        if player is not None:
+            for track in (getattr(player, "audio", None), getattr(player, "video", None)):
+                if track is not None:
+                    try:
+                        track.stop()
+                    except Exception:  # noqa: BLE001
+                        pass
+        if nvenc is not None:
+            await asyncio.to_thread(nvenc.stop)
 
 
 def _frame_from_tick(

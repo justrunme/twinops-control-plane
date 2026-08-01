@@ -9,8 +9,57 @@ func (in *DigitalTwin) DeepCopyInto(out *DigitalTwin) {
 	*out = *in
 	out.TypeMeta = in.TypeMeta
 	in.ObjectMeta.DeepCopyInto(&out.ObjectMeta)
-	out.Spec = in.Spec
+	in.Spec.DeepCopyInto(&out.Spec)
 	in.Status.DeepCopyInto(&out.Status)
+}
+
+func (in *DigitalTwinSpec) DeepCopyInto(out *DigitalTwinSpec) {
+	*out = *in
+	if in.ArtifactSource != nil {
+		in, out := &in.ArtifactSource, &out.ArtifactSource
+		*out = new(ArtifactSource)
+		**out = **in
+	}
+	if in.LiveAPITokenSecretRef != nil {
+		in, out := &in.LiveAPITokenSecretRef, &out.LiveAPITokenSecretRef
+		*out = new(SecretKeyRef)
+		**out = **in
+	}
+}
+
+func (in *DigitalTwinSpec) DeepCopy() *DigitalTwinSpec {
+	if in == nil {
+		return nil
+	}
+	out := new(DigitalTwinSpec)
+	in.DeepCopyInto(out)
+	return out
+}
+
+func (in *ArtifactSource) DeepCopyInto(out *ArtifactSource) {
+	*out = *in
+}
+
+func (in *ArtifactSource) DeepCopy() *ArtifactSource {
+	if in == nil {
+		return nil
+	}
+	out := new(ArtifactSource)
+	in.DeepCopyInto(out)
+	return out
+}
+
+func (in *SecretKeyRef) DeepCopyInto(out *SecretKeyRef) {
+	*out = *in
+}
+
+func (in *SecretKeyRef) DeepCopy() *SecretKeyRef {
+	if in == nil {
+		return nil
+	}
+	out := new(SecretKeyRef)
+	in.DeepCopyInto(out)
+	return out
 }
 
 func (in *DigitalTwin) DeepCopy() *DigitalTwin {

@@ -22,13 +22,12 @@ services:
     ports:
       - "8080:8080"
     environment:
-      # Entry point args appended via command override.
       TWINOPS_MQTT_HOST: mosquitto
       # Optional: TWINOPS_API_TOKEN: demo-token
       # Optional: TWINOPS_MQTT_STRICT_SCHEMA: "1"
+    # Image ENTRYPOINT is twinopsctl — override CMD only (do not repeat twinopsctl).
     command:
       [
-        "twinopsctl",
         "serve",
         "--host",
         "0.0.0.0",
@@ -36,6 +35,10 @@ services:
         "8080",
         "--web-dist",
         "web/dist",
+        "--work-dir",
+        "/tmp/twinops/live",
+        "--example",
+        "examples/assembly-line",
         "--mqtt-host",
         "mosquitto",
         "--mqtt-port",

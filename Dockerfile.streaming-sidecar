@@ -1,15 +1,18 @@
-FROM python:3.12-slim
+FROM python:3.12-slim-bookworm
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates ffmpeg \
+  && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
-COPY pyproject.toml README.md ./
+COPY pyproject.toml README.md LICENSE ./
 COPY python ./python
-RUN pip install --no-cache-dir -e ".[live]"
+RUN pip install --no-cache-dir ".[live,streaming]"
 
 ENV TWINOPS_SIDECAR_HOST=0.0.0.0
 ENV TWINOPS_SIDECAR_PORT=8091
 ENV TWINOPS_SIDECAR_FRAME_SOURCE=mock
-ENV TWINOPS_SIDECAR_ENCODER=mock
-# For real WebRTC media on a GPU host: pip install '.[live,streaming]' and set ENCODER=auto
+ENV TWINOPS_SIDECAR_ENCODER=auto
 
 EXPOSE 8091
-CMD ["python", "-m", "twinops.streaming_sidecar", "--host", "0.0.0.0", "--port", "8091"]
+USER 65532:65532
+ENTRYPOINT ["python", "-m", "twinops.streaming_sidecar"]
+CMD ["--host", "0.0.0.0", "--port", "8091"]

@@ -31,6 +31,8 @@ jobs:
             file: Dockerfile.live
           - name: twinops-operator
             file: Dockerfile.operator
+          - name: twinops-streaming-sidecar
+            file: Dockerfile.streaming-sidecar
     steps:
       - name: Checkout
         uses: actions/checkout@v7

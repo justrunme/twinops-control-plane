@@ -1,35 +1,25 @@
 # twinops (umbrella)
 
-Minimal umbrella chart that composes:
+Umbrella chart that composes:
 
-| Subchart / stub | Purpose |
+| Component | Purpose |
 | --- | --- |
 | `twinops-operator` | DigitalTwin controller |
-| `live` values stub | Documents intended live API Deployment (compose remains primary for demos) |
+| `live` Deployment | Optional TwinOps live API + web UI (`Dockerfile.live`) |
+
+Image ENTRYPOINT is `twinopsctl`; Deployment `args` start with `serve` only.
 
 ## Install (operator only)
 
 ```bash
-make helm-deps          # refreshes charts/ from Chart.lock (gitignored packages)
-make helm-template      # optional render smoke (live stub + demo token)
+make helm-deps
+make helm-template
 helm upgrade --install twinops deploy/helm/twinops \
   --namespace twinops-system \
   --create-namespace
 ```
 
-## Enable sample twin + live probe
-
-```bash
-helm upgrade --install twinops deploy/helm/twinops \
-  --namespace twinops-system --create-namespace \
-  --set twinops-operator.sampleTwin.enabled=true \
-  --set twinops-operator.sampleTwin.liveAPIURL=http://twinops-live.twinops-system.svc:8080
-```
-
-## Optional live Deployment
-
-`live.apiToken` is stored in a Kubernetes Secret (`twinops-live-api`) and mounted
-as `TWINOPS_API_TOKEN` (not passed as a container arg).
+## Live API + operator
 
 ```bash
 helm upgrade --install twinops deploy/helm/twinops \
@@ -38,4 +28,21 @@ helm upgrade --install twinops deploy/helm/twinops \
   --set live.apiToken=demo-token
 ```
 
-Demo default remains `make docker-live-up` when you do not want a cluster-side live API.
+`live.apiToken` is stored in Secret `twinops-live-api` as `TWINOPS_API_TOKEN`.
+
+## Sample twin via ConfigMap artifact
+
+```bash
+kubectl -n twinops-system create configmap assembly-line-inputs \
+  --from-file=twin.yaml=examples/assembly-line/twin.yaml \
+  --from-file=desired.yaml=examples/assembly-line/desired.yaml \
+  --from-file=telemetry.json=examples/assembly-line/telemetry.json
+
+helm upgrade --install twinops deploy/helm/twinops \
+  --namespace twinops-system --create-namespace \
+  --set twinops-operator.sampleTwin.enabled=true \
+  --set twinops-operator.sampleTwin.artifactSource.configMapName=assembly-line-inputs \
+  --set twinops-operator.sampleTwin.liveAPIURL=http://twinops-live.twinops-system.svc:8080
+```
+
+Deploy smoke (CI): `make deploy-smoke`.

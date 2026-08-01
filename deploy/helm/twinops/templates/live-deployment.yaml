@@ -6,8 +6,9 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app.kubernetes.io/name: twinops-live
+    app.kubernetes.io/component: live-api
 spec:
-  replicas: 1
+  replicas: {{ .Values.live.replicas | default 1 }}
   selector:
     matchLabels:
       app.kubernetes.io/name: twinops-live
@@ -15,17 +16,22 @@ spec:
     metadata:
       labels:
         app.kubernetes.io/name: twinops-live
+        app.kubernetes.io/component: live-api
       annotations:
         prometheus.io/scrape: "true"
         prometheus.io/port: "{{ .Values.live.service.port }}"
         prometheus.io/path: "/metrics"
     spec:
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: twinops-live
           image: "{{ .Values.live.image.repository }}:{{ .Values.live.image.tag }}"
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: {{ .Values.live.image.pullPolicy | default "IfNotPresent" }}
+          # Dockerfile ENTRYPOINT is twinopsctl; args replace CMD only.
           args:
-            - twinopsctl
             - serve
             - --host
             - 0.0.0.0
@@ -33,9 +39,22 @@ spec:
             - "{{ .Values.live.service.port }}"
             - --web-dist
             - web/dist
+            - --work-dir
+            - {{ .Values.live.workDir | default "/tmp/twinops/live" | quote }}
+            {{- if .Values.live.example }}
+            - --example
+            - {{ .Values.live.example | quote }}
+            {{- end }}
             {{- if .Values.live.mqtt.host }}
             - --mqtt-host
             - {{ .Values.live.mqtt.host | quote }}
+            {{- end }}
+            {{- if .Values.live.streamingSidecarUrl }}
+            - --streaming-sidecar
+            - {{ .Values.live.streamingSidecarUrl | quote }}
+            {{- end }}
+            {{- if .Values.live.webrtc }}
+            - --webrtc
             {{- end }}
           env:
             {{- if .Values.live.mqtt.strictSchema }}
@@ -52,6 +71,11 @@ spec:
           ports:
             - name: http
               containerPort: {{ .Values.live.service.port }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+            readOnlyRootFilesystem: false
           readinessProbe:
             httpGet:
               path: /api/ready
@@ -64,6 +88,8 @@ spec:
               port: http
             initialDelaySeconds: 10
             periodSeconds: 10
+          resources:
+            {{- toYaml .Values.live.resources | nindent 12 }}
 ---
 apiVersion: v1
 kind: Service

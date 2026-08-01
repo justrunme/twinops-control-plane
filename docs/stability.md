@@ -29,7 +29,7 @@ Additive, backward-compatible extensions are allowed without a major bump.
 
 ## Explicitly not frozen
 
-- Streaming sidecar WebRTC answer format (lab-echo until NVENC lands)
+- Streaming sidecar WebRTC answer format (`lab-echo` / `webrtc-software` / `webrtc-nvenc`)
 - Mock / synthetic frame payloads
 - Web UI layout and CSS
 - Makefile helper targets (except documented entrypoints)
