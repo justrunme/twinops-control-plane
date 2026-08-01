@@ -1,13 +1,23 @@
-# On-demand / release-only — avoids burning Actions minutes on every PR.
+# On-demand / release — supply-chain gate (not every PR minute-burn).
 name: Security
 
 on:
   workflow_dispatch:
   release:
     types: [published]
+  push:
+    branches: [main]
+    paths:
+      - "go.mod"
+      - "go.sum"
+      - "pyproject.toml"
+      - "web/package-lock.json"
+      - "Dockerfile.*"
+      - ".github/workflows/security.yml"
+      - "scripts/security_scan.sh"
 
 jobs:
-  pip-audit:
+  python:
     name: pip-audit
     runs-on: ubuntu-latest
     steps:
@@ -21,3 +31,67 @@ jobs:
           python -m pip install -e ".[dev]" pip-audit
       - name: Audit
         run: python -m pip_audit
+
+  go:
+    name: govulncheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version: "1.26.x"
+      - name: Install govulncheck
+        run: go install golang.org/x/vuln/cmd/govulncheck@latest
+      - name: Scan
+        run: govulncheck ./...
+
+  npm:
+    name: npm audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - name: Audit
+        working-directory: web
+        run: npm ci && npm audit --audit-level=high
+
+  images:
+    name: Trivy + SBOM
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Build operator image
+        run: docker build -f Dockerfile.operator -t twinops-operator:secscan .
+      - name: Build live image
+        run: docker build -f Dockerfile.live -t twinops-live:secscan .
+      - name: Trivy operator
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: twinops-operator:secscan
+          format: table
+          exit-code: "1"
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+      - name: Trivy live
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: twinops-live:secscan
+          format: table
+          exit-code: "1"
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+      - name: Syft SBOM (operator)
+        uses: anchore/sbom-action@v0
+        with:
+          image: twinops-operator:secscan
+          format: spdx-json
+          output-file: twinops-operator.spdx.json
+      - name: Upload SBOM
+        uses: actions/upload-artifact@v7
+        with:
+          name: twinops-sbom
+          path: "*.spdx.json"

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Local / on-demand dependency security scan.
-# CI: .github/workflows/security.yml (workflow_dispatch + release only).
+# Local supply-chain smoke: pip-audit + govulncheck + optional npm audit.
+# Full Trivy/Syft runs in .github/workflows/security.yml.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -12,12 +12,23 @@ if [[ ! -x "${PYTHON}" ]]; then
 fi
 
 if ! "${PYTHON}" -m pip_audit -h >/dev/null 2>&1; then
-  echo "==> Installing pip-audit (dev tool)"
+  echo "==> Installing pip-audit"
   "${PYTHON}" -m pip install -q pip-audit
 fi
 
 echo "==> pip-audit"
 "${PYTHON}" -m pip_audit
+
+echo "==> govulncheck"
+if ! command -v govulncheck >/dev/null 2>&1; then
+  go install golang.org/x/vuln/cmd/govulncheck@latest
+fi
+govulncheck ./...
+
+if [[ -f web/package-lock.json ]] && command -v npm >/dev/null 2>&1; then
+  echo "==> npm audit (web)"
+  (cd web && npm audit --audit-level=high || true)
+fi
 
 echo "==> ruff"
 if [[ -x "${ROOT}/.venv/bin/ruff" ]]; then
