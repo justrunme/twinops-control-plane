@@ -54,6 +54,26 @@ Disable with `spec.outputPublish.enabled: false`. Manager flags:
 
 Metrics: `twinops_reconcile_total`, `twinops_compose_duration_seconds`, `twinops_drift_findings`.
 
+## RBAC modes
+
+```yaml
+# values.yaml
+rbac:
+  mode: cluster          # default ClusterRole
+  # mode: namespaced
+  # watchNamespaces: [factory-a, factory-b]  # empty → chart namespace only
+```
+
+Namespaced mode installs Role/RoleBinding per watched namespace and passes
+`--watch-namespaces=...` so the manager cache is limited.
+
+## In-cluster proof
+
+```bash
+# kind + docker build + helm install + restart recovery
+bash scripts/operator_incluster_e2e.sh
+```
+
 ## Fastest path: local cluster demo
 
 Requires Docker + kubectl, plus **k3d** (preferred) or **kind**.

@@ -117,9 +117,9 @@ artifact size/DNS fail-closed. See [release-1.2.1.md](release-1.2.1.md).
 - [x] Persistent output artifact URI + digest (ConfigMap publish; OCI later) — ADR-0021
 - [x] Reconcile timeout / concurrency / build idempotency
 - [x] Operator metrics + Kubernetes Events
-- [ ] In-cluster Helm operator E2E + restart recovery
-- [ ] Namespace-scoped RBAC mode
-- [ ] Supply-chain scans (govulncheck, pip-audit, Trivy, SBOM)
+- [x] In-cluster Helm operator E2E + restart recovery
+- [x] Namespace-scoped RBAC mode
+- [x] Supply-chain scans (govulncheck, pip-audit, Trivy, SBOM)
 
 ## Architecture decisions
 

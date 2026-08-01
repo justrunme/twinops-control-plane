@@ -54,6 +54,7 @@ help:
 	@echo "  make deploy-smoke    - helm render + release container health"
 	@echo "  make usd-validate    - optional pxr OpenUSD stage validation"
 	@echo "  make operator-artifact-e2e - kind ConfigMap artifact reconcile E2E"
+	@echo "  make operator-incluster-e2e - kind load + helm install operator E2E"
 	@echo "  make streaming-nvenc-smoke - NVENC ingest-bridge smoke (skips if no GPU)"
 	@echo "  make serve           - live MQTT-style simulator + drift API"
 	@echo "  make live-tls-certs  - generate lab HTTPS/mTLS certs for serve"
@@ -281,6 +282,9 @@ usd-validate:
 
 operator-artifact-e2e:
 	bash scripts/operator_artifact_e2e.sh
+
+operator-incluster-e2e:
+	bash scripts/operator_incluster_e2e.sh
 
 streaming-nvenc-smoke:
 	bash scripts/streaming_nvenc_smoke.sh
