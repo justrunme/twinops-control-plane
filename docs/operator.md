@@ -30,6 +30,30 @@ Do **not** use `/var/lib/twinops` unless you also mount a PVC there.
 On CR delete the finalizer removes the workspace directory (and best-effort
 `{name}-output` ConfigMap if present).
 
+## Durable output (v1.3)
+
+After compose, the operator publishes top-level stage files to ConfigMap
+`{digitaltwin}-output` and sets:
+
+```yaml
+status:
+  inputDigest: sha256:...
+  output:
+    uri: configmap://twinops-system/assembly-line-a-output
+    digest: sha256:...
+    revision: 1
+    stageKey: root.usda
+```
+
+Disable with `spec.outputPublish.enabled: false`. Manager flags:
+
+```text
+--build-timeout=120s
+--max-concurrent-reconciles=2
+```
+
+Metrics: `twinops_reconcile_total`, `twinops_compose_duration_seconds`, `twinops_drift_findings`.
+
 ## Fastest path: local cluster demo
 
 Requires Docker + kubectl, plus **k3d** (preferred) or **kind**.

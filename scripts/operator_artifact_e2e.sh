@@ -185,4 +185,11 @@ if [[ -f "${WORKSPACE}/desired.yaml" ]]; then
   exit 1
 fi
 
-echo "operator-artifact-e2e OK (phase=${PHASE}, digests changed, stale file gone)"
+OUT_URI="$(kubectl -n "$NAMESPACE" get digitaltwin assembly-line-a -o jsonpath='{.status.output.uri}')"
+OUT_DIGEST="$(kubectl -n "$NAMESPACE" get digitaltwin assembly-line-a -o jsonpath='{.status.output.digest}')"
+test -n "${OUT_URI}"
+test -n "${OUT_DIGEST}"
+echo "    output.uri=${OUT_URI}"
+echo "    output.digest=${OUT_DIGEST}"
+kubectl -n "$NAMESPACE" get configmap assembly-line-a-output -o jsonpath='{.metadata.annotations.twinops\.io/output-digest}' | grep -q .
+echo "operator-artifact-e2e OK (phase=${PHASE}, digests changed, stale file gone, output published)"
