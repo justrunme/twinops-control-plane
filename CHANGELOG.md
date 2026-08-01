@@ -4,8 +4,7 @@ All notable TwinOps changes are listed here. Dates are UTC.
 
 ## Unreleased
 
-- Security workflow: pin `aquasecurity/trivy-action@v0.33.1` (invalid `0.28.0` tag)
-- Bump `golang.org/x/net` → v0.55.0, `golang.org/x/text` → v0.39.0 (govulncheck GO-2026-*)
+- Security workflow: govulncheck clean (`x/net` v0.55, `x/text` v0.39); Trivy via `docker run aquasec/trivy` (action install was flaky)
 
 ## 1.3.0 — 2026-08-01
 
