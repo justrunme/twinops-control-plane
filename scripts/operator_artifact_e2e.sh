@@ -62,12 +62,23 @@ echo "==> Apply CRD + namespace"
 kubectl apply -f deploy/helm/twinops-operator/crds/twinops.io_digitaltwins.yaml
 kubectl apply -f config/samples/namespace.yaml
 
-echo "==> Create ConfigMap artifact"
+echo "==> Create ConfigMap artifact (self-contained bundle)"
+BUNDLE="${ROOT}/usd/generated/operator-artifact-e2e-bundle"
+rm -rf "${BUNDLE}"
+mkdir -p "${BUNDLE}"
+# baseStage must live next to twin.yaml inside the materialized workspace.
+sed 's|baseStage: assets/root.usda|baseStage: root.usda|' \
+  "${ROOT}/examples/assembly-line/twin.yaml" >"${BUNDLE}/twin.yaml"
+cp "${ROOT}/examples/assembly-line/assets/root.usda" "${BUNDLE}/root.usda"
+cp "${ROOT}/examples/assembly-line/desired.yaml" "${BUNDLE}/desired.yaml"
+cp "${ROOT}/examples/assembly-line/telemetry.json" "${BUNDLE}/telemetry.json"
+
 kubectl -n "$NAMESPACE" delete configmap "$CM_NAME" --ignore-not-found
 kubectl -n "$NAMESPACE" create configmap "$CM_NAME" \
-  --from-file=twin.yaml="${ROOT}/examples/assembly-line/twin.yaml" \
-  --from-file=desired.yaml="${ROOT}/examples/assembly-line/desired.yaml" \
-  --from-file=telemetry.json="${ROOT}/examples/assembly-line/telemetry.json"
+  --from-file=twin.yaml="${BUNDLE}/twin.yaml" \
+  --from-file=root.usda="${BUNDLE}/root.usda" \
+  --from-file=desired.yaml="${BUNDLE}/desired.yaml" \
+  --from-file=telemetry.json="${BUNDLE}/telemetry.json"
 
 cat <<EOF | kubectl apply -f -
 apiVersion: twinops.io/v1alpha1
@@ -134,8 +145,9 @@ echo "    stage=${STAGE}"
 
 echo "==> Update ConfigMap (remove desired.yaml to prove atomic replace)"
 kubectl -n "$NAMESPACE" create configmap "$CM_NAME" \
-  --from-file=twin.yaml="${ROOT}/examples/assembly-line/twin.yaml" \
-  --from-file=telemetry.json="${ROOT}/examples/assembly-line/telemetry.json" \
+  --from-file=twin.yaml="${BUNDLE}/twin.yaml" \
+  --from-file=root.usda="${BUNDLE}/root.usda" \
+  --from-file=telemetry.json="${BUNDLE}/telemetry.json" \
   --dry-run=client -o yaml | kubectl apply -f -
 
 echo -n "==> Wait digest change "
