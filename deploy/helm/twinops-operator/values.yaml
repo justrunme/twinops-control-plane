@@ -1,8 +1,14 @@
 namespace: twinops-system
 
+# RBAC scope: cluster (default) or namespaced (+ watchNamespaces).
+rbac:
+  mode: cluster
+  # When mode=namespaced and empty, only the chart namespace is watched.
+  watchNamespaces: []
+
 image:
   repository: ghcr.io/justrunme/twinops-operator
-  tag: "1.2.0"
+  tag: "1.2.1"
   pullPolicy: IfNotPresent
 
 replicaCount: 1

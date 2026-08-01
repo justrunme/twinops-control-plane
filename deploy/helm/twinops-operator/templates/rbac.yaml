@@ -4,6 +4,8 @@ metadata:
   name: twinops-controller-manager
   namespace: {{ .Values.namespace }}
 ---
+{{- $mode := .Values.rbac.mode | default "cluster" -}}
+{{- if eq $mode "cluster" }}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
@@ -26,7 +28,6 @@ rules:
     verbs: ["get", "list", "watch"]
   - apiGroups: [""]
     resources: ["configmaps"]
-    # create/update/delete: published twin output ConfigMaps + finalizer cleanup
     verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
@@ -41,3 +42,75 @@ subjects:
   - kind: ServiceAccount
     name: twinops-controller-manager
     namespace: {{ .Values.namespace }}
+{{- else if eq $mode "namespaced" }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: twinops-manager-leader-election
+  namespace: {{ .Values.namespace }}
+rules:
+  - apiGroups: ["coordination.k8s.io"]
+    resources: ["leases"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: [""]
+    resources: ["events"]
+    verbs: ["create", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: twinops-manager-leader-election
+  namespace: {{ .Values.namespace }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: twinops-manager-leader-election
+subjects:
+  - kind: ServiceAccount
+    name: twinops-controller-manager
+    namespace: {{ .Values.namespace }}
+{{- $watch := .Values.rbac.watchNamespaces | default (list) }}
+{{- if eq (len $watch) 0 }}
+{{- $watch = list .Values.namespace }}
+{{- end }}
+{{- range $ns := $watch }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: twinops-manager-role
+  namespace: {{ $ns }}
+rules:
+  - apiGroups: ["twinops.io"]
+    resources: ["digitaltwins"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: ["twinops.io"]
+    resources: ["digitaltwins/status", "digitaltwins/finalizers"]
+    verbs: ["get", "update", "patch"]
+  - apiGroups: [""]
+    resources: ["events"]
+    verbs: ["create", "patch"]
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: twinops-manager-rolebinding
+  namespace: {{ $ns }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: twinops-manager-role
+subjects:
+  - kind: ServiceAccount
+    name: twinops-controller-manager
+    namespace: {{ $.Values.namespace }}
+{{- end }}
+{{- else }}
+{{- fail (printf "rbac.mode must be cluster or namespaced, got %q" $mode) }}
+{{- end }}

@@ -8,6 +8,8 @@ All notable TwinOps changes are listed here. Dates are UTC.
 - `status.inputDigest` (+ keep `artifactDigest` alias); build idempotency on generation+inputDigest
 - Reconcile `--build-timeout` / `--max-concurrent-reconciles`; Prometheus metrics; K8s Events
 - Operator E2E asserts published output ConfigMap digest
+- Helm `rbac.mode=cluster|namespaced` + `--watch-namespaces`; in-cluster Helm kind E2E + Pod restart recovery
+- Supply-chain: govulncheck, npm audit, Trivy image scan, Syft SBOM (security workflow)
 
 ## 1.2.1 — 2026-08-01
 
