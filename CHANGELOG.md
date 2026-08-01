@@ -4,7 +4,14 @@ All notable TwinOps changes are listed here. Dates are UTC.
 
 ## Unreleased
 
-- Public 1.0 freeze docs: architecture one-pager, stability contracts, release brief
+## 1.1.0 — 2026-08-01
+
+- Real Kit GPU encoder path (ADR-0020): `auto|mock|software|nvenc` probe
+- Optional `twinops[streaming]` (`aiortc`/`av`) for real WebRTC video track
+- `kit-file` frame source + browser input bridge (`/input`, datachannel, JSONL mirror)
+- Stream metrics: startupTimeMs, FPS, bitrate, disconnects (status + Prometheus)
+- GPU-free lab-echo fallback remains default without streaming extras
+- Docs: `docs/gpu-streaming.md`, updated streaming sidecar guide
 
 ## 1.0.0 — 2026-07-31
 
@@ -12,7 +19,7 @@ All notable TwinOps changes are listed here. Dates are UTC.
 - SQLite `twinopsctl state backup|restore` + backup/restore docs
 - Compatibility matrix, upgrade notes (0.10 → 0.11 → 1.0)
 - On-demand security scan (`make security-scan`, release-only Actions workflow)
-- NVENC/Kit App Streaming encoder explicitly deferred
+- NVENC/Kit App Streaming encoder deferred to 1.1
 
 ## 0.11.0 — 2026-07-31
 

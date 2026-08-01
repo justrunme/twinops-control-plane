@@ -31,7 +31,7 @@ Core TwinOps
 Optional runtimes
 ├── Web UI
 ├── Omniverse Kit (session-layer highlights)
-└── WebRTC / streaming sidecar (mock frames in 1.0)
+└── WebRTC / streaming sidecar (mock / kit-file / NVENC host in 1.1)
 ```
 
 ## Three-way state
@@ -55,4 +55,5 @@ new API version.
 - [architecture.md](architecture.md) — longer overview
 - [e2e-demo.md](e2e-demo.md) — one-command operational scenario
 - [streaming-sidecar.md](streaming-sidecar.md) — optional Kit streaming path
+- [gpu-streaming.md](gpu-streaming.md) — GPU/driver compatibility for v1.1
 - [ops-checklist-1.0.md](ops-checklist-1.0.md) — 1.0 definition of done

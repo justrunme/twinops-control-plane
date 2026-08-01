@@ -21,11 +21,13 @@ building NVCF, TURN clusters, or multi-region.
    supervises `TWINOPS_KIT_COMMAND` but does not yet capture RTX/NVENC frames.
 5. TwinOps live API switches session mode to `kit-sidecar` when
    `TWINOPS_STREAMING_SIDECAR_URL` (or `--streaming-sidecar`) is set.
-6. WebRTC answers remain lab-echo until a real encoder is wired.
+6. WebRTC answers remain lab-echo until a real encoder is wired
+   (superseded for the media path by [ADR-0020](0020-kit-gpu-encoder-path.md) in v1.1;
+   lab-echo remains the GPU-free fallback).
 
 ## Consequences
 
 - Clear process boundary for Kit streaming
 - CI can validate session lifecycle without GPU
 - Honest limitations documented; no false NVCF claims
-- Path open for NVENC/App Streaming encoder in a later release
+- Path opened for NVENC/App Streaming encoder — delivered in ADR-0020 / v1.1

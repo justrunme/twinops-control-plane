@@ -19,13 +19,19 @@ from twinops.streaming_sidecar.session import StreamingSessionManager
 def create_sidecar_app(config: SidecarConfig | None = None) -> FastAPI:
     cfg = config or SidecarConfig.from_env()
     try:
-        source = select_frame_source(cfg.frame_source, kit_command=cfg.kit_command)
+        source = select_frame_source(
+            cfg.frame_source,
+            kit_command=cfg.kit_command,
+            kit_frame_dir=cfg.kit_frame_dir,
+        )
     except ValueError as exc:
         raise RuntimeError(str(exc)) from exc
     manager = StreamingSessionManager(
         frame_source=source,
         idle_timeout_seconds=cfg.idle_timeout_seconds,
         max_sessions=cfg.max_sessions,
+        encoder=cfg.encoder,
+        input_mirror=cfg.input_mirror,
     )
 
     @asynccontextmanager
@@ -40,7 +46,7 @@ def create_sidecar_app(config: SidecarConfig | None = None) -> FastAPI:
         title="TwinOps Kit Streaming Sidecar",
         version=__version__,
         description=(
-            "Single-session WebRTC control plane for Kit/mock frames. "
+            "Single-session WebRTC path for Kit/mock frames with optional NVENC host. "
             "Not a multi-tenant NVCF cluster."
         ),
         lifespan=lifespan,
@@ -62,6 +68,7 @@ def create_sidecar_app(config: SidecarConfig | None = None) -> FastAPI:
             "service": "twinops-streaming-sidecar",
             "version": __version__,
             "shuttingDown": manager.shutting_down,
+            "encoder": manager.capability.backend,
         }
 
     @app.get("/ready")
@@ -70,6 +77,7 @@ def create_sidecar_app(config: SidecarConfig | None = None) -> FastAPI:
         return {
             "status": "ready" if ok else "not_ready",
             "frameSource": manager.frame_source.name,
+            "encoder": manager.capability.to_dict(),
             "sessionActive": manager.active() is not None,
         }
 
@@ -80,9 +88,10 @@ def create_sidecar_app(config: SidecarConfig | None = None) -> FastAPI:
         payload["twinopsApi"] = cfg.twinops_api
         payload["limitations"] = [
             "Single session / single GPU / single browser client",
-            "No TURN cluster, autoscaling, or multi-region",
-            "Mock frames by default; Kit command optional supervisor only",
-            "WebRTC answer is lab-echo until NVENC/App Streaming encoder lands",
+            "No TURN cluster, autoscaling, multi-region, or NVCF",
+            "Real WebRTC media requires pip install 'twinops[streaming]'",
+            "Without aiortc the API falls back to lab-echo SDP (GPU-free demo still works)",
+            "NVENC uses host ffmpeg h264_nvenc when present; otherwise software track",
         ]
         return payload
 
@@ -115,14 +124,14 @@ def create_sidecar_app(config: SidecarConfig | None = None) -> FastAPI:
         return {"ok": True, "deleted": session_id}
 
     @app.post("/v1/sessions/{session_id}/signal")
-    def signal(session_id: str, payload: dict[str, Any]) -> dict[str, Any]:
+    async def signal(session_id: str, payload: dict[str, Any]) -> dict[str, Any]:
         action = str(payload.get("action") or "").strip().lower()
         try:
             if action == "offer":
                 offer = payload.get("sdp") or payload.get("offer")
                 if not isinstance(offer, dict):
                     raise HTTPException(status_code=400, detail="offer sdp required")
-                answer = manager.set_offer(session_id, offer)
+                answer = await manager.answer_offer(session_id, offer)
                 return {"ok": True, "sessionId": session_id, "answer": answer}
             if action == "candidate":
                 candidate = payload.get("candidate")
@@ -139,6 +148,8 @@ def create_sidecar_app(config: SidecarConfig | None = None) -> FastAPI:
                 return {"ok": True, **session.to_dict()}
         except KeyError as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
+        except RuntimeError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
         raise HTTPException(status_code=400, detail=f"unknown action: {action}")
 
     @app.post("/v1/sessions/{session_id}/frame")
@@ -148,16 +159,31 @@ def create_sidecar_app(config: SidecarConfig | None = None) -> FastAPI:
         except KeyError as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
 
+    @app.post("/v1/sessions/{session_id}/input")
+    def input_event(session_id: str, payload: dict[str, Any]) -> dict[str, Any]:
+        try:
+            return manager.push_input(session_id, payload)
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
     @app.get("/metrics")
     def metrics() -> Response:
         session = manager.active()
         frames = 0
-        if hasattr(manager.frame_source, "frames_emitted"):
+        stats = {}
+        if session is not None:
+            stats = session.stats.snapshot()
+            frames = int(stats.get("frames") or 0)
+        elif hasattr(manager.frame_source, "frames_emitted"):
             frames = int(manager.frame_source.frames_emitted)  # type: ignore[attr-defined]
         text = prometheus_text(
             gpu_metrics(gpu_index=cfg.gpu_index),
             sessions=1 if session else 0,
             frames=frames,
+            stats=stats,
+            encoder=manager.capability.backend,
         )
         return Response(content=text, media_type="text/plain; version=0.0.4")
 
