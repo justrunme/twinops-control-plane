@@ -4,7 +4,17 @@ All notable TwinOps changes are listed here. Dates are UTC.
 
 ## Unreleased
 
-- Security workflow: govulncheck clean (`x/net` v0.55, `x/text` v0.39); Trivy via `docker run aquasec/trivy` (action install was flaky)
+## 1.3.1 — 2026-08-02
+
+Pilot correctness (no new product surface beyond durable output completeness):
+
+- Deterministic `bundle.tar.gz` output with recursive `assets/` (ADR-0022); excludes volatile reports
+- Stable content digest/revision across rebuild + operator restart
+- E2E extracts bundle and runs `Usd.Stage.Open` (pxr) when available
+- Controller-owned workspace `/tmp/twinops/<ns>/<uid>` only; safe finalizer cleanup
+- Helm: `artifactRequireURLDigest`, pod/container `securityContext`, `leaderElect`
+- Events only on phase transition; condition `LastTransitionTime` only when changed
+- Security: Trivy streaming-sidecar; prior govulncheck/`x/net`+`x/text` bumps included
 
 ## 1.3.0 — 2026-08-01
 

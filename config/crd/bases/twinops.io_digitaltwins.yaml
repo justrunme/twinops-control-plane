@@ -135,6 +135,12 @@ spec:
                       format: int64
                     stageKey:
                       type: string
+                    mediaType:
+                      type: string
+                      description: application/vnd.twinops.bundle.v1+tar+gzip
+                    bundleKey:
+                      type: string
+                      description: ConfigMap binaryData key (bundle.tar.gz)
                     publishedAt:
                       type: string
                       format: date-time

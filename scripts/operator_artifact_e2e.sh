@@ -89,7 +89,6 @@ metadata:
 spec:
   artifactSource:
     configMapName: ${CM_NAME}
-  outputDir: ${ROOT}/usd/generated/operator-artifact-e2e
   intervalSeconds: 10
   twinopsctl: ${ROOT}/.venv/bin/twinopsctl
 EOF
@@ -187,9 +186,35 @@ fi
 
 OUT_URI="$(kubectl -n "$NAMESPACE" get digitaltwin assembly-line-a -o jsonpath='{.status.output.uri}')"
 OUT_DIGEST="$(kubectl -n "$NAMESPACE" get digitaltwin assembly-line-a -o jsonpath='{.status.output.digest}')"
+BUNDLE_KEY="$(kubectl -n "$NAMESPACE" get digitaltwin assembly-line-a -o jsonpath='{.status.output.bundleKey}')"
 test -n "${OUT_URI}"
 test -n "${OUT_DIGEST}"
+test "${BUNDLE_KEY}" = "bundle.tar.gz"
 echo "    output.uri=${OUT_URI}"
 echo "    output.digest=${OUT_DIGEST}"
+echo "    output.bundleKey=${BUNDLE_KEY}"
 kubectl -n "$NAMESPACE" get configmap assembly-line-a-output -o jsonpath='{.metadata.annotations.twinops\.io/output-digest}' | grep -q .
-echo "operator-artifact-e2e OK (phase=${PHASE}, digests changed, stale file gone, output published)"
+
+echo "==> Extract + validate published bundle"
+EXTRACT="$(mktemp -d)"
+kubectl -n "$NAMESPACE" get configmap assembly-line-a-output -o jsonpath='{.binaryData.bundle\.tar\.gz}' \
+  | base64 -d >"${EXTRACT}/bundle.tar.gz"
+mkdir -p "${EXTRACT}/out"
+tar -xzf "${EXTRACT}/bundle.tar.gz" -C "${EXTRACT}/out"
+test -f "${EXTRACT}/out/root.usda"
+test -f "${EXTRACT}/out/assets/root.usda"
+# Must not ship volatile report in durable content bundle
+if [[ -f "${EXTRACT}/out/reconciliation-report.json" ]]; then
+  echo "error: reconciliation-report.json must not be in content bundle" >&2
+  exit 1
+fi
+if python3 -c "import pxr" 2>/dev/null; then
+  python3 "${ROOT}/scripts/validate_usd.py" "${EXTRACT}/out/root.usda" --json
+elif [[ -x "${ROOT}/.venv/bin/python" ]] && "${ROOT}/.venv/bin/python" -c "import pxr" 2>/dev/null; then
+  "${ROOT}/.venv/bin/python" "${ROOT}/scripts/validate_usd.py" "${EXTRACT}/out/root.usda" --json
+else
+  echo "    (pxr not installed — structural bundle checks only)"
+fi
+rm -rf "${EXTRACT}"
+
+echo "operator-artifact-e2e OK (phase=${PHASE}, digests changed, bundle opens)"

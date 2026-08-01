@@ -16,12 +16,28 @@ spec:
         app.kubernetes.io/name: twinops-operator
     spec:
       serviceAccountName: twinops-controller-manager
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        fsGroup: 65532
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: manager
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            runAsUser: 65532
+            capabilities:
+              drop: ["ALL"]
+            seccompProfile:
+              type: RuntimeDefault
           args:
-            - --leader-elect=false
+            - --leader-elect={{ .Values.leaderElect | default false }}
             - --twinopsctl={{ .Values.twinopsctlPath }}
             - --build-timeout={{ .Values.buildTimeout | default "120s" }}
             - --max-concurrent-reconciles={{ .Values.maxConcurrentReconciles | default 2 }}
@@ -51,16 +67,19 @@ spec:
           env:
             - name: TWINOPS_ARTIFACT_ALLOW_PRIVATE
               value: {{ .Values.artifactAllowPrivate | default "0" | quote }}
+            - name: TWINOPS_ARTIFACT_REQUIRE_URL_DIGEST
+              value: {{ .Values.artifactRequireURLDigest | default "0" | quote }}
           volumeMounts:
-            - name: workspace
-              mountPath: /tmp/twinops
+            # Single emptyDir covers managed workspace /tmp/twinops/<ns>/<uid>.
+            - name: tmp
+              mountPath: /tmp
             {{- if .Values.examples.enabled }}
             - name: examples
               mountPath: {{ .Values.examples.mountPath }}
               readOnly: true
             {{- end }}
       volumes:
-        - name: workspace
+        - name: tmp
           emptyDir: {}
         {{- if .Values.examples.enabled }}
         - name: examples
