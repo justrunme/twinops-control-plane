@@ -2,14 +2,20 @@
 package output
 
 import (
+	"archive/tar"
+	"bytes"
+	"compress/gzip"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"slices"
 	"strings"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -19,6 +25,17 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	twinopsv1alpha1 "github.com/justrunme/twinops-control-plane/api/v1alpha1"
+)
+
+const (
+	// BundleKey is the ConfigMap binaryData key for the published tarball.
+	BundleKey = "bundle.tar.gz"
+	// MediaType identifies TwinOps v1 tar+gzip stage bundles.
+	MediaType = "application/vnd.twinops.bundle.v1+tar+gzip"
+	// StageEntry is the primary stage path inside the bundle.
+	StageEntry = "root.usda"
+	// MaxBundleBytes soft-cap for ConfigMap-hosted bundles (~900 KiB).
+	MaxBundleBytes = 900 * 1024
 )
 
 // ConfigMapName returns the default published output ConfigMap name for a twin.
@@ -33,13 +50,17 @@ func URI(namespace, name string) string {
 
 // Result of a successful publish.
 type Result struct {
-	Digest   string
-	URI      string
-	StageKey string
-	Name     string
+	Digest    string
+	URI       string
+	StageKey  string
+	Name      string
+	MediaType string
+	BundleKey string
 }
 
-// PublishDir uploads regular files from dir into a ConfigMap owned by the twin.
+// PublishDir builds a deterministic tar.gz of USD content under dir and stores
+// it as ConfigMap binaryData[bundle.tar.gz]. Volatile paths (inputs/, drift/,
+// reconciliation-report.json) are excluded so digests stay stable across rebuilds.
 func PublishDir(
 	ctx context.Context,
 	c client.Client,
@@ -47,16 +68,27 @@ func PublishDir(
 	dir string,
 	inputDigest string,
 ) (*Result, error) {
-	files, err := readDirFiles(dir)
+	files, err := collectContentFiles(dir)
 	if err != nil {
 		return nil, err
 	}
 	if len(files) == 0 {
-		return nil, fmt.Errorf("output publish: no files in %s", dir)
+		return nil, fmt.Errorf("output publish: no content files under %s", dir)
 	}
-	digest := HashFiles(files)
-	cmName := ConfigMapName(twin.Name)
+	if _, ok := files[StageEntry]; !ok {
+		return nil, fmt.Errorf("output publish: missing %s in composed stage", StageEntry)
+	}
 
+	contentDigest := HashFiles(files)
+	bundle, err := packTarGz(files)
+	if err != nil {
+		return nil, err
+	}
+	if len(bundle) > MaxBundleBytes {
+		return nil, fmt.Errorf("output bundle exceeds ConfigMap size budget (%d > %d bytes)", len(bundle), MaxBundleBytes)
+	}
+
+	cmName := ConfigMapName(twin.Name)
 	cm := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cmName,
@@ -72,9 +104,12 @@ func PublishDir(
 		if cm.Annotations == nil {
 			cm.Annotations = map[string]string{}
 		}
-		cm.Annotations["twinops.io/output-digest"] = digest
+		cm.Annotations["twinops.io/output-digest"] = contentDigest
 		cm.Annotations["twinops.io/input-digest"] = inputDigest
-		cm.BinaryData = files
+		cm.Annotations["twinops.io/media-type"] = MediaType
+		cm.Annotations["twinops.io/bundle-key"] = BundleKey
+		cm.Annotations["twinops.io/stage-path"] = StageEntry
+		cm.BinaryData = map[string][]byte{BundleKey: bundle}
 		cm.Data = nil
 		return setOwner(twin, cm)
 	})
@@ -82,29 +117,13 @@ func PublishDir(
 		return nil, fmt.Errorf("publish output configmap: %w", err)
 	}
 
-	stageKey := "root.usda"
-	if _, ok := files[stageKey]; !ok {
-		keys := make([]string, 0, len(files))
-		for k := range files {
-			keys = append(keys, k)
-		}
-		slices.Sort(keys)
-		for _, k := range keys {
-			if strings.HasSuffix(k, ".usda") || strings.HasSuffix(k, ".usd") {
-				stageKey = k
-				break
-			}
-		}
-		if _, ok := files[stageKey]; !ok && len(keys) > 0 {
-			stageKey = keys[0]
-		}
-	}
-
 	return &Result{
-		Digest:   digest,
-		URI:      URI(twin.Namespace, cmName),
-		StageKey: stageKey,
-		Name:     cmName,
+		Digest:    contentDigest,
+		URI:       URI(twin.Namespace, cmName),
+		StageKey:  StageEntry,
+		Name:      cmName,
+		MediaType: MediaType,
+		BundleKey: BundleKey,
 	}, nil
 }
 
@@ -136,45 +155,159 @@ func setOwner(twin *twinopsv1alpha1.DigitalTwin, cm *corev1.ConfigMap) error {
 	return nil
 }
 
-func readDirFiles(dir string) (map[string][]byte, error) {
-	entries, err := os.ReadDir(dir)
-	if err != nil {
-		return nil, err
-	}
+// collectContentFiles walks dir and returns relative path → payload for durable USD content.
+func collectContentFiles(dir string) (map[string][]byte, error) {
 	out := map[string][]byte{}
 	var total int
-	for _, e := range entries {
-		if e.IsDir() {
-			// Skip nested dirs (inputs/, drift/).
-			continue
-		}
-		name := e.Name()
-		if strings.HasPrefix(name, ".") {
-			continue
-		}
-		path := filepath.Join(dir, name)
-		info, err := e.Info()
+	err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
-			return nil, err
+			return err
 		}
-		// ConfigMap soft limit ~1MiB; keep pilot bundles small.
-		if info.Size() > 900*1024 {
-			return nil, fmt.Errorf("output file %q too large for ConfigMap publish (%d bytes)", name, info.Size())
+		rel, relErr := filepath.Rel(dir, path)
+		if relErr != nil {
+			return relErr
+		}
+		rel = filepath.ToSlash(rel)
+		if rel == "." {
+			return nil
+		}
+		// Skip operator-managed side trees and volatile reports.
+		top := strings.SplitN(rel, "/", 2)[0]
+		switch top {
+		case "inputs", "drift":
+			if d.IsDir() {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		base := filepath.Base(rel)
+		if strings.HasPrefix(base, ".") {
+			if d.IsDir() {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		if base == "reconciliation-report.json" || strings.HasSuffix(base, "-report.json") {
+			return nil
+		}
+		if d.IsDir() {
+			return nil
+		}
+		// Content: USDA/USD and co-located assets only.
+		lower := strings.ToLower(rel)
+		if !(strings.HasSuffix(lower, ".usda") ||
+			strings.HasSuffix(lower, ".usd") ||
+			strings.HasSuffix(lower, ".usdc") ||
+			strings.Contains(rel, "assets/")) {
+			return nil
+		}
+		info, err := d.Info()
+		if err != nil {
+			return err
+		}
+		if info.Size() > MaxBundleBytes {
+			return fmt.Errorf("output file %q too large (%d bytes)", rel, info.Size())
 		}
 		data, err := os.ReadFile(path)
 		if err != nil {
-			return nil, err
+			return err
 		}
 		total += len(data)
-		if total > 900*1024 {
-			return nil, fmt.Errorf("output bundle exceeds ConfigMap size budget")
+		if total > MaxBundleBytes {
+			return fmt.Errorf("output content exceeds size budget (%d bytes)", MaxBundleBytes)
 		}
-		out[name] = data
+		out[rel] = data
+		return nil
+	})
+	if err != nil {
+		return nil, err
 	}
 	return out, nil
 }
 
-// HashFiles returns sha256:<hex> of sorted name+payload pairs.
+// packTarGz builds a deterministic gzipped tar of files (sorted paths, zero mtime).
+func packTarGz(files map[string][]byte) ([]byte, error) {
+	keys := make([]string, 0, len(files))
+	for k := range files {
+		keys = append(keys, k)
+	}
+	slices.Sort(keys)
+
+	var buf bytes.Buffer
+	gz := gzip.NewWriter(&buf)
+	// Fixed header for deterministic gzip (no timestamp/hostname).
+	gz.Name = ""
+	gz.ModTime = time.Time{}
+	tw := tar.NewWriter(gz)
+
+	for _, name := range keys {
+		payload := files[name]
+		hdr := &tar.Header{
+			Name:    name,
+			Mode:    0o644,
+			Size:    int64(len(payload)),
+			ModTime: time.Unix(0, 0).UTC(),
+			Uid:     0,
+			Gid:     0,
+			Uname:   "",
+			Gname:   "",
+		}
+		if err := tw.WriteHeader(hdr); err != nil {
+			return nil, err
+		}
+		if _, err := tw.Write(payload); err != nil {
+			return nil, err
+		}
+	}
+	if err := tw.Close(); err != nil {
+		return nil, err
+	}
+	if err := gz.Close(); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
+}
+
+// UnpackBundle extracts a TwinOps bundle tar.gz into destDir.
+func UnpackBundle(r io.Reader, destDir string) error {
+	gz, err := gzip.NewReader(r)
+	if err != nil {
+		return err
+	}
+	defer gz.Close()
+	tr := tar.NewReader(gz)
+	for {
+		hdr, err := tr.Next()
+		if err == io.EOF {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		if hdr.Typeflag != tar.TypeReg && hdr.Typeflag != 0 {
+			continue
+		}
+		name := filepath.Clean(hdr.Name)
+		if strings.HasPrefix(name, "..") || filepath.IsAbs(name) {
+			return fmt.Errorf("unsafe path in bundle: %q", hdr.Name)
+		}
+		target := filepath.Join(destDir, name)
+		if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
+			return err
+		}
+		f, err := os.OpenFile(target, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o644)
+		if err != nil {
+			return err
+		}
+		if _, err := io.Copy(f, io.LimitReader(tr, MaxBundleBytes)); err != nil {
+			_ = f.Close()
+			return err
+		}
+		_ = f.Close()
+	}
+}
+
+// HashFiles returns sha256:<hex> of sorted name+payload pairs (content digest).
 func HashFiles(files map[string][]byte) string {
 	keys := make([]string, 0, len(files))
 	for k := range files {
