@@ -15,6 +15,21 @@ DigitalTwin CR
 - Go **1.26.x** (see `go.mod` / CI `setup-go`)
 - `twinopsctl` on `PATH` (or via `make install` / `--twinopsctl=`)
 
+## Workspace / outputDir
+
+The manager mounts a writable **emptyDir** at `/tmp/twinops`. Default
+`spec.outputDir` (and Helm sample) must stay under that path for non-root pods:
+
+```yaml
+spec:
+  outputDir: /tmp/twinops/assembly-line-a
+```
+
+Do **not** use `/var/lib/twinops` unless you also mount a PVC there.
+
+On CR delete the finalizer removes the workspace directory (and best-effort
+`{name}-output` ConfigMap if present).
+
 ## Fastest path: local cluster demo
 
 Requires Docker + kubectl, plus **k3d** (preferred) or **kind**.

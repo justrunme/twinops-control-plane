@@ -25,6 +25,17 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+const (
+	// MaxDownloadBytes is the hard cap for a single HTTP artifact fetch.
+	MaxDownloadBytes = 32 << 20 // 32 MiB
+	// MaxFileBytes is the hard cap per archive entry or ConfigMap value.
+	MaxFileBytes = 8 << 20 // 8 MiB
+	// MaxFiles is the maximum number of files in one artifact bundle.
+	MaxFiles = 64
+	// MaxDecompressedBytes is the total decompressed payload budget.
+	MaxDecompressedBytes = 48 << 20 // 48 MiB
+)
+
 // Source describes where twin inputs come from.
 type Source struct {
 	ConfigMapName  string
@@ -33,6 +44,9 @@ type Source struct {
 	ExpectedDigest string // optional sha256:<hex>
 	// AllowPrivateURL permits loopback/private HTTP(S) fetches (tests / lab only).
 	AllowPrivateURL bool
+	// RequireExpectedDigest fails closed when URL is used without ExpectedDigest.
+	// ConfigMap sources never require it (cluster-local trust boundary).
+	RequireExpectedDigest bool
 }
 
 // Result is a materialized workspace with resolved paths and content digest.
@@ -66,6 +80,10 @@ func Materialize(ctx context.Context, c client.Client, src Source, workspaceDir 
 		}
 	}()
 
+	if src.URL != "" && src.ExpectedDigest == "" && src.RequireExpectedDigest {
+		return nil, fmt.Errorf("artifact url requires expectedDigest (fail-closed)")
+	}
+
 	var files map[string][]byte
 	switch {
 	case src.ConfigMapName != "":
@@ -74,6 +92,9 @@ func Materialize(ctx context.Context, c client.Client, src Source, workspaceDir 
 		files, err = fromURL(ctx, src.URL, src.AllowPrivateURL)
 	}
 	if err != nil {
+		return nil, err
+	}
+	if err := validateFileSet(files); err != nil {
 		return nil, err
 	}
 
@@ -200,7 +221,7 @@ func fromURL(ctx context.Context, rawURL string, allowPrivate bool) (map[string]
 	if resp.StatusCode >= 300 {
 		return nil, fmt.Errorf("artifact url HTTP %d", resp.StatusCode)
 	}
-	body, err := io.ReadAll(io.LimitReader(resp.Body, 32<<20))
+	body, err := readLimited(resp.Body, MaxDownloadBytes)
 	if err != nil {
 		return nil, err
 	}
@@ -232,6 +253,9 @@ func checkHostSSRF(host string, allowPrivate bool) error {
 		"metadata.google.internal",
 		"metadata",
 		"localhost",
+		"127.0.0.1",
+		"0.0.0.0",
+		"::1",
 	}
 	for _, name := range blockedNames {
 		if host == name {
@@ -244,13 +268,59 @@ func checkHostSSRF(host string, allowPrivate bool) error {
 		}
 		return nil
 	}
+	// Fail closed when DNS fails — avoids treating lookup errors as "allow".
 	ips, err := net.LookupIP(host)
 	if err != nil {
-		return nil
+		return fmt.Errorf("artifact url DNS lookup failed for %q: %w", host, err)
+	}
+	if len(ips) == 0 {
+		return fmt.Errorf("artifact url host %q resolved to no addresses", host)
 	}
 	for _, ip := range ips {
 		if isPrivateIP(ip) {
 			return fmt.Errorf("artifact url host %q resolves to private IP %s (SSRF policy)", host, ip)
+		}
+	}
+	return nil
+}
+
+// readLimited reads up to limit bytes and errors if more data is available.
+func readLimited(r io.Reader, limit int64) ([]byte, error) {
+	lr := io.LimitReader(r, limit+1)
+	data, err := io.ReadAll(lr)
+	if err != nil {
+		return nil, err
+	}
+	if int64(len(data)) > limit {
+		return nil, fmt.Errorf("artifact exceeds size limit (%d bytes)", limit)
+	}
+	return data, nil
+}
+
+func validateFileSet(files map[string][]byte) error {
+	if len(files) == 0 {
+		return fmt.Errorf("artifact is empty")
+	}
+	if len(files) > MaxFiles {
+		return fmt.Errorf("artifact has %d files (max %d)", len(files), MaxFiles)
+	}
+	var total int
+	seen := map[string]struct{}{}
+	for name, data := range files {
+		base := filepath.Base(name)
+		if base == "." || base == ".." || base == "" || strings.Contains(name, "..") {
+			return fmt.Errorf("artifact file name rejected: %q", name)
+		}
+		if _, ok := seen[base]; ok {
+			return fmt.Errorf("artifact has duplicate basename %q", base)
+		}
+		seen[base] = struct{}{}
+		if len(data) > MaxFileBytes {
+			return fmt.Errorf("artifact file %q exceeds per-file limit (%d bytes)", base, MaxFileBytes)
+		}
+		total += len(data)
+		if total > MaxDecompressedBytes {
+			return fmt.Errorf("artifact total size exceeds limit (%d bytes)", MaxDecompressedBytes)
 		}
 	}
 	return nil
@@ -279,16 +349,22 @@ func unzipBytes(data []byte) (map[string][]byte, error) {
 			continue
 		}
 		name := filepath.Base(f.Name)
+		if _, exists := out[name]; exists {
+			return nil, fmt.Errorf("zip has duplicate basename %q", name)
+		}
 		rc, err := f.Open()
 		if err != nil {
 			return nil, err
 		}
-		payload, err := io.ReadAll(io.LimitReader(rc, 8<<20))
+		payload, err := readLimited(rc, MaxFileBytes)
 		_ = rc.Close()
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("zip entry %q: %w", name, err)
 		}
 		out[name] = payload
+		if len(out) > MaxFiles {
+			return nil, fmt.Errorf("zip has more than %d files", MaxFiles)
+		}
 	}
 	return out, nil
 }
@@ -312,11 +388,18 @@ func untarGzBytes(data []byte) (map[string][]byte, error) {
 		if hdr.Typeflag != tar.TypeReg {
 			continue
 		}
-		payload, err := io.ReadAll(io.LimitReader(tr, 8<<20))
-		if err != nil {
-			return nil, err
+		name := filepath.Base(hdr.Name)
+		if _, exists := out[name]; exists {
+			return nil, fmt.Errorf("tar has duplicate basename %q", name)
 		}
-		out[filepath.Base(hdr.Name)] = payload
+		payload, err := readLimited(tr, MaxFileBytes)
+		if err != nil {
+			return nil, fmt.Errorf("tar entry %q: %w", name, err)
+		}
+		out[name] = payload
+		if len(out) > MaxFiles {
+			return nil, fmt.Errorf("tar has more than %d files", MaxFiles)
+		}
 	}
 	return out, nil
 }
