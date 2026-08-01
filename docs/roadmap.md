@@ -114,12 +114,12 @@ artifact size/DNS fail-closed. See [release-1.2.1.md](release-1.2.1.md).
 
 ## v1.3 — Single-twin pilot ready 🚧
 
-- Persistent output artifact URI + digest (ConfigMap publish first; OCI later)
-- In-cluster Helm operator E2E + restart recovery
-- Reconcile timeout / concurrency / build idempotency
-- Namespace-scoped RBAC mode
-- Operator metrics + Kubernetes Events
-- Supply-chain scans (govulncheck, pip-audit, Trivy, SBOM)
+- [x] Persistent output artifact URI + digest (ConfigMap publish; OCI later) — ADR-0021
+- [x] Reconcile timeout / concurrency / build idempotency
+- [x] Operator metrics + Kubernetes Events
+- [ ] In-cluster Helm operator E2E + restart recovery
+- [ ] Namespace-scoped RBAC mode
+- [ ] Supply-chain scans (govulncheck, pip-audit, Trivy, SBOM)
 
 ## Architecture decisions
 

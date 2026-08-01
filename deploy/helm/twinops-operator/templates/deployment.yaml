@@ -23,6 +23,8 @@ spec:
           args:
             - --leader-elect=false
             - --twinopsctl={{ .Values.twinopsctlPath }}
+            - --build-timeout={{ .Values.buildTimeout | default "120s" }}
+            - --max-concurrent-reconciles={{ .Values.maxConcurrentReconciles | default 2 }}
           ports:
             - name: metrics
               containerPort: 8080

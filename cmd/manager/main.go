@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"os"
+	"time"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -29,11 +30,15 @@ func main() {
 	var probeAddr string
 	var enableLeaderElection bool
 	var twinopsctl string
+	var buildTimeout time.Duration
+	var maxConcurrent int
 
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "metrics endpoint")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "health probe endpoint")
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false, "enable leader election")
 	flag.StringVar(&twinopsctl, "twinopsctl", "", "path to twinopsctl binary")
+	flag.DurationVar(&buildTimeout, "build-timeout", 120*time.Second, "timeout for twinopsctl build/drift")
+	flag.IntVar(&maxConcurrent, "max-concurrent-reconciles", 2, "max concurrent DigitalTwin reconciles")
 	opts := zap.Options{Development: true}
 	opts.BindFlags(flag.CommandLine)
 	flag.Parse()
@@ -56,9 +61,12 @@ func main() {
 	}
 
 	if err = (&controllers.DigitalTwinReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-		Runner: twinbuild.Runner{Binary: twinopsctl},
+		Client:        mgr.GetClient(),
+		Scheme:        mgr.GetScheme(),
+		Runner:        twinbuild.Runner{Binary: twinopsctl},
+		Recorder:      mgr.GetEventRecorderFor("twinops-controller"),
+		BuildTimeout:  buildTimeout,
+		MaxConcurrent: maxConcurrent,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "DigitalTwin")
 		os.Exit(1)
