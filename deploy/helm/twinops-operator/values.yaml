@@ -37,7 +37,8 @@ sampleTwin:
   manifestPath: ""
   desiredPath: ""
   observedPath: ""
-  outputDir: /var/lib/twinops/assembly-line-a
+  # Must be under the manager emptyDir mount (/tmp/twinops) for non-root pods.
+  outputDir: /tmp/twinops/assembly-line-a
   intervalSeconds: 30
   artifactSource:
     configMapName: ""

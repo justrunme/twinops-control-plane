@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -150,5 +151,35 @@ func TestHashStable(t *testing.T) {
 	b := hashFiles(map[string][]byte{"a": []byte("1"), "b": []byte("2")})
 	if a != b {
 		t.Fatalf("hash not stable: %s vs %s", a, b)
+	}
+}
+
+func TestReadLimitedExceeds(t *testing.T) {
+	data := bytes.Repeat([]byte("x"), 100)
+	_, err := readLimited(bytes.NewReader(data), 50)
+	if err == nil {
+		t.Fatal("expected size limit error")
+	}
+}
+
+func TestURLRequiresDigestWhenRequested(t *testing.T) {
+	_, err := Materialize(context.Background(), nil, Source{
+		URL:                   "https://example.com/twin.yaml",
+		RequireExpectedDigest: true,
+	}, filepath.Join(t.TempDir(), "in"))
+	if err == nil {
+		t.Fatal("expected require expectedDigest error")
+	}
+}
+
+func TestValidateFileSetDuplicates(t *testing.T) {
+	// validateFileSet sees map keys; duplicate basenames only arise from archives.
+	// Ensure max files is enforced.
+	files := map[string][]byte{}
+	for i := 0; i < MaxFiles+1; i++ {
+		files[fmt.Sprintf("f%d.yaml", i)] = []byte("x")
+	}
+	if err := validateFileSet(files); err == nil {
+		t.Fatal("expected max files error")
 	}
 }
