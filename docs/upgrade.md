@@ -33,15 +33,32 @@
 - CI includes Helm/container deploy smoke and optional pxr validation
 - See [release-1.2.md](release-1.2.md)
 
+## 1.2.x → 1.3.0
+
+- Durable output on DigitalTwin status (`status.output.uri` / digest / revision)
+- In-cluster Helm operator E2E + namespaced RBAC mode
+- Reconcile guards: build timeout, max concurrency, metrics, Events
+- Prefer image/chart **1.3.1** over bare 1.3.0 (see below)
+- See [release-1.3.md](release-1.3.md)
+
+## 1.3.0 → 1.3.1
+
+- **Breaking for output consumers**: ConfigMap switches from loose files to
+  `binaryData.bundle.tar.gz` (includes `assets/`; extract before `Usd.Stage.Open`)
+- Content digest is stable across rebuild/restart (volatile reports excluded)
+- Workspace is always `/tmp/twinops/<ns>/<uid>`; `spec.outputDir` ignored for cleanup
+- See [release-1.3.1.md](release-1.3.1.md), [ADR-0022](adr/0022-deterministic-output-bundle.md)
+
 ## Recommended upgrade path
 
 ```bash
 git fetch --tags
-git checkout v1.2.0
+git checkout v1.3.1
 make install
 make verify-all          # local; heavy — use before cutting releases
 # or lighter:
 make test && make e2e-demo && make streaming-sidecar-smoke && make deploy-smoke
+make operator-incluster-e2e   # needs kind + docker
 ```
 
 If you keep a persistent DB across upgrades:
