@@ -3,6 +3,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"os"
 	"path/filepath"
 	"time"
 
@@ -84,10 +85,13 @@ func (r *DigitalTwinReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	if twin.Spec.ArtifactSource != nil &&
 		(twin.Spec.ArtifactSource.ConfigMapName != "" || twin.Spec.ArtifactSource.URL != "") {
 		workspacePath = filepath.Join(outputDir, "inputs")
+		allowPrivate := os.Getenv("TWINOPS_ARTIFACT_ALLOW_PRIVATE") == "1"
 		res, matErr := artifacts.Materialize(ctx, r.Client, artifacts.Source{
-			Namespace:     twin.Namespace,
-			ConfigMapName: twin.Spec.ArtifactSource.ConfigMapName,
-			URL:           twin.Spec.ArtifactSource.URL,
+			Namespace:       twin.Namespace,
+			ConfigMapName:   twin.Spec.ArtifactSource.ConfigMapName,
+			URL:             twin.Spec.ArtifactSource.URL,
+			ExpectedDigest:  twin.Spec.ArtifactSource.ExpectedDigest,
+			AllowPrivateURL: allowPrivate,
 		}, workspacePath)
 		if matErr != nil {
 			logger.Error(matErr, "artifact materialize failed")

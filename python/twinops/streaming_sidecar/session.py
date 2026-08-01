@@ -230,6 +230,8 @@ class StreamingSessionManager:
             "session": session,
             "frameSource": self.frame_source.status(),
             "encoder": self.capability.to_dict(),
+            "ingestEncoder": media.ingest_encoder if media else "none",
+            "webrtcEncoder": media.webrtc_encoder if media else "none",
             "encoderInUse": media.encoder_in_use if media else "none",
             "mediaPath": media.media_path if media else "idle",
             "input": self.input_bridge.status(),

@@ -38,16 +38,23 @@ spec:
               port: health
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
-          {{- if .Values.examples.enabled }}
+          env:
+            - name: TWINOPS_ARTIFACT_ALLOW_PRIVATE
+              value: {{ .Values.artifactAllowPrivate | default "0" | quote }}
           volumeMounts:
+            - name: workspace
+              mountPath: /tmp/twinops
+            {{- if .Values.examples.enabled }}
             - name: examples
               mountPath: {{ .Values.examples.mountPath }}
               readOnly: true
-          {{- end }}
-      {{- if .Values.examples.enabled }}
+            {{- end }}
       volumes:
+        - name: workspace
+          emptyDir: {}
+        {{- if .Values.examples.enabled }}
         - name: examples
           hostPath:
             path: {{ .Values.examples.hostPath }}
             type: Directory
-      {{- end }}
+        {{- end }}

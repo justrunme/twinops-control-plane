@@ -1,20 +1,20 @@
 name: GPU validate (manual)
 
 # Run on a self-hosted runner with NVIDIA GPU + driver + ffmpeg h264_nvenc.
-# Uploads nvidia-smi, encoder probe, and stream stats as artifacts.
+# Proves NVENC ingest-bridge (not mock) and uploads honest encoder fields + frames.
 on:
   workflow_dispatch:
     inputs:
       encoder:
-        description: "Encoder preference"
+        description: "Encoder preference (nvenc recommended)"
         required: true
-        default: "auto"
+        default: "nvenc"
         type: choice
-        options: [auto, nvenc, software]
+        options: [nvenc, auto]
 
 jobs:
   gpu:
-    name: Kit NVENC host validation
+    name: Kit NVENC ingest-bridge validation
     runs-on: self-hosted
     steps:
       - name: Checkout
@@ -26,7 +26,7 @@ jobs:
           nvidia-smi | tee /tmp/twinops-gpu-validate/nvidia-smi.txt
           ffmpeg -hide_banner -encoders 2>/dev/null | grep -i nvenc \
             | tee /tmp/twinops-gpu-validate/ffmpeg-nvenc.txt \
-            || (echo "h264_nvenc missing" | tee /tmp/twinops-gpu-validate/ffmpeg-nvenc.txt)
+            || (echo "h264_nvenc missing" | tee /tmp/twinops-gpu-validate/ffmpeg-nvenc.txt; exit 1)
 
       - name: Set up Python
         uses: actions/setup-python@v7
@@ -38,26 +38,17 @@ jobs:
           python -m pip install -U pip
           python -m pip install -e ".[live,streaming]"
 
-      - name: Encoder probe + short sidecar session
+      - name: NVENC ingest-bridge smoke (real offer + track.recv)
         env:
           TWINOPS_SIDECAR_ENCODER: ${{ inputs.encoder }}
-          TWINOPS_SIDECAR_FRAME_SOURCE: kit-file
           TWINOPS_KIT_FRAME_DIR: /tmp/twinops-kit-frames
         run: |
           mkdir -p /tmp/twinops-kit-frames
-          python - <<'PY'
-          import json, os
-          from twinops.streaming_sidecar.encoder import probe_encoder
-          cap = probe_encoder(os.environ.get("TWINOPS_SIDECAR_ENCODER", "auto"))
-          open("/tmp/twinops-gpu-validate/encoder.json", "w").write(json.dumps(cap.to_dict(), indent=2))
-          print(json.dumps(cap.to_dict(), indent=2))
-          if os.environ.get("TWINOPS_SIDECAR_ENCODER") == "nvenc" and not cap.nvenc:
-              raise SystemExit("nvenc requested but unavailable on host")
-          PY
-          bash scripts/streaming_sidecar_smoke.sh
-          cp "${TMPDIR:-/tmp}/twinops-sidecar-smoke.log" /tmp/twinops-gpu-validate/sidecar-smoke.log || true
+          bash scripts/streaming_nvenc_smoke.sh
+          cp -a "${TMPDIR:-/tmp}/twinops-nvenc-smoke/." /tmp/twinops-gpu-validate/ || true
 
       - name: Upload GPU validation artifacts
+        if: always()
         uses: actions/upload-artifact@v7
         with:
           name: gpu-validate
