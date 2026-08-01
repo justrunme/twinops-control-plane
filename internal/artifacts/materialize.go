@@ -1,4 +1,4 @@
-// Package artifacts materializes immutable DigitalTwin inputs into a workspace.
+// Package artifacts materializes twin inputs into an atomic workspace.
 package artifacts
 
 import (
@@ -11,7 +11,9 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"slices"
@@ -25,9 +27,12 @@ import (
 
 // Source describes where twin inputs come from.
 type Source struct {
-	ConfigMapName string
-	URL           string
-	Namespace     string
+	ConfigMapName  string
+	URL            string
+	Namespace      string
+	ExpectedDigest string // optional sha256:<hex>
+	// AllowPrivateURL permits loopback/private HTTP(S) fetches (tests / lab only).
+	AllowPrivateURL bool
 }
 
 // Result is a materialized workspace with resolved paths and content digest.
@@ -39,46 +44,104 @@ type Result struct {
 	Digest       string // sha256:<hex> of concatenated key payloads
 }
 
-// Materialize writes inputs into workspaceDir and returns resolved paths.
+// Materialize writes inputs into a staging dir, verifies digest, then atomically
+// replaces workspaceDir so stale files from prior bundles cannot linger.
 func Materialize(ctx context.Context, c client.Client, src Source, workspaceDir string) (*Result, error) {
-	if src.ConfigMapName == "" && src.URL == "" {
-		return nil, fmt.Errorf("artifactSource requires configMapName or url")
+	if err := validateSource(src); err != nil {
+		return nil, err
 	}
-	if err := os.MkdirAll(workspaceDir, 0o755); err != nil {
+	parent := filepath.Dir(workspaceDir)
+	if err := os.MkdirAll(parent, 0o755); err != nil {
 		return nil, err
 	}
 
+	stage, err := os.MkdirTemp(parent, ".twinops-inputs-*")
+	if err != nil {
+		return nil, err
+	}
+	committed := false
+	defer func() {
+		if !committed {
+			_ = os.RemoveAll(stage)
+		}
+	}()
+
 	var files map[string][]byte
-	var err error
 	switch {
 	case src.ConfigMapName != "":
 		files, err = fromConfigMap(ctx, c, src.Namespace, src.ConfigMapName)
 	default:
-		files, err = fromURL(ctx, src.URL)
+		files, err = fromURL(ctx, src.URL, src.AllowPrivateURL)
 	}
 	if err != nil {
 		return nil, err
 	}
 
 	digest := hashFiles(files)
+	if src.ExpectedDigest != "" && !digestsEqual(src.ExpectedDigest, digest) {
+		return nil, fmt.Errorf("artifact digest mismatch: expected %s got %s", src.ExpectedDigest, digest)
+	}
+
 	for name, data := range files {
-		path := filepath.Join(workspaceDir, name)
+		path := filepath.Join(stage, name)
 		if err := os.WriteFile(path, data, 0o644); err != nil {
 			return nil, err
 		}
 	}
 
-	manifest := firstExisting(workspaceDir, "twin.yaml", "manifest.yaml")
+	manifest := firstExisting(stage, "twin.yaml", "manifest.yaml")
 	if manifest == "" {
 		return nil, fmt.Errorf("artifact missing twin.yaml (or manifest.yaml)")
 	}
+
+	if err := atomicReplace(workspaceDir, stage); err != nil {
+		return nil, err
+	}
+	committed = true
+
 	return &Result{
 		Workspace:    workspaceDir,
-		ManifestPath: manifest,
+		ManifestPath: filepath.Join(workspaceDir, filepath.Base(manifest)),
 		DesiredPath:  firstExisting(workspaceDir, "desired.yaml"),
 		ObservedPath: firstExisting(workspaceDir, "telemetry.json", "observed.json"),
 		Digest:       digest,
 	}, nil
+}
+
+func validateSource(src Source) error {
+	hasCM := src.ConfigMapName != ""
+	hasURL := src.URL != ""
+	switch {
+	case hasCM && hasURL:
+		return fmt.Errorf("artifactSource: set exactly one of configMapName or url")
+	case !hasCM && !hasURL:
+		return fmt.Errorf("artifactSource requires configMapName or url")
+	default:
+		return nil
+	}
+}
+
+func digestsEqual(expected, actual string) bool {
+	return strings.EqualFold(strings.TrimSpace(expected), strings.TrimSpace(actual))
+}
+
+// atomicReplace replaces dst with srcDir via rename, removing any previous dst.
+func atomicReplace(dst, srcDir string) error {
+	backup := dst + ".bak-" + fmt.Sprintf("%d", time.Now().UnixNano())
+	_ = os.RemoveAll(backup)
+	if _, err := os.Stat(dst); err == nil {
+		if err := os.Rename(dst, backup); err != nil {
+			if rmErr := os.RemoveAll(dst); rmErr != nil {
+				return rmErr
+			}
+		}
+	}
+	if err := os.Rename(srcDir, dst); err != nil {
+		_ = os.Rename(backup, dst)
+		return err
+	}
+	_ = os.RemoveAll(backup)
+	return nil
 }
 
 func fromConfigMap(ctx context.Context, c client.Client, namespace, name string) (map[string][]byte, error) {
@@ -99,8 +162,32 @@ func fromConfigMap(ctx context.Context, c client.Client, namespace, name string)
 	return out, nil
 }
 
-func fromURL(ctx context.Context, rawURL string) (map[string][]byte, error) {
-	httpClient := &http.Client{Timeout: 60 * time.Second}
+func fromURL(ctx context.Context, rawURL string, allowPrivate bool) (map[string][]byte, error) {
+	parsed, err := url.Parse(rawURL)
+	if err != nil {
+		return nil, err
+	}
+	scheme := strings.ToLower(parsed.Scheme)
+	if scheme != "https" && scheme != "http" {
+		return nil, fmt.Errorf("artifact url scheme must be http or https")
+	}
+	if scheme == "http" && !allowPrivate {
+		return nil, fmt.Errorf("artifact url must use https (or enable AllowPrivateURL for lab/http)")
+	}
+	host := parsed.Hostname()
+	if err := checkHostSSRF(host, allowPrivate); err != nil {
+		return nil, err
+	}
+
+	httpClient := &http.Client{
+		Timeout: 60 * time.Second,
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			if len(via) >= 5 {
+				return fmt.Errorf("too many redirects")
+			}
+			return checkHostSSRF(req.URL.Hostname(), allowPrivate)
+		},
+	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, nil)
 	if err != nil {
 		return nil, err
@@ -131,6 +218,54 @@ func fromURL(ctx context.Context, rawURL string) (map[string][]byte, error) {
 		}
 		return unzipBytes(body)
 	}
+}
+
+func checkHostSSRF(host string, allowPrivate bool) error {
+	host = strings.TrimSpace(strings.ToLower(host))
+	if host == "" {
+		return fmt.Errorf("artifact url missing host")
+	}
+	if allowPrivate {
+		return nil
+	}
+	blockedNames := []string{
+		"metadata.google.internal",
+		"metadata",
+		"localhost",
+	}
+	for _, name := range blockedNames {
+		if host == name {
+			return fmt.Errorf("artifact url host %q blocked (SSRF policy)", host)
+		}
+	}
+	if ip := net.ParseIP(host); ip != nil {
+		if isPrivateIP(ip) {
+			return fmt.Errorf("artifact url resolves to private IP (SSRF policy)")
+		}
+		return nil
+	}
+	ips, err := net.LookupIP(host)
+	if err != nil {
+		return nil
+	}
+	for _, ip := range ips {
+		if isPrivateIP(ip) {
+			return fmt.Errorf("artifact url host %q resolves to private IP %s (SSRF policy)", host, ip)
+		}
+	}
+	return nil
+}
+
+func isPrivateIP(ip net.IP) bool {
+	if ip.IsLoopback() || ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() || ip.IsPrivate() {
+		return true
+	}
+	if ip4 := ip.To4(); ip4 != nil {
+		if ip4[0] == 169 && ip4[1] == 254 {
+			return true
+		}
+	}
+	return false
 }
 
 func unzipBytes(data []byte) (map[string][]byte, error) {

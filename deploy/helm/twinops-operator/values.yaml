@@ -47,3 +47,4 @@ sampleTwin:
   liveAPITokenSecretRef:
     name: ""
     key: api-token
+artifactAllowPrivate: "0"

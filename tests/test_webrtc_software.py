@@ -1,8 +1,9 @@
-"""Integration: real aiortc software PeerConnection (no GPU required)."""
+"""Integration: real aiortc software PeerConnection with frame receive."""
 
 from __future__ import annotations
 
 import asyncio
+from typing import Any
 
 import pytest
 from twinops.streaming_sidecar.encoder import aiortc_available, probe_encoder
@@ -17,12 +18,12 @@ pytestmark = pytest.mark.skipif(
 )
 
 
-def test_software_webrtc_answer_not_lab_echo() -> None:
-    asyncio.run(_software_webrtc_answer_not_lab_echo())
+def test_software_webrtc_receives_frames() -> None:
+    asyncio.run(_software_webrtc_receives_frames())
 
 
-async def _software_webrtc_answer_not_lab_echo() -> None:
-    source = MockFrameSource()
+async def _software_webrtc_receives_frames() -> None:
+    source = MockFrameSource(width=320, height=180, fps=15.0)
     source.start()
     stats = StreamStats()
     media = WebRTCMediaSession(
@@ -35,22 +36,43 @@ async def _software_webrtc_answer_not_lab_echo() -> None:
         from aiortc import RTCPeerConnection, RTCSessionDescription
 
         pc = RTCPeerConnection()
+        received: list[Any] = []
+        done = asyncio.Event()
+
+        @pc.on("track")
+        def on_track(track: Any) -> None:
+            async def consume() -> None:
+                try:
+                    for _ in range(3):
+                        frame = await asyncio.wait_for(track.recv(), timeout=5)
+                        received.append(frame)
+                finally:
+                    done.set()
+
+            asyncio.ensure_future(consume())
+
         pc.addTransceiver("video", direction="recvonly")
         offer = await pc.createOffer()
         await pc.setLocalDescription(offer)
+        while pc.iceGatheringState != "complete":
+            await asyncio.sleep(0.05)
+
         answer = await media.answer_offer(
             {"type": pc.localDescription.type, "sdp": pc.localDescription.sdp}
         )
         assert answer.get("labEcho") is False
-        assert answer.get("encoderInUse") == "software"
+        assert answer.get("ingestEncoder") == "software"
+        assert answer.get("webrtcEncoder") == "aiortc"
         assert answer.get("mediaPath") == "webrtc-software"
-        assert "sdp" in answer and len(answer["sdp"]) > 20
         await pc.setRemoteDescription(
             RTCSessionDescription(sdp=answer["sdp"], type=answer["type"])
         )
-        await asyncio.sleep(0.5)
+        await asyncio.wait_for(done.wait(), timeout=10)
+        assert len(received) >= 1
+        assert received[0] is not None
         snap = stats.snapshot()
         assert snap["startupTimeMs"] is not None
+        assert snap["frames"] >= 1
         await pc.close()
     finally:
         await media.close()
