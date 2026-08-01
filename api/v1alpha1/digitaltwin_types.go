@@ -90,18 +90,24 @@ type DigitalTwinSpec struct {
 
 // OutputArtifact is a durable reference to the last published composition.
 type OutputArtifact struct {
-	// Digest is sha256 of published stage files (sorted name+payload).
+	// Digest is sha256 of durable content files (sorted path+payload; excludes reports).
 	// +optional
 	Digest string `json:"digest,omitempty"`
 	// URI is a cluster-stable reference, e.g. configmap://ns/name.
 	// +optional
 	URI string `json:"uri,omitempty"`
-	// Revision increments when the published digest changes.
+	// Revision increments when the published content digest changes.
 	// +optional
 	Revision int64 `json:"revision,omitempty"`
-	// StageKey is the primary stage object key (usually root.usda).
+	// StageKey / StagePath is the primary stage entry inside the bundle (root.usda).
 	// +optional
 	StageKey string `json:"stageKey,omitempty"`
+	// MediaType of the published blob (tar+gzip bundle).
+	// +optional
+	MediaType string `json:"mediaType,omitempty"`
+	// BundleKey is the ConfigMap binaryData key (bundle.tar.gz).
+	// +optional
+	BundleKey string `json:"bundleKey,omitempty"`
 	// PublishedAt is the last successful publish time.
 	// +optional
 	PublishedAt *metav1.Time `json:"publishedAt,omitempty"`

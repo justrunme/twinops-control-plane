@@ -30,9 +30,10 @@ Do **not** use `/var/lib/twinops` unless you also mount a PVC there.
 On CR delete the finalizer removes the workspace directory (and best-effort
 `{name}-output` ConfigMap if present).
 
-## Durable output (v1.3)
+## Durable output (v1.3.1)
 
-After compose, the operator publishes top-level stage files to ConfigMap
+After compose, the operator publishes a **deterministic** `bundle.tar.gz`
+(recursive USDA + `assets/`, no volatile reports) to ConfigMap
 `{digitaltwin}-output` and sets:
 
 ```yaml
@@ -40,10 +41,22 @@ status:
   inputDigest: sha256:...
   output:
     uri: configmap://twinops-system/assembly-line-a-output
-    digest: sha256:...
+    digest: sha256:...          # content digest (stable across rebuild)
     revision: 1
+    mediaType: application/vnd.twinops.bundle.v1+tar+gzip
+    bundleKey: bundle.tar.gz
     stageKey: root.usda
 ```
+
+Extract:
+
+```bash
+kubectl get cm assembly-line-a-output -n twinops-system \
+  -o jsonpath='{.binaryData.bundle\.tar\.gz}' | base64 -d | tar -tzf -
+```
+
+Workspace is always `/tmp/twinops/<namespace>/<uid>` (finalizer-safe).
+`spec.outputDir` is ignored for cleanup.
 
 Disable with `spec.outputPublish.enabled: false`. Manager flags:
 

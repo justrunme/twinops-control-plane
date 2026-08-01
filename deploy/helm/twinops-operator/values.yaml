@@ -10,10 +10,12 @@ rbac:
 
 image:
   repository: ghcr.io/justrunme/twinops-operator
-  tag: "1.3.0"
+  tag: "1.3.1"
   pullPolicy: IfNotPresent
 
 replicaCount: 1
+# Enable when replicaCount > 1 (requires lease RBAC).
+leaderElect: false
 
 twinopsctlPath: /usr/local/bin/twinopsctl
 
@@ -49,8 +51,8 @@ sampleTwin:
   manifestPath: ""
   desiredPath: ""
   observedPath: ""
-  # Must be under the manager emptyDir mount (/tmp/twinops) for non-root pods.
-  outputDir: /tmp/twinops/assembly-line-a
+  # Legacy field — operator ignores it and uses /tmp/twinops/<ns>/<uid>.
+  outputDir: ""
   intervalSeconds: 30
   artifactSource:
     configMapName: ""
@@ -60,4 +62,7 @@ sampleTwin:
   liveAPITokenSecretRef:
     name: ""
     key: api-token
+# Lab only: allow private/loopback artifact URLs.
 artifactAllowPrivate: "0"
+# Fail closed: require expectedDigest when artifactSource.url is set.
+artifactRequireURLDigest: "0"

@@ -123,6 +123,17 @@ artifact size/DNS fail-closed. See [release-1.2.1.md](release-1.2.1.md).
 
 See [release-1.3.md](release-1.3.md).
 
+## v1.3.1 — Pilot correctness ✅
+
+- [x] Deterministic full USD bundle (`bundle.tar.gz` + `assets/`) — ADR-0022
+- [x] pxr Stage.Open of extracted output in E2E
+- [x] Stable output digest/revision after restart
+- [x] Controller-owned workspace cleanup only
+- [x] Helm `artifactRequireURLDigest` + securityContext
+- [x] Trivy streaming-sidecar
+
+See [release-1.3.1.md](release-1.3.1.md).
+
 ## Architecture decisions
 
 - [ADR-0001](adr/0001-gitops-for-digital-twins.md) — GitOps for digital twins

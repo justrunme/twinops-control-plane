@@ -68,6 +68,8 @@ jobs:
         run: docker build -f Dockerfile.operator -t twinops-operator:secscan .
       - name: Build live image
         run: docker build -f Dockerfile.live -t twinops-live:secscan .
+      - name: Build streaming-sidecar image
+        run: docker build -f Dockerfile.streaming-sidecar -t twinops-streaming-sidecar:secscan .
       # docker-run avoids flaky trivy-action binary install (install.sh exit 1 on some runners).
       - name: Trivy operator
         run: |
@@ -89,6 +91,16 @@ jobs:
             --ignore-unfixed \
             --scanners vuln \
             twinops-live:secscan
+      - name: Trivy streaming-sidecar
+        run: |
+          docker run --rm \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            aquasec/trivy:0.66.0 image \
+            --exit-code 1 \
+            --severity CRITICAL,HIGH \
+            --ignore-unfixed \
+            --scanners vuln \
+            twinops-streaming-sidecar:secscan
       - name: Syft SBOM (operator)
         uses: anchore/sbom-action@v0
         with:

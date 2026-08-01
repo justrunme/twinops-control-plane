@@ -81,7 +81,6 @@ metadata:
 spec:
   artifactSource:
     configMapName: ${CM_NAME}
-  outputDir: /tmp/twinops/assembly-line-a
   intervalSeconds: 10
 EOF
 
@@ -113,11 +112,43 @@ if [[ -z "${DIGEST1}" ]]; then
   DIGEST1="$(kubectl -n "$NAMESPACE" get digitaltwin assembly-line-a -o jsonpath='{.status.artifactDigest}')"
 fi
 OUT1="$(kubectl -n "$NAMESPACE" get digitaltwin assembly-line-a -o jsonpath='{.status.output.uri}')"
+OUT_DIGEST1="$(kubectl -n "$NAMESPACE" get digitaltwin assembly-line-a -o jsonpath='{.status.output.digest}')"
+OUT_REV1="$(kubectl -n "$NAMESPACE" get digitaltwin assembly-line-a -o jsonpath='{.status.output.revision}')"
 test -n "${DIGEST1}"
 test -n "${OUT1}"
+test -n "${OUT_DIGEST1}"
 echo "    inputDigest=${DIGEST1}"
 echo "    output.uri=${OUT1}"
+echo "    output.digest=${OUT_DIGEST1}"
+echo "    output.revision=${OUT_REV1}"
 kubectl -n "$NAMESPACE" get configmap assembly-line-a-output >/dev/null
+
+extract_and_validate_bundle() {
+  local extract
+  extract="$(mktemp -d)"
+  kubectl -n "$NAMESPACE" get configmap assembly-line-a-output -o jsonpath='{.binaryData.bundle\.tar\.gz}' \
+    | base64 -d >"${extract}/bundle.tar.gz"
+  mkdir -p "${extract}/out"
+  tar -xzf "${extract}/bundle.tar.gz" -C "${extract}/out"
+  test -f "${extract}/out/root.usda"
+  test -f "${extract}/out/assets/root.usda"
+  if [[ -f "${extract}/out/reconciliation-report.json" ]]; then
+    echo "error: report must not be in durable bundle" >&2
+    rm -rf "${extract}"
+    return 1
+  fi
+  if python3 -c "import pxr" 2>/dev/null; then
+    python3 "${ROOT}/scripts/validate_usd.py" "${extract}/out/root.usda" --json
+  elif [[ -x "${ROOT}/.venv/bin/python" ]] && "${ROOT}/.venv/bin/python" -c "import pxr" 2>/dev/null; then
+    "${ROOT}/.venv/bin/python" "${ROOT}/scripts/validate_usd.py" "${extract}/out/root.usda" --json
+  else
+    echo "    (pxr not installed — structural checks only)"
+  fi
+  rm -rf "${extract}"
+}
+
+echo "==> Validate published bundle (assets + root)"
+extract_and_validate_bundle
 
 echo "==> Update ConfigMap (drop desired.yaml)"
 kubectl -n "$NAMESPACE" create configmap "$CM_NAME" \
@@ -126,7 +157,7 @@ kubectl -n "$NAMESPACE" create configmap "$CM_NAME" \
   --from-file=telemetry.json="${BUNDLE}/telemetry.json" \
   --dry-run=client -o yaml | kubectl replace -f -
 
-echo -n "==> Wait digest change "
+echo -n "==> Wait input digest change "
 DIGEST2=""
 for _ in $(seq 1 90); do
   DIGEST2="$(kubectl -n "$NAMESPACE" get digitaltwin assembly-line-a -o jsonpath='{.status.inputDigest}' 2>/dev/null || true)"
@@ -142,10 +173,12 @@ done
 test -n "${DIGEST2}"
 test "${DIGEST2}" != "${DIGEST1}"
 
-OUT_DIGEST="$(kubectl -n "$NAMESPACE" get digitaltwin assembly-line-a -o jsonpath='{.status.output.digest}')"
-test -n "${OUT_DIGEST}"
+OUT_DIGEST2="$(kubectl -n "$NAMESPACE" get digitaltwin assembly-line-a -o jsonpath='{.status.output.digest}')"
+OUT_REV2="$(kubectl -n "$NAMESPACE" get digitaltwin assembly-line-a -o jsonpath='{.status.output.revision}')"
+test -n "${OUT_DIGEST2}"
+echo "    output.digest=${OUT_DIGEST2} rev=${OUT_REV2}"
 
-echo "==> Restart operator Pod (recovery)"
+echo "==> Restart operator Pod (recovery + digest stability)"
 kubectl -n "$NAMESPACE" delete pod -l app.kubernetes.io/name=twinops-operator --wait=true
 kubectl -n "$NAMESPACE" rollout status deploy/twinops-controller-manager --timeout=120s
 
@@ -156,8 +189,15 @@ DIGEST3="$(kubectl -n "$NAMESPACE" get digitaltwin assembly-line-a -o jsonpath='
 if [[ -z "${DIGEST3}" ]]; then
   DIGEST3="$(kubectl -n "$NAMESPACE" get digitaltwin assembly-line-a -o jsonpath='{.status.artifactDigest}')"
 fi
+OUT_DIGEST3="$(kubectl -n "$NAMESPACE" get digitaltwin assembly-line-a -o jsonpath='{.status.output.digest}')"
+OUT_REV3="$(kubectl -n "$NAMESPACE" get digitaltwin assembly-line-a -o jsonpath='{.status.output.revision}')"
 test "${DIGEST3}" = "${DIGEST2}"
+test "${OUT_DIGEST3}" = "${OUT_DIGEST2}"
+test "${OUT_REV3}" = "${OUT_REV2}"
 OUT3="$(kubectl -n "$NAMESPACE" get digitaltwin assembly-line-a -o jsonpath='{.status.output.uri}')"
 test -n "${OUT3}"
+echo "    inputDigest stable=${DIGEST3}"
+echo "    output.digest stable=${OUT_DIGEST3} rev=${OUT_REV3}"
+extract_and_validate_bundle
 
-echo "operator-incluster-e2e OK (phase=${PHASE2}, digest recovered, output=${OUT3})"
+echo "operator-incluster-e2e OK (phase=${PHASE2}, digests stable after restart, bundle valid)"
