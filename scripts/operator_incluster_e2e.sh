@@ -42,11 +42,13 @@ if [[ "${IMG_REPO}" == "${IMAGE}" ]]; then
 fi
 
 echo "==> Helm install operator (in-cluster)"
+kubectl create namespace "${NAMESPACE}" --dry-run=client -o yaml | kubectl apply -f -
 helm upgrade --install "${RELEASE}" deploy/helm/twinops-operator \
-  --namespace "${NAMESPACE}" --create-namespace \
+  --namespace "${NAMESPACE}" \
+  --set createNamespace=false \
   --set image.repository="${IMG_REPO}" \
   --set image.tag="${IMG_TAG}" \
-  --set image.pullPolicy=IfNotPresent \
+  --set image.pullPolicy=Never \
   --set artifactAllowPrivate=0 \
   --wait --timeout 180s
 
