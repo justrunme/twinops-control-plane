@@ -112,7 +112,7 @@ Media honesty fields/tests; atomic artifacts + ConfigMap watch + kind E2E;
 Helm sample `outputDir` under `/tmp/twinops`; finalizer workspace cleanup;
 artifact size/DNS fail-closed. See [release-1.2.1.md](release-1.2.1.md).
 
-## v1.3 — Single-twin pilot ready 🚧
+## v1.3 — Single-twin pilot ready ✅
 
 - [x] Persistent output artifact URI + digest (ConfigMap publish; OCI later) — ADR-0021
 - [x] Reconcile timeout / concurrency / build idempotency
@@ -120,6 +120,8 @@ artifact size/DNS fail-closed. See [release-1.2.1.md](release-1.2.1.md).
 - [x] In-cluster Helm operator E2E + restart recovery
 - [x] Namespace-scoped RBAC mode
 - [x] Supply-chain scans (govulncheck, pip-audit, Trivy, SBOM)
+
+See [release-1.3.md](release-1.3.md).
 
 ## Architecture decisions
 
