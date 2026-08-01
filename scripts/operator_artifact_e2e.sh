@@ -144,11 +144,21 @@ echo "    digest1=${DIGEST1}"
 echo "    stage=${STAGE}"
 
 echo "==> Update ConfigMap (remove desired.yaml to prove atomic replace)"
+# kubectl apply three-way merge keeps keys absent from the new manifest when the
+# ConfigMap was created without last-applied-configuration. replace fully swaps .data.
 kubectl -n "$NAMESPACE" create configmap "$CM_NAME" \
   --from-file=twin.yaml="${BUNDLE}/twin.yaml" \
   --from-file=root.usda="${BUNDLE}/root.usda" \
   --from-file=telemetry.json="${BUNDLE}/telemetry.json" \
-  --dry-run=client -o yaml | kubectl apply -f -
+  --dry-run=client -o yaml | kubectl replace -f -
+
+# Confirm the API object actually dropped desired.yaml before waiting on status.
+CM_KEYS="$(kubectl -n "$NAMESPACE" get configmap "$CM_NAME" -o jsonpath='{.data}' 2>/dev/null || true)"
+if echo "${CM_KEYS}" | grep -q 'desired.yaml'; then
+  echo "error: ConfigMap still has desired.yaml after replace" >&2
+  kubectl -n "$NAMESPACE" get configmap "$CM_NAME" -o yaml >&2 || true
+  exit 1
+fi
 
 echo -n "==> Wait digest change "
 DIGEST2=""
@@ -160,6 +170,12 @@ for _ in $(seq 1 90); do
   fi
   sleep 1
 done
+if [[ -z "${DIGEST2}" || "${DIGEST2}" == "${DIGEST1}" ]]; then
+  echo "timeout digest1=${DIGEST1} digest2=${DIGEST2:-none}" >&2
+  kubectl -n "$NAMESPACE" get digitaltwin assembly-line-a -o yaml | tail -50 >&2 || true
+  tail -n 80 "${MANAGER_LOG}" >&2 || true
+  exit 1
+fi
 test -n "${DIGEST2}"
 test "${DIGEST2}" != "${DIGEST1}"
 
