@@ -5,6 +5,7 @@ metadata:
   namespace: {{ .Values.namespace }}
 ---
 {{- $mode := .Values.rbac.mode | default "cluster" -}}
+{{- $buildSA := .Values.buildServiceAccountName | default "twinops-build" -}}
 {{- if eq $mode "cluster" }}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -46,11 +47,11 @@ subjects:
     name: twinops-controller-manager
     namespace: {{ .Values.namespace }}
 ---
-# Build Job service account (isolated twinops-job).
+# Build Job service account (isolated twinops-job) in the release namespace.
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: twinops-build
+  name: {{ $buildSA }}
   namespace: {{ .Values.namespace }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
@@ -72,7 +73,7 @@ roleRef:
   name: twinops-build-role
 subjects:
   - kind: ServiceAccount
-    name: twinops-build
+    name: {{ $buildSA }}
     namespace: {{ .Values.namespace }}
 {{- else if eq $mode "namespaced" }}
 apiVersion: rbac.authorization.k8s.io/v1
@@ -146,6 +147,13 @@ subjects:
     name: twinops-controller-manager
     namespace: {{ $.Values.namespace }}
 ---
+# Per-watched-namespace build SA so Jobs in factory-a can use a local SA.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ $buildSA }}
+  namespace: {{ $ns }}
+---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
@@ -167,15 +175,9 @@ roleRef:
   name: twinops-build-role
 subjects:
   - kind: ServiceAccount
-    name: twinops-build
-    namespace: {{ $.Values.namespace }}
+    name: {{ $buildSA }}
+    namespace: {{ $ns }}
 {{- end }}
----
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: twinops-build
-  namespace: {{ .Values.namespace }}
 {{- else }}
 {{- fail (printf "rbac.mode must be cluster or namespaced, got %q" $mode) }}
 {{- end }}

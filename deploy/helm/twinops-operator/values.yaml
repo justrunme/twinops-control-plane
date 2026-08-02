@@ -10,11 +10,15 @@ rbac:
 
 image:
   repository: ghcr.io/justrunme/twinops-operator
-  tag: "1.4.0"
+  tag: "1.4.1"
   pullPolicy: IfNotPresent
 
 # Worker image for spec.build.mode=job (defaults to operator image).
+# Controlled only via Helm / env — not via DigitalTwin CR (privilege-escalation safe).
 buildImage: ""
+buildServiceAccountName: twinops-build
+# Lab only: allow OCI/S3 → ConfigMap fallback when push tools/backends fail.
+allowLabFallback: "0"
 
 replicaCount: 1
 # Enable when replicaCount > 1 (requires lease RBAC).

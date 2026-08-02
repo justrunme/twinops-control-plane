@@ -55,6 +55,8 @@ help:
 	@echo "  make usd-validate    - optional pxr OpenUSD stage validation"
 	@echo "  make operator-artifact-e2e - kind ConfigMap artifact reconcile E2E"
 	@echo "  make operator-incluster-e2e - kind load + helm install operator E2E"
+	@echo "  make operator-job-e2e      - kind Job mode + input digest restart E2E"
+	@echo "  make operator-oci-s3-e2e   - kind OCI registry + MinIO publish E2E"
 	@echo "  make streaming-nvenc-smoke - NVENC ingest-bridge smoke (skips if no GPU)"
 	@echo "  make serve           - live MQTT-style simulator + drift API"
 	@echo "  make live-tls-certs  - generate lab HTTPS/mTLS certs for serve"
@@ -279,6 +281,12 @@ deploy-smoke:
 usd-validate:
 	$(BIN)/twinopsctl build examples/assembly-line/twin.yaml --out /tmp/twinops-usd-validate
 	$(BIN)/python scripts/validate_usd.py /tmp/twinops-usd-validate/root.usda --json
+
+operator-job-e2e:
+	bash scripts/operator_job_e2e.sh
+
+operator-oci-s3-e2e:
+	bash scripts/operator_oci_s3_e2e.sh
 
 operator-artifact-e2e:
 	bash scripts/operator_artifact_e2e.sh

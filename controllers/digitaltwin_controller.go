@@ -3,6 +3,7 @@ package controllers
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -80,6 +81,9 @@ func (r *DigitalTwinReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 			}
 			if err := output.DeleteConfigMap(ctx, r.Client, twin.Namespace, twin.Name); err != nil {
 				logger.Error(err, "output configmap cleanup failed")
+			}
+			if err := buildjob.CleanupResults(ctx, r.Client, twin.Namespace, twin.Name); err != nil {
+				logger.Error(err, "build-result configmap cleanup failed")
 			}
 			controllerutil.RemoveFinalizer(&twin, finalizerName)
 			if err := r.Update(ctx, &twin); err != nil {
@@ -281,7 +285,15 @@ func (r *DigitalTwinReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	message := "stage composed"
 	driftStatus := twinopsv1alpha1.DriftStatus{Status: "Unknown"}
 
-	if desiredPath != "" && observedPath != "" {
+	// Local drift needs a stage on disk. Job+OCI/S3 paths publish remotely and may
+	// leave stagePath empty — skip controller-side drift rather than fail closed.
+	canDriftLocally := desiredPath != "" && observedPath != "" && stagePath != ""
+	if canDriftLocally {
+		if _, err := os.Stat(stagePath); err != nil {
+			canDriftLocally = false
+		}
+	}
+	if canDriftLocally {
 		driftOut := filepath.Join(outputDir, "drift")
 		result, driftErr := runner.Drift(
 			buildCtx,
@@ -424,7 +436,8 @@ type jobComposeResult struct {
 	output    twinopsv1alpha1.OutputArtifact
 }
 
-// composeViaJob ensures a build Job, waits for success, then publishes durable output.
+// composeViaJob ensures a build Job keyed by input digest, waits for success,
+// then publishes durable output (or accepts Job-side OCI/S3 publish metadata).
 func (r *DigitalTwinReconciler) composeViaJob(
 	ctx context.Context,
 	twin *twinopsv1alpha1.DigitalTwin,
@@ -438,16 +451,52 @@ func (r *DigitalTwinReconciler) composeViaJob(
 	if inputCM == "" {
 		return zero, 0, fmt.Errorf("spec.build.mode=job requires artifactSource.configMapName")
 	}
+	if inputDigest == "" {
+		return zero, 0, fmt.Errorf("spec.build.mode=job requires a materialized input digest")
+	}
 
-	spec := buildjob.Spec{InputConfigMap: inputCM}
+	// Image / SA are operator-configured only (env from Helm) — never from CR.
+	spec := buildjob.Spec{
+		InputConfigMap: inputCM,
+		InputDigest:    inputDigest,
+		TwinUID:        twin.UID,
+		Revision:       twin.Status.Output.Revision + 1,
+	}
+	if spec.Revision <= 0 {
+		spec.Revision = 1
+	}
 	if twin.Spec.Build != nil {
 		spec.DeadlineSeconds = twin.Spec.Build.ActiveDeadlineSeconds
 		spec.CPURequest = twin.Spec.Build.CPURequest
 		spec.CPULimit = twin.Spec.Build.CPULimit
 		spec.MemoryRequest = twin.Spec.Build.MemoryRequest
 		spec.MemoryLimit = twin.Spec.Build.MemoryLimit
-		spec.Image = twin.Spec.Build.Image
-		spec.ServiceAccountName = twin.Spec.Build.ServiceAccountName
+	}
+	pubMode := "configmap"
+	if twin.Spec.OutputPublish != nil && twin.Spec.OutputPublish.Mode != "" {
+		pubMode = twin.Spec.OutputPublish.Mode
+	}
+	spec.PublishMode = pubMode
+	if twin.Spec.OutputPublish != nil {
+		if twin.Spec.OutputPublish.AllowLabFallback != nil && *twin.Spec.OutputPublish.AllowLabFallback {
+			spec.AllowLabFallback = true
+		}
+		if twin.Spec.OutputPublish.Repository != "" {
+			spec.OCIRepository = twin.Spec.OutputPublish.Repository
+		}
+		if twin.Spec.OutputPublish.RegistrySecretRef != nil {
+			spec.RegistrySecretRef = twin.Spec.OutputPublish.RegistrySecretRef.Name
+		}
+		if twin.Spec.OutputPublish.S3Bucket != "" {
+			spec.S3Bucket = twin.Spec.OutputPublish.S3Bucket
+			spec.S3Prefix = twin.Spec.OutputPublish.S3Prefix
+			spec.S3Endpoint = twin.Spec.OutputPublish.S3Endpoint
+			spec.S3Region = twin.Spec.OutputPublish.S3Region
+			spec.S3PathStyle = twin.Spec.OutputPublish.S3PathStyle
+		}
+		if twin.Spec.OutputPublish.S3SecretRef != nil {
+			spec.S3SecretName = twin.Spec.OutputPublish.S3SecretRef.Name
+		}
 	}
 
 	job, err := buildjob.Ensure(ctx, r.Client, twin, spec)
@@ -471,41 +520,106 @@ func (r *DigitalTwinReconciler) composeViaJob(
 		return zero, 0, fmt.Errorf("build Job %s failed", job.Name)
 	}
 
-	// Succeeded: read result ConfigMap and publish.
+	// Succeeded: read result ConfigMap.
 	var cm corev1.ConfigMap
-	cmName := buildjob.ResultConfigMapName(twin)
+	cmName := buildjob.ResultConfigMapName(twin, inputDigest)
 	if err := r.Get(ctx, types.NamespacedName{Namespace: twin.Namespace, Name: cmName}, &cm); err != nil {
 		return zero, 5 * time.Second, nil // result may lag Job completion
 	}
-	raw := cm.BinaryData[output.BundleKey]
-	if len(raw) == 0 {
-		return zero, 0, fmt.Errorf("build result ConfigMap %s missing %s", cmName, output.BundleKey)
+	// Ensure result ConfigMap is owned by the twin for GC (Jobs already have ownerRefs).
+	if err := r.ensureResultOwner(ctx, twin, &cm); err != nil {
+		return zero, 0, err
 	}
+
 	digest := cm.Annotations["twinops.io/output-digest"]
-	bundle := &output.Bundle{Bytes: raw, Digest: digest}
-	if bundle.Digest == "" {
-		// Recompute by unpacking is heavy; require annotation from twinops-job.
+	if digest == "" {
 		return zero, 0, fmt.Errorf("build result missing content digest annotation")
 	}
 
-	// Materialize stage into managed workspace for drift.
-	stageDir := filepath.Join(workspace.Managed(twin), "out")
-	_ = os.RemoveAll(stageDir)
-	if err := os.MkdirAll(stageDir, 0o755); err != nil {
-		return zero, 0, err
+	// Parse result.json for Job-side publish metadata.
+	var resultMeta struct {
+		Published    bool   `json:"published"`
+		URI          string `json:"uri"`
+		PublishName  string `json:"publishName"`
+		Revision     int64  `json:"revision"`
+		PublishMode  string `json:"publishMode"`
+		DriftSummary string `json:"driftSummary"`
 	}
-	if err := output.UnpackBundle(bytes.NewReader(raw), stageDir); err != nil {
-		return zero, 0, fmt.Errorf("unpack job result: %w", err)
+	if rawJSON, ok := cm.Data["result.json"]; ok && rawJSON != "" {
+		_ = json.Unmarshal([]byte(rawJSON), &resultMeta)
 	}
-	stagePath := filepath.Join(stageDir, "root.usda")
+
+	stagePath := ""
+	raw := cm.BinaryData[output.BundleKey]
+	if len(raw) > 0 {
+		// Materialize stage into managed workspace for subsequent drift.
+		stageDir := filepath.Join(workspace.Managed(twin), "out")
+		_ = os.RemoveAll(stageDir)
+		if err := os.MkdirAll(stageDir, 0o755); err != nil {
+			return zero, 0, err
+		}
+		if err := output.UnpackBundle(bytes.NewReader(raw), stageDir); err != nil {
+			return zero, 0, fmt.Errorf("unpack job result: %w", err)
+		}
+		stagePath = filepath.Join(stageDir, "root.usda")
+	}
+	// OCI/S3 path: no ConfigMap bundle bridge — stage stays remote; drift ran in-Job.
+	// stagePath may be empty; outer reconcile skips local drift when stage file is absent.
+	_ = resultMeta.DriftSummary
 
 	outArtifact := twin.Status.Output
-	if publishEnabled(twin.Spec.OutputPublish) {
+	now := metav1.Now()
+
+	if resultMeta.Published && resultMeta.URI != "" {
+		// Job already published to OCI/S3 — record status only (no ConfigMap re-bridge).
+		rev := resultMeta.Revision
+		if rev <= 0 {
+			rev = twin.Status.Output.Revision + 1
+			if rev <= 0 {
+				rev = 1
+			}
+		}
+		// Idempotent: same content digest → keep existing revision.
+		if twin.Status.Output.Digest == digest && twin.Status.Output.URI != "" {
+			outArtifact = twin.Status.Output
+		} else {
+			hist := append([]twinopsv1alpha1.OutputRevision{}, twin.Status.Output.History...)
+			hist = append(hist, twinopsv1alpha1.OutputRevision{
+				Revision:    rev,
+				Digest:      digest,
+				URI:         resultMeta.URI,
+				InputDigest: inputDigest,
+				PublishedAt: &now,
+			})
+			keep := 5
+			if twin.Spec.OutputPublish != nil && twin.Spec.OutputPublish.KeepRevisions > 0 {
+				keep = int(twin.Spec.OutputPublish.KeepRevisions)
+			}
+			if len(hist) > keep {
+				hist = hist[len(hist)-keep:]
+			}
+			outArtifact = twinopsv1alpha1.OutputArtifact{
+				Digest:      digest,
+				URI:         resultMeta.URI,
+				Revision:    rev,
+				StageKey:    output.StageEntry,
+				MediaType:   output.MediaType,
+				BundleKey:   output.BundleKey,
+				PublishedAt: &now,
+				History:     hist,
+			}
+			r.event(twin, corev1.EventTypeNormal, "OutputPublished",
+				fmt.Sprintf("published %s digest=%s rev=%d (job)", resultMeta.URI, digest, rev))
+		}
+	} else if publishEnabled(twin.Spec.OutputPublish) {
+		if len(raw) == 0 {
+			return zero, 0, fmt.Errorf("build result ConfigMap %s missing bundle for configmap publish", cmName)
+		}
+		bundle := &output.Bundle{Bytes: raw, Digest: digest}
 		pub, pubErr := output.PublishBundle(ctx, r.Client, twin, bundle, inputDigest)
 		if pubErr != nil {
 			return zero, 0, pubErr
 		}
-		now := metav1.Now()
 		outArtifact = twinopsv1alpha1.OutputArtifact{
 			Digest:      pub.Digest,
 			URI:         pub.URI,
@@ -523,6 +637,30 @@ func (r *DigitalTwinReconciler) composeViaJob(
 	}
 	_ = workspacePath
 	return jobComposeResult{stagePath: stagePath, output: outArtifact}, 0, nil
+}
+
+func (r *DigitalTwinReconciler) ensureResultOwner(ctx context.Context, twin *twinopsv1alpha1.DigitalTwin, cm *corev1.ConfigMap) error {
+	for _, o := range cm.OwnerReferences {
+		if o.UID == twin.UID {
+			return nil
+		}
+	}
+	ctrl := true
+	block := true
+	cm.OwnerReferences = append(cm.OwnerReferences, metav1.OwnerReference{
+		APIVersion:         twinopsv1alpha1.GroupVersion.String(),
+		Kind:               "DigitalTwin",
+		Name:               twin.Name,
+		UID:                twin.UID,
+		Controller:         &ctrl,
+		BlockOwnerDeletion: &block,
+	})
+	if cm.Labels == nil {
+		cm.Labels = map[string]string{}
+	}
+	cm.Labels["twinops.io/twin"] = twin.Name
+	cm.Labels["twinops.io/build-result"] = "true"
+	return r.Update(ctx, cm)
 }
 
 func publishEnabled(pub *twinopsv1alpha1.OutputPublish) bool {

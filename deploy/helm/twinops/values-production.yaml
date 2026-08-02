@@ -12,7 +12,7 @@ live:
   enabled: false
   image:
     repository: ghcr.io/justrunme/twinops-live
-    tag: "1.4.0"
+    tag: "1.4.1"
     pullPolicy: IfNotPresent
   apiToken: "" # set via --set or sealed secret; never commit real tokens
   webrtc: false
@@ -20,7 +20,7 @@ live:
 twinops-operator:
   image:
     repository: ghcr.io/justrunme/twinops-operator
-    tag: "1.4.0"
+    tag: "1.4.1"
     pullPolicy: IfNotPresent
   replicaCount: 1
   leaderElect: false
