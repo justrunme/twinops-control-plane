@@ -199,11 +199,21 @@ func main() {
 				"twinops.io/output-digest": bundle.Digest,
 				"twinops.io/input-digest":  inputDigest,
 				"twinops.io/publish-mode":  publishMode,
+				"twinops.io/drift-status":  drift.Status,
+				"twinops.io/drift-ran":     strconv.FormatBool(drift.Ran),
 			},
 		},
 		Data: map[string]string{
 			"result.json": string(resultJSON),
 		},
+	}
+	if drift.Summary != "" {
+		// Annotation size is limited; keep a short summary only.
+		sum := drift.Summary
+		if len(sum) > 200 {
+			sum = sum[:200]
+		}
+		cm.Annotations["twinops.io/drift-summary"] = sum
 	}
 	// Only embed full bundle for configmap mode (size-bounded). OCI/S3 results are metadata-only.
 	if !jobPublished {

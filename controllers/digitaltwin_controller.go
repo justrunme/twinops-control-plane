@@ -665,6 +665,17 @@ func (r *DigitalTwinReconciler) composeViaJob(
 			LastChecked: &nowDrift,
 		}
 	}
+	// Annotations are a durable fallback when result.json parsing lags older jobs.
+	if jobDrift == nil {
+		if st := cm.Annotations["twinops.io/drift-status"]; st != "" && st != "Unknown" {
+			nowDrift := metav1.Now()
+			jobDrift = &twinopsv1alpha1.DriftStatus{
+				Status:      st,
+				Summary:     cm.Annotations["twinops.io/drift-summary"],
+				LastChecked: &nowDrift,
+			}
+		}
+	}
 
 	stagePath := ""
 	raw := cm.BinaryData[output.BundleKey]
