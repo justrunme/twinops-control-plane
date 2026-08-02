@@ -1,0 +1,43 @@
+# Opinionated pilot / single-twin production-lean defaults for the umbrella chart.
+# Still not multi-site plant platform. Review before any shared cluster install.
+#
+#   helm upgrade --install twinops deploy/helm/twinops \
+#     -n twinops-system --create-namespace \
+#     -f deploy/helm/twinops/values-production.yaml
+
+operator:
+  enabled: true
+
+live:
+  enabled: false
+  image:
+    repository: ghcr.io/justrunme/twinops-live
+    tag: "1.3.1"
+    pullPolicy: IfNotPresent
+  apiToken: "" # set via --set or sealed secret; never commit real tokens
+  webrtc: false
+
+twinops-operator:
+  image:
+    repository: ghcr.io/justrunme/twinops-operator
+    tag: "1.3.1"
+    pullPolicy: IfNotPresent
+  replicaCount: 1
+  leaderElect: false
+  # Prefer namespaced RBAC for pilot tenancy boundaries.
+  rbac:
+    mode: namespaced
+    watchNamespaces: [] # empty → chart namespace only
+  artifactAllowPrivate: "0"
+  artifactRequireURLDigest: "1"
+  examples:
+    enabled: false
+  sampleTwin:
+    enabled: false
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: "1"
+      memory: 512Mi

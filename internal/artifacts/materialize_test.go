@@ -146,6 +146,62 @@ func TestMaterializeTarGzURLPrivateAllowed(t *testing.T) {
 	}
 }
 
+func TestMaterializeTarGzPreservesNestedPaths(t *testing.T) {
+	var buf bytes.Buffer
+	gz := gzip.NewWriter(&buf)
+	tw := tar.NewWriter(gz)
+	write := func(name string, body string) {
+		t.Helper()
+		hdr := &tar.Header{Name: name, Mode: 0o644, Size: int64(len(body))}
+		if err := tw.WriteHeader(hdr); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := tw.Write([]byte(body)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	write("twin.yaml", "apiVersion: twinops.io/v1alpha1\nkind: TwinManifest\nsource:\n  baseStage: assets/root.usda\n")
+	write("assets/root.usda", "#usda 1.0\ndef Xform \"World\" {}\n")
+	write("assets/parts/bolt.usda", "#usda 1.0\n")
+	_ = tw.Close()
+	_ = gz.Close()
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write(buf.Bytes())
+	}))
+	defer srv.Close()
+
+	dir := filepath.Join(t.TempDir(), "inputs")
+	res, err := Materialize(context.Background(), nil, Source{
+		URL:             srv.URL + "/bundle.tar.gz",
+		AllowPrivateURL: true,
+	}, dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "assets", "root.usda")); err != nil {
+		t.Fatalf("nested asset missing: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "assets", "parts", "bolt.usda")); err != nil {
+		t.Fatalf("deep nested asset missing: %v", err)
+	}
+	if res.ManifestPath == "" {
+		t.Fatal("missing manifest")
+	}
+}
+
+func TestSafeRelPathRejectsTraversal(t *testing.T) {
+	for _, bad := range []string{"../etc/passwd", "/abs", "a/../../b", `C:\windows`} {
+		if _, err := safeRelPath(bad); err == nil {
+			t.Fatalf("expected reject %q", bad)
+		}
+	}
+	ok, err := safeRelPath("./assets/root.usda")
+	if err != nil || ok != "assets/root.usda" {
+		t.Fatalf("got %q %v", ok, err)
+	}
+}
+
 func TestHashStable(t *testing.T) {
 	a := hashFiles(map[string][]byte{"b": []byte("2"), "a": []byte("1")})
 	b := hashFiles(map[string][]byte{"a": []byte("1"), "b": []byte("2")})

@@ -4,6 +4,14 @@ All notable TwinOps changes are listed here. Dates are UTC.
 
 ## Unreleased
 
+- README animated TwinOps lifecycle GIF (compressed)
+- Preserve nested paths in URL/tar/zip artifact materialize (safe relative paths; reject `..`/symlinks)
+- Helm umbrella default image tags aligned to Chart.appVersion; deploy_smoke asserts match
+- `deploy/helm/twinops/values-production.yaml` pilot-lean defaults
+- README: separate Twin manifest vs DigitalTwin CR
+- CRD CEL: artifactSource requires exactly one of configMapName/url
+- Docs: security.md / operator.md posture up to date; Syft SBOM step non-blocking on flaky action
+
 ## 1.3.1 — 2026-08-02
 
 Pilot correctness (no new product surface beyond durable output completeness):
