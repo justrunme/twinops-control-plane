@@ -59,3 +59,4 @@ deploy/helm/*/charts/
 # Large media intermediates (keep compressed assets only)
 docs/assets/*.mp4
 docs/assets/*-poster.png
+!docs/assets/twinops-lifecycle.mp4

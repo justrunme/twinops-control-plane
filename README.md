@@ -6,7 +6,8 @@
   <img src="docs/assets/twinops-lifecycle.gif" alt="TwinOps lifecycle: PLM → GitOps manifest → control plane → OpenUSD → telemetry/drift → reconcile → SYNCED" width="800" />
 </p>
 
-<p align="center"><em>TwinOps lifecycle — desired PLM/Git, rendered OpenUSD, observed telemetry, drift detection, and GitOps reconcile.</em></p>
+<p align="center"><em>TwinOps lifecycle — desired PLM/Git, rendered OpenUSD, observed telemetry, drift detection, and GitOps reconcile.<br/>
+(15&nbsp;fps · full 30s · <a href="docs/assets/twinops-lifecycle.mp4">MP4</a> for smoother local playback)</em></p>
 
 TwinOps is a **stable reference architecture** that reconciles **PLM metadata**, **OpenUSD scene composition**, and **live telemetry** into a versioned, observable digital-twin runtime.
 
