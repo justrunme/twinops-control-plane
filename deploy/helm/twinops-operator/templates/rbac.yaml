@@ -29,6 +29,9 @@ rules:
   - apiGroups: [""]
     resources: ["configmaps"]
     verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: ["batch"]
+    resources: ["jobs"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
@@ -41,6 +44,35 @@ roleRef:
 subjects:
   - kind: ServiceAccount
     name: twinops-controller-manager
+    namespace: {{ .Values.namespace }}
+---
+# Build Job service account (isolated twinops-job).
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: twinops-build
+  namespace: {{ .Values.namespace }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: twinops-build-role
+rules:
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["get", "list", "create", "update", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: twinops-build-rolebinding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: twinops-build-role
+subjects:
+  - kind: ServiceAccount
+    name: twinops-build
     namespace: {{ .Values.namespace }}
 {{- else if eq $mode "namespaced" }}
 apiVersion: rbac.authorization.k8s.io/v1
@@ -96,6 +128,9 @@ rules:
   - apiGroups: [""]
     resources: ["configmaps"]
     verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: ["batch"]
+    resources: ["jobs"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
@@ -110,7 +145,37 @@ subjects:
   - kind: ServiceAccount
     name: twinops-controller-manager
     namespace: {{ $.Values.namespace }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: twinops-build-role
+  namespace: {{ $ns }}
+rules:
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["get", "list", "create", "update", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: twinops-build-rolebinding
+  namespace: {{ $ns }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: twinops-build-role
+subjects:
+  - kind: ServiceAccount
+    name: twinops-build
+    namespace: {{ $.Values.namespace }}
 {{- end }}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: twinops-build
+  namespace: {{ .Values.namespace }}
 {{- else }}
 {{- fail (printf "rbac.mode must be cluster or namespaced, got %q" $mode) }}
 {{- end }}

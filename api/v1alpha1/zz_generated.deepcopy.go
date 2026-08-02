@@ -25,6 +25,11 @@ func (in *DigitalTwinSpec) DeepCopyInto(out *DigitalTwinSpec) {
 		*out = new(OutputPublish)
 		(*in).DeepCopyInto(*out)
 	}
+	if in.Build != nil {
+		in, out := &in.Build, &out.Build
+		*out = new(BuildIsolation)
+		**out = **in
+	}
 	if in.LiveAPITokenSecretRef != nil {
 		in, out := &in.LiveAPITokenSecretRef, &out.LiveAPITokenSecretRef
 		*out = new(SecretKeyRef)
@@ -39,6 +44,16 @@ func (in *OutputPublish) DeepCopyInto(out *OutputPublish) {
 		*out = new(bool)
 		**out = **in
 	}
+	if in.RegistrySecretRef != nil {
+		in, out := &in.RegistrySecretRef, &out.RegistrySecretRef
+		*out = new(SecretKeyRef)
+		**out = **in
+	}
+	if in.S3SecretRef != nil {
+		in, out := &in.S3SecretRef, &out.S3SecretRef
+		*out = new(SecretKeyRef)
+		**out = **in
+	}
 }
 
 func (in *OutputPublish) DeepCopy() *OutputPublish {
@@ -50,11 +65,48 @@ func (in *OutputPublish) DeepCopy() *OutputPublish {
 	return out
 }
 
+func (in *BuildIsolation) DeepCopyInto(out *BuildIsolation) {
+	*out = *in
+}
+
+func (in *BuildIsolation) DeepCopy() *BuildIsolation {
+	if in == nil {
+		return nil
+	}
+	out := new(BuildIsolation)
+	in.DeepCopyInto(out)
+	return out
+}
+
+func (in *OutputRevision) DeepCopyInto(out *OutputRevision) {
+	*out = *in
+	if in.PublishedAt != nil {
+		in, out := &in.PublishedAt, &out.PublishedAt
+		*out = (*in).DeepCopy()
+	}
+}
+
+func (in *OutputRevision) DeepCopy() *OutputRevision {
+	if in == nil {
+		return nil
+	}
+	out := new(OutputRevision)
+	in.DeepCopyInto(out)
+	return out
+}
+
 func (in *OutputArtifact) DeepCopyInto(out *OutputArtifact) {
 	*out = *in
 	if in.PublishedAt != nil {
 		in, out := &in.PublishedAt, &out.PublishedAt
 		*out = (*in).DeepCopy()
+	}
+	if in.History != nil {
+		in, out := &in.History, &out.History
+		*out = make([]OutputRevision, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
+		}
 	}
 }
 
@@ -63,6 +115,19 @@ func (in *OutputArtifact) DeepCopy() *OutputArtifact {
 		return nil
 	}
 	out := new(OutputArtifact)
+	in.DeepCopyInto(out)
+	return out
+}
+
+func (in *BuildStatus) DeepCopyInto(out *BuildStatus) {
+	*out = *in
+}
+
+func (in *BuildStatus) DeepCopy() *BuildStatus {
+	if in == nil {
+		return nil
+	}
+	out := new(BuildStatus)
 	in.DeepCopyInto(out)
 	return out
 }
@@ -144,6 +209,7 @@ func (in *DigitalTwinList) DeepCopyObject() runtime.Object {
 func (in *DigitalTwinStatus) DeepCopyInto(out *DigitalTwinStatus) {
 	*out = *in
 	in.Output.DeepCopyInto(&out.Output)
+	out.Build = in.Build
 	in.Drift.DeepCopyInto(&out.Drift)
 	in.Live.DeepCopyInto(&out.Live)
 	if in.Conditions != nil {

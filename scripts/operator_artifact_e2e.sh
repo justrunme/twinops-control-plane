@@ -187,17 +187,22 @@ fi
 OUT_URI="$(kubectl -n "$NAMESPACE" get digitaltwin assembly-line-a -o jsonpath='{.status.output.uri}')"
 OUT_DIGEST="$(kubectl -n "$NAMESPACE" get digitaltwin assembly-line-a -o jsonpath='{.status.output.digest}')"
 BUNDLE_KEY="$(kubectl -n "$NAMESPACE" get digitaltwin assembly-line-a -o jsonpath='{.status.output.bundleKey}')"
+OUT_REV="$(kubectl -n "$NAMESPACE" get digitaltwin assembly-line-a -o jsonpath='{.status.output.revision}')"
 test -n "${OUT_URI}"
 test -n "${OUT_DIGEST}"
 test "${BUNDLE_KEY}" = "bundle.tar.gz"
+test -n "${OUT_REV}"
 echo "    output.uri=${OUT_URI}"
 echo "    output.digest=${OUT_DIGEST}"
+echo "    output.revision=${OUT_REV}"
 echo "    output.bundleKey=${BUNDLE_KEY}"
-kubectl -n "$NAMESPACE" get configmap assembly-line-a-output -o jsonpath='{.metadata.annotations.twinops\.io/output-digest}' | grep -q .
+# Immutable revision ConfigMap (v1.4)
+OUT_CM="assembly-line-a-output-r${OUT_REV}"
+kubectl -n "$NAMESPACE" get configmap "${OUT_CM}" -o jsonpath='{.metadata.annotations.twinops\.io/output-digest}' | grep -q .
 
 echo "==> Extract + validate published bundle"
 EXTRACT="$(mktemp -d)"
-kubectl -n "$NAMESPACE" get configmap assembly-line-a-output -o jsonpath='{.binaryData.bundle\.tar\.gz}' \
+kubectl -n "$NAMESPACE" get configmap "${OUT_CM}" -o jsonpath='{.binaryData.bundle\.tar\.gz}' \
   | base64 -d >"${EXTRACT}/bundle.tar.gz"
 mkdir -p "${EXTRACT}/out"
 tar -xzf "${EXTRACT}/bundle.tar.gz" -C "${EXTRACT}/out"

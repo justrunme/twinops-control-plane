@@ -29,11 +29,87 @@ type OutputPublish struct {
 	// +kubebuilder:default=true
 	Enabled *bool `json:"enabled,omitempty"`
 
-	// Mode is configmap (default). Future: oci, s3.
+	// Mode selects the durable backend.
+	// configmap — immutable ConfigMap revisions (lab/kind default)
+	// oci — ORAS push to a container registry
+	// s3 — object storage (S3 / MinIO compatible)
 	// +optional
 	// +kubebuilder:default=configmap
-	// +kubebuilder:validation:Enum=configmap
+	// +kubebuilder:validation:Enum=configmap;oci;s3
 	Mode string `json:"mode,omitempty"`
+
+	// KeepRevisions is how many immutable revisions to retain (configmap mode).
+	// +optional
+	// +kubebuilder:default=5
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Maximum=50
+	KeepRevisions int32 `json:"keepRevisions,omitempty"`
+
+	// Repository is the OCI repository (e.g. ghcr.io/org/twinops-artifacts).
+	// Required when mode=oci.
+	// +optional
+	Repository string `json:"repository,omitempty"`
+
+	// RegistrySecretRef is a dockerconfigjson Secret for OCI push.
+	// +optional
+	RegistrySecretRef *SecretKeyRef `json:"registrySecretRef,omitempty"`
+
+	// S3Bucket is required when mode=s3.
+	// +optional
+	S3Bucket string `json:"s3Bucket,omitempty"`
+
+	// S3Prefix is an optional key prefix (default twinops/).
+	// +optional
+	S3Prefix string `json:"s3Prefix,omitempty"`
+
+	// S3Endpoint overrides the AWS endpoint (MinIO / custom).
+	// +optional
+	S3Endpoint string `json:"s3Endpoint,omitempty"`
+
+	// S3Region defaults to us-east-1 when empty.
+	// +optional
+	S3Region string `json:"s3Region,omitempty"`
+
+	// S3SecretRef points to a Secret with access-key-id and secret-access-key.
+	// +optional
+	S3SecretRef *SecretKeyRef `json:"s3SecretRef,omitempty"`
+
+	// S3PathStyle forces path-style addressing (MinIO).
+	// +optional
+	S3PathStyle bool `json:"s3PathStyle,omitempty"`
+}
+
+// BuildIsolation controls where twinopsctl build/drift executes.
+type BuildIsolation struct {
+	// Mode is inline (controller process, default) or job (Kubernetes Job).
+	// +optional
+	// +kubebuilder:default=inline
+	// +kubebuilder:validation:Enum=inline;job
+	Mode string `json:"mode,omitempty"`
+
+	// ActiveDeadlineSeconds is Job timeout (default 300).
+	// +optional
+	ActiveDeadlineSeconds int64 `json:"activeDeadlineSeconds,omitempty"`
+
+	// CPU request/limit for the Job container (e.g. 100m / 1).
+	// +optional
+	CPURequest string `json:"cpuRequest,omitempty"`
+	// +optional
+	CPULimit string `json:"cpuLimit,omitempty"`
+
+	// Memory request/limit for the Job container (e.g. 128Mi / 512Mi).
+	// +optional
+	MemoryRequest string `json:"memoryRequest,omitempty"`
+	// +optional
+	MemoryLimit string `json:"memoryLimit,omitempty"`
+
+	// Image overrides the worker image (defaults to operator image / env).
+	// +optional
+	Image string `json:"image,omitempty"`
+
+	// ServiceAccountName for the Job Pod (defaults to twinops-build).
+	// +optional
+	ServiceAccountName string `json:"serviceAccountName,omitempty"`
 }
 
 // DigitalTwinSpec defines the desired state of a digital twin.
@@ -60,9 +136,13 @@ type DigitalTwinSpec struct {
 	OutputDir string `json:"outputDir,omitempty"`
 
 	// OutputPublish publishes composed artifacts to a durable cluster reference.
-	// Default: ConfigMap {name}-output with digest + configmap:// URI.
+	// Default: immutable ConfigMap revisions with digest + configmap:// URI.
 	// +optional
 	OutputPublish *OutputPublish `json:"outputPublish,omitempty"`
+
+	// Build controls isolation of twinopsctl compose/drift (inline vs Job).
+	// +optional
+	Build *BuildIsolation `json:"build,omitempty"`
 
 	// IntervalSeconds controls requeue period for continuous drift checks.
 	// +optional
@@ -88,12 +168,28 @@ type DigitalTwinSpec struct {
 	LiveAPITokenSecretRef *SecretKeyRef `json:"liveAPITokenSecretRef,omitempty"`
 }
 
+// OutputRevision is one immutable published composition.
+type OutputRevision struct {
+	// Revision is the monotonic revision number.
+	Revision int64 `json:"revision,omitempty"`
+	// Digest is the content digest of the bundle.
+	Digest string `json:"digest,omitempty"`
+	// URI is the immutable reference (configmap://, oci://, s3://).
+	URI string `json:"uri,omitempty"`
+	// InputDigest is the input artifact digest that produced this revision.
+	// +optional
+	InputDigest string `json:"inputDigest,omitempty"`
+	// PublishedAt is when this revision was written.
+	// +optional
+	PublishedAt *metav1.Time `json:"publishedAt,omitempty"`
+}
+
 // OutputArtifact is a durable reference to the last published composition.
 type OutputArtifact struct {
 	// Digest is sha256 of durable content files (sorted path+payload; excludes reports).
 	// +optional
 	Digest string `json:"digest,omitempty"`
-	// URI is a cluster-stable reference, e.g. configmap://ns/name.
+	// URI is a cluster-stable reference, e.g. configmap://ns/name-output-r3 or oci://…@sha256:….
 	// +optional
 	URI string `json:"uri,omitempty"`
 	// Revision increments when the published content digest changes.
@@ -111,6 +207,25 @@ type OutputArtifact struct {
 	// PublishedAt is the last successful publish time.
 	// +optional
 	PublishedAt *metav1.Time `json:"publishedAt,omitempty"`
+	// History is recent immutable revisions (newest last).
+	// +optional
+	History []OutputRevision `json:"history,omitempty"`
+}
+
+// BuildStatus reports isolated Job progress when spec.build.mode=job.
+type BuildStatus struct {
+	// Mode echoes the effective build isolation mode.
+	// +optional
+	Mode string `json:"mode,omitempty"`
+	// JobName is the active or last Job for this generation.
+	// +optional
+	JobName string `json:"jobName,omitempty"`
+	// Phase is Pending, Running, Succeeded, or Failed.
+	// +optional
+	Phase string `json:"phase,omitempty"`
+	// Message is a human-readable build detail.
+	// +optional
+	Message string `json:"message,omitempty"`
 }
 
 // SecretKeyRef selects a key from a namespaced Secret.
@@ -179,9 +294,12 @@ type DigitalTwinStatus struct {
 	// WorkspacePath is the materialized input directory when artifactSource is used.
 	// +optional
 	WorkspacePath string `json:"workspacePath,omitempty"`
-	// Output is the durable published composition (ConfigMap URI + digest).
+	// Output is the durable published composition (URI + digest + history).
 	// +optional
 	Output OutputArtifact `json:"output,omitempty"`
+	// Build reports Job isolation status when mode=job.
+	// +optional
+	Build BuildStatus `json:"build,omitempty"`
 	// Message is a human-readable status detail.
 	Message string `json:"message,omitempty"`
 	// Drift summarizes the latest drift evaluation.
@@ -194,6 +312,9 @@ type DigitalTwinStatus struct {
 	// LastComposeGeneration is the generation for which compose+publish last succeeded.
 	// +optional
 	LastComposeGeneration int64 `json:"lastComposeGeneration,omitempty"`
+	// LastComposeInputDigest is the input digest for the last successful compose.
+	// +optional
+	LastComposeInputDigest string `json:"lastComposeInputDigest,omitempty"`
 	// Conditions mirror Kubernetes conventional status signals.
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
