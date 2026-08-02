@@ -122,19 +122,22 @@ echo "${PHASE}"
 JOB1="$(kubectl -n "$NAMESPACE" get digitaltwin "$TWIN" -o jsonpath='{.status.build.jobName}')"
 DIGEST1="$(kubectl -n "$NAMESPACE" get digitaltwin "$TWIN" -o jsonpath='{.status.inputDigest}')"
 OUT1="$(kubectl -n "$NAMESPACE" get digitaltwin "$TWIN" -o jsonpath='{.status.output.digest}')"
-test -n "${JOB1}"
-test -n "${DIGEST1}"
-test -n "${OUT1}"
+if [[ -z "${JOB1}" ]]; then
+  # Fallback: discover Job by label if status field lagged.
+  JOB1="$(kubectl -n "$NAMESPACE" get jobs -l twinops.io/twin="$TWIN" -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)"
+fi
+if [[ -z "${JOB1}" || -z "${DIGEST1}" || -z "${OUT1}" ]]; then
+  echo "error: missing status fields jobName='${JOB1}' inputDigest='${DIGEST1}' output.digest='${OUT1}'" >&2
+  kubectl -n "$NAMESPACE" get digitaltwin "$TWIN" -o yaml | tail -80 >&2
+  kubectl -n "$NAMESPACE" get jobs -l twinops.io/twin="$TWIN" -o wide >&2 || true
+  exit 1
+fi
 echo "    jobName=${JOB1}"
 echo "    inputDigest=${DIGEST1}"
 echo "    output.digest=${OUT1}"
 
 # Job name must contain digest key, not only generation number.
-DIGEST_KEY="$(python3 - <<PY
-d="${DIGEST1}".lower().removeprefix("sha256:")
-print(d[:12])
-PY
-)"
+DIGEST_KEY="$(echo "${DIGEST1}" | sed 's|^sha256:||I' | tr 'A-F' 'a-f' | cut -c1-12)"
 if [[ "${JOB1}" != *"${DIGEST_KEY}"* ]]; then
   echo "error: job name ${JOB1} does not include input digest key ${DIGEST_KEY}" >&2
   exit 1

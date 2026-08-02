@@ -379,6 +379,8 @@ func (r *DigitalTwinReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		}
 	}
 
+	// Preserve Job identity across the final status write (do not zero Build).
+	prevBuild := twin.Status.Build
 	_, err := r.patchStatus(ctx, &twin, func(status *twinopsv1alpha1.DigitalTwinStatus) {
 		status.Phase = phase
 		status.Message = message
@@ -391,13 +393,14 @@ func (r *DigitalTwinReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		status.Live = liveStatus
 		status.ObservedGeneration = twin.Generation
 		status.Build.Mode = buildMode
+		if prevBuild.JobName != "" {
+			status.Build.JobName = prevBuild.JobName
+		}
 		if !skipCompose {
 			status.LastComposeGeneration = twin.Generation
 			status.LastComposeInputDigest = inputDigest
-			if buildMode == "job" {
-				status.Build.Phase = "Succeeded"
-			} else {
-				status.Build.Phase = "Succeeded"
+			status.Build.Phase = "Succeeded"
+			if buildMode != "job" {
 				status.Build.Mode = "inline"
 			}
 		}

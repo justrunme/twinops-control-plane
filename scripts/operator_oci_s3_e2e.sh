@@ -306,7 +306,15 @@ OUT="$(wait_ready "${TWIN_JOB}")"
 echo "${OUT}"
 URI_JOB="$(kubectl -n "$NAMESPACE" get digitaltwin "$TWIN_JOB" -o jsonpath='{.status.output.uri}')"
 JOB_NAME="$(kubectl -n "$NAMESPACE" get digitaltwin "$TWIN_JOB" -o jsonpath='{.status.build.jobName}')"
-test -n "${JOB_NAME}"
+if [[ -z "${JOB_NAME}" ]]; then
+  JOB_NAME="$(kubectl -n "$NAMESPACE" get jobs -l twinops.io/twin="$TWIN_JOB" -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)"
+fi
+if [[ -z "${JOB_NAME}" ]]; then
+  echo "error: empty jobName for ${TWIN_JOB}" >&2
+  kubectl -n "$NAMESPACE" get digitaltwin "$TWIN_JOB" -o yaml | tail -60 >&2
+  kubectl -n "$NAMESPACE" get jobs -o wide >&2 || true
+  exit 1
+fi
 if [[ "${URI_JOB}" != oci://*@sha256:* ]]; then
   echo "error: job oci uri invalid: ${URI_JOB}" >&2
   exit 1
