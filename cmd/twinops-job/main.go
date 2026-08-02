@@ -5,6 +5,8 @@
 // (size-limited); the controller then mints immutable output revisions.
 // For mode=oci|s3 the Job pushes the bundle itself and returns only metadata
 // (digest + URI) so large industrial bundles never traverse a ConfigMap bridge.
+//
+// Drift is structured in result.json; a fatal drift tool error aborts before publish.
 package main
 
 import (
@@ -27,6 +29,19 @@ import (
 	"github.com/justrunme/twinops-control-plane/internal/output"
 	"github.com/justrunme/twinops-control-plane/internal/twinbuild"
 )
+
+// DriftReport is the structured drift payload written into result.json.
+type DriftReport struct {
+	Ran      bool   `json:"ran"`
+	OK       bool   `json:"ok"`
+	Error    string `json:"error,omitempty"`
+	HasDrift bool   `json:"hasDrift,omitempty"`
+	Findings int    `json:"findings,omitempty"`
+	Critical int    `json:"critical,omitempty"`
+	Warning  int    `json:"warning,omitempty"`
+	Summary  string `json:"summary,omitempty"`
+	Status   string `json:"status,omitempty"` // Synced | Detected | Unknown | Error
+}
 
 func main() {
 	var (
@@ -62,17 +77,29 @@ func main() {
 	if err != nil {
 		fail("build: %v", err)
 	}
-	_ = stage
 
 	desired := firstFile(inputDir, "desired.yaml")
 	observed := firstFile(inputDir, "telemetry.json", "observed.json")
-	driftSummary := ""
+	drift := DriftReport{Ran: false, OK: true, Status: "Unknown"}
 	if desired != "" && observed != "" {
+		drift.Ran = true
 		dr, derr := runner.Drift(ctx, desired, stage, observed, manifest, filepath.Join(outDir, "drift"))
 		if derr != nil {
-			driftSummary = derr.Error()
-		} else if dr != nil {
-			driftSummary = dr.Summary
+			// Fatal: do not publish on drift tool / report failure.
+			fail("drift: %v", derr)
+		}
+		if dr != nil {
+			drift.OK = true
+			drift.HasDrift = dr.HasDrift
+			drift.Findings = dr.Findings
+			drift.Critical = dr.Critical
+			drift.Warning = dr.Warning
+			drift.Summary = dr.Summary
+			if dr.HasDrift {
+				drift.Status = "Detected"
+			} else {
+				drift.Status = "Synced"
+			}
 		}
 	}
 
@@ -136,12 +163,14 @@ func main() {
 		"stagePath":     "root.usda",
 		"contentDigest": bundle.Digest,
 		"inputDigest":   inputDigest,
-		"driftSummary":  driftSummary,
-		"publishMode":   publishMode,
-		"published":     jobPublished,
-		"uri":           publishedURI,
-		"publishName":   publishedName,
-		"revision":      rev,
+		"drift":         drift,
+		// Legacy string field kept for older controllers / debugging.
+		"driftSummary": drift.Summary,
+		"publishMode":  publishMode,
+		"published":    jobPublished,
+		"uri":          publishedURI,
+		"publishName":  publishedName,
+		"revision":     rev,
 	}
 	resultJSON, _ := json.MarshalIndent(result, "", "  ")
 
@@ -170,11 +199,21 @@ func main() {
 				"twinops.io/output-digest": bundle.Digest,
 				"twinops.io/input-digest":  inputDigest,
 				"twinops.io/publish-mode":  publishMode,
+				"twinops.io/drift-status":  drift.Status,
+				"twinops.io/drift-ran":     strconv.FormatBool(drift.Ran),
 			},
 		},
 		Data: map[string]string{
 			"result.json": string(resultJSON),
 		},
+	}
+	if drift.Summary != "" {
+		// Annotation size is limited; keep a short summary only.
+		sum := drift.Summary
+		if len(sum) > 200 {
+			sum = sum[:200]
+		}
+		cm.Annotations["twinops.io/drift-summary"] = sum
 	}
 	// Only embed full bundle for configmap mode (size-bounded). OCI/S3 results are metadata-only.
 	if !jobPublished {
@@ -196,15 +235,14 @@ func main() {
 			fail("get result cm: %v", gerr)
 		}
 		cm.ResourceVersion = existing.ResourceVersion
-		// Preserve owner refs if controller set them later (usually not).
 		cm.OwnerReferences = existing.OwnerReferences
 		_, err = cs.CoreV1().ConfigMaps(namespace).Update(ctx, cm, metav1.UpdateOptions{})
 	}
 	if err != nil {
 		fail("write result configmap: %v", err)
 	}
-	fmt.Printf("twinops-job OK digest=%s mode=%s published=%v uri=%s cm=%s/%s\n",
-		bundle.Digest, publishMode, jobPublished, publishedURI, namespace, resultCM)
+	fmt.Printf("twinops-job OK digest=%s mode=%s published=%v drift=%s uri=%s cm=%s/%s\n",
+		bundle.Digest, publishMode, jobPublished, drift.Status, publishedURI, namespace, resultCM)
 }
 
 func firstFile(dir string, names ...string) string {

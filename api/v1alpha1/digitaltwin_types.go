@@ -313,6 +313,9 @@ type DigitalTwinStatus struct {
 	// LastComposeInputDigest is the input digest for the last successful compose.
 	// +optional
 	LastComposeInputDigest string `json:"lastComposeInputDigest,omitempty"`
+	// LastComposeExecKey is input+publish fingerprint for the last successful compose (Job isolation).
+	// +optional
+	LastComposeExecKey string `json:"lastComposeExecKey,omitempty"`
 	// Conditions mirror Kubernetes conventional status signals.
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }

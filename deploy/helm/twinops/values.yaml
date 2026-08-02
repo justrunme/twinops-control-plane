@@ -8,7 +8,7 @@ live:
   replicas: 1
   image:
     repository: ghcr.io/justrunme/twinops-live
-    tag: "1.4.1"
+    tag: "1.4.2"
     pullPolicy: IfNotPresent
   example: examples/assembly-line
   workDir: /tmp/twinops/live
@@ -32,7 +32,7 @@ live:
 # Keep image.tag in sync with Chart.appVersion (asserted by deploy_smoke).
 twinops-operator:
   image:
-    tag: "1.4.1"
+    tag: "1.4.2"
   examples:
     enabled: false
   sampleTwin:

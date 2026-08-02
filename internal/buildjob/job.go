@@ -3,6 +3,8 @@ package buildjob
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"os"
 	"strconv"
@@ -25,6 +27,7 @@ const (
 	labelBuild       = "twinops.io/build"
 	labelGeneration  = "twinops.io/generation"
 	labelInputDigest = "twinops.io/input-digest"
+	labelExecKey     = "twinops.io/exec-key"
 	labelBuildResult = "twinops.io/build-result"
 )
 
@@ -32,6 +35,8 @@ const (
 type Spec struct {
 	InputConfigMap             string
 	InputDigest                string
+	// ExecKey is the full execution fingerprint (input + publish-spec). Prefer over input-only.
+	ExecKey string
 	// Image is operator-configured only (env / Helm). Never taken from CR.
 	Image string
 	// ServiceAccountName is operator-configured only (env / Helm).
@@ -79,15 +84,71 @@ func DigestKey(inputDigest string) string {
 	return d
 }
 
-// JobName returns a stable Job name keyed by twin + input digest (not generation).
-// Changing the input ConfigMap content produces a new Job even when generation is unchanged.
-func JobName(twin *twinopsv1alpha1.DigitalTwin, inputDigest string) string {
-	return truncateName(fmt.Sprintf("%s-build-%s", twin.Name, DigestKey(inputDigest)), 63)
+// PublishFingerprint is a stable string covering publish destination fields that
+// must invalidate a finished Job when they change (mode, repo, bucket, secrets…).
+func PublishFingerprint(pub *twinopsv1alpha1.OutputPublish) string {
+	if pub == nil {
+		return "mode=configmap"
+	}
+	mode := strings.ToLower(strings.TrimSpace(pub.Mode))
+	if mode == "" {
+		mode = "configmap"
+	}
+	parts := []string{"mode=" + mode}
+	switch mode {
+	case "oci":
+		parts = append(parts, "repo="+strings.TrimSpace(pub.Repository))
+		if pub.RegistrySecretRef != nil {
+			parts = append(parts, "regSecret="+pub.RegistrySecretRef.Name)
+		}
+	case "s3":
+		parts = append(parts,
+			"bucket="+strings.TrimSpace(pub.S3Bucket),
+			"prefix="+strings.TrimSpace(pub.S3Prefix),
+			"endpoint="+strings.TrimSpace(pub.S3Endpoint),
+			"region="+strings.TrimSpace(pub.S3Region),
+			fmt.Sprintf("pathStyle=%v", pub.S3PathStyle),
+		)
+		if pub.S3SecretRef != nil {
+			parts = append(parts, "s3Secret="+pub.S3SecretRef.Name)
+		}
+	}
+	if pub.AllowLabFallback != nil && *pub.AllowLabFallback {
+		parts = append(parts, "labFallback=1")
+	}
+	return strings.Join(parts, "|")
+}
+
+// ExecutionKey combines input digest + publish fingerprint into a short hex key.
+// Changing either inputs or publish destination creates a new Job.
+func ExecutionKey(inputDigest string, pub *twinopsv1alpha1.OutputPublish) string {
+	payload := strings.TrimSpace(inputDigest) + "\n" + PublishFingerprint(pub)
+	sum := sha256.Sum256([]byte(payload))
+	return hex.EncodeToString(sum[:])[:12]
+}
+
+// JobName returns a stable Job name keyed by twin + execution key (input + publish-spec).
+func JobName(twin *twinopsv1alpha1.DigitalTwin, execKey string) string {
+	key := strings.TrimSpace(execKey)
+	if key == "" {
+		key = "unknown"
+	}
+	if len(key) > 12 {
+		key = key[:12]
+	}
+	return truncateName(fmt.Sprintf("%s-build-%s", twin.Name, key), 63)
 }
 
 // ResultConfigMapName is where the Job writes compose result metadata (+ optional bundle for configmap mode).
-func ResultConfigMapName(twin *twinopsv1alpha1.DigitalTwin, inputDigest string) string {
-	return truncateName(fmt.Sprintf("%s-build-result-%s", twin.Name, DigestKey(inputDigest)), 63)
+func ResultConfigMapName(twin *twinopsv1alpha1.DigitalTwin, execKey string) string {
+	key := strings.TrimSpace(execKey)
+	if key == "" {
+		key = "unknown"
+	}
+	if len(key) > 12 {
+		key = key[:12]
+	}
+	return truncateName(fmt.Sprintf("%s-build-result-%s", twin.Name, key), 63)
 }
 
 func truncateName(name string, max int) string {
@@ -97,13 +158,16 @@ func truncateName(name string, max int) string {
 	return name[:max]
 }
 
-// Ensure creates the Job if missing. Existing finished Jobs for a different digest are left
-// for TTL/GC; callers must use JobName for the current inputDigest.
+// Ensure creates the Job if missing. Existing finished Jobs for a different exec key are left
+// for TTL/GC; callers must use JobName for the current ExecutionKey.
 func Ensure(ctx context.Context, c client.Client, twin *twinopsv1alpha1.DigitalTwin, spec Spec) (*batchv1.Job, error) {
 	if spec.InputDigest == "" {
 		return nil, fmt.Errorf("build job requires input digest")
 	}
-	name := JobName(twin, spec.InputDigest)
+	if spec.ExecKey == "" {
+		return nil, fmt.Errorf("build job requires execution key")
+	}
+	name := JobName(twin, spec.ExecKey)
 	var job batchv1.Job
 	key := types.NamespacedName{Namespace: twin.Namespace, Name: name}
 	err := c.Get(ctx, key, &job)
@@ -151,7 +215,7 @@ func Ensure(ctx context.Context, c client.Client, twin *twinopsv1alpha1.DigitalT
 		spec.PublishMode = "configmap"
 	}
 
-	resultCM := ResultConfigMapName(twin, spec.InputDigest)
+	resultCM := ResultConfigMapName(twin, spec.ExecKey)
 	backoff := int32(1)
 	ttl := int32(600)
 	parallelism := int32(1)
@@ -271,6 +335,7 @@ func Ensure(ctx context.Context, c client.Client, twin *twinopsv1alpha1.DigitalT
 				labelBuild:       "true",
 				labelGeneration:  strconv.FormatInt(twin.Generation, 10),
 				labelInputDigest: DigestKey(spec.InputDigest),
+				labelExecKey:     spec.ExecKey,
 			},
 			OwnerReferences: []metav1.OwnerReference{{
 				APIVersion:         twinopsv1alpha1.GroupVersion.String(),
@@ -293,6 +358,7 @@ func Ensure(ctx context.Context, c client.Client, twin *twinopsv1alpha1.DigitalT
 						labelTwin:        twin.Name,
 						labelBuild:       "true",
 						labelInputDigest: DigestKey(spec.InputDigest),
+						labelExecKey:     spec.ExecKey,
 					},
 				},
 				Spec: corev1.PodSpec{

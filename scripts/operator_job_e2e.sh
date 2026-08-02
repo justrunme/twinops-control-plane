@@ -136,10 +136,14 @@ echo "    jobName=${JOB1}"
 echo "    inputDigest=${DIGEST1}"
 echo "    output.digest=${OUT1}"
 
-# Job name must contain digest key, not only generation number.
-DIGEST_KEY="$(echo "${DIGEST1}" | sed 's|^sha256:||I' | tr 'A-F' 'a-f' | cut -c1-12)"
-if [[ "${JOB1}" != *"${DIGEST_KEY}"* ]]; then
-  echo "error: job name ${JOB1} does not include input digest key ${DIGEST_KEY}" >&2
+# Job name is keyed by execution key (input + publish-spec), not generation.
+if [[ "${JOB1}" != *"-build-"* ]]; then
+  echo "error: unexpected job name ${JOB1}" >&2
+  exit 1
+fi
+# Must not be generation-only suffix like -build-1
+if [[ "${JOB1}" =~ -build-[0-9]+$ ]]; then
+  echo "error: job name ${JOB1} looks generation-keyed; want execution key" >&2
   exit 1
 fi
 

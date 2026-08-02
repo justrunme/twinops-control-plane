@@ -4,6 +4,15 @@ All notable TwinOps changes are listed here. Dates are UTC.
 
 ## Unreleased
 
+## 1.4.2 — 2026-08-02
+
+Remote isolated Job path correctness (no new product surface):
+
+- **Structured Job drift** in `result.json` → `status.drift` (Synced/Detected); fatal drift tool errors abort **before** publish
+- **Execution key** = hash(input digest + publish-spec): changing mode/repository/bucket/secrets creates a new Job
+- E2E: Job+S3 direct publish + publish-spec re-key; assert Job drift status is not Unknown
+- Docs: operator install tags → 1.4.2; Job exec-key / ConfigMap-input limits documented
+
 ## 1.4.1 — 2026-08-02
 
 Correctness release so ConfigMap/OCI/S3 + Job isolation are production-lean (not preview):
