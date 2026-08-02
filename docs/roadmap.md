@@ -134,6 +134,15 @@ See [release-1.3.md](release-1.3.md).
 
 See [release-1.3.1.md](release-1.3.1.md).
 
+## v1.4 — Immutable outputs + isolated Jobs ✅
+
+- [x] Immutable ConfigMap / OCI / S3 output revisions — ADR-0024
+- [x] `spec.build.mode=job` sandboxed Kubernetes Job — ADR-0023
+- [x] status.output.history + keepRevisions GC
+- [x] Helm build SA + Job RBAC
+
+See [release-1.4.md](release-1.4.md).
+
 ## Architecture decisions
 
 - [ADR-0001](adr/0001-gitops-for-digital-twins.md) — GitOps for digital twins

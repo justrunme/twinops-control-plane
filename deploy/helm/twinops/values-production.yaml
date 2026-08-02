@@ -12,7 +12,7 @@ live:
   enabled: false
   image:
     repository: ghcr.io/justrunme/twinops-live
-    tag: "1.3.1"
+    tag: "1.4.0"
     pullPolicy: IfNotPresent
   apiToken: "" # set via --set or sealed secret; never commit real tokens
   webrtc: false
@@ -20,7 +20,7 @@ live:
 twinops-operator:
   image:
     repository: ghcr.io/justrunme/twinops-operator
-    tag: "1.3.1"
+    tag: "1.4.0"
     pullPolicy: IfNotPresent
   replicaCount: 1
   leaderElect: false
@@ -30,6 +30,8 @@ twinops-operator:
     watchNamespaces: [] # empty → chart namespace only
   artifactAllowPrivate: "0"
   artifactRequireURLDigest: "1"
+  # Prefer isolated Jobs in production-lean installs.
+  # (set via DigitalTwin CR: spec.build.mode=job)
   examples:
     enabled: false
   sampleTwin:
