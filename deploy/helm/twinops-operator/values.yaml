@@ -10,7 +10,7 @@ rbac:
 
 image:
   repository: ghcr.io/justrunme/twinops-operator
-  tag: "1.4.2"
+  tag: "1.4.3"
   pullPolicy: IfNotPresent
 
 # Worker image for spec.build.mode=job (defaults to operator image).

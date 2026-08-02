@@ -86,7 +86,7 @@ spec:
                       default: true
                     mode:
                       type: string
-                      enum: [configmap, oci, s3]
+                      enum: [configmap, oci, s3, none]
                       default: configmap
                     keepRevisions:
                       type: integer
@@ -191,6 +191,9 @@ spec:
                     publishedAt:
                       type: string
                       format: date-time
+                    publishFingerprint:
+                      type: string
+                      description: publish destination fingerprint for idempotency
                     history:
                       type: array
                       items:

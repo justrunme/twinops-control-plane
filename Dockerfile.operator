@@ -11,12 +11,11 @@ RUN CGO_ENABLED=0 GOOS=linux go build -o /out/manager ./cmd/manager \
   && CGO_ENABLED=0 GOOS=linux go build -o /out/twinops-job ./cmd/twinops-job
 
 # Build oras from source with the same Go toolchain so image stdlib CVEs stay current.
+# Fail hard on dependency issues (no || true).
 FROM golang:1.26-bookworm AS oras
 ARG ORAS_VERSION=v1.3.3
 RUN git clone --depth 1 --branch "${ORAS_VERSION}" https://github.com/oras-project/oras.git /src \
   && cd /src \
-  && go get oras.land/oras-go/v2@v2.6.1 || true \
-  && go mod tidy || true \
   && CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/oras ./cmd/oras
 
 FROM python:3.12-slim-bookworm

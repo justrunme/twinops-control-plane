@@ -43,6 +43,19 @@ func TestExecutionKeyChangesWithPublishSpec(t *testing.T) {
 	if ExecutionKey(d2, &twinopsv1alpha1.OutputPublish{Mode: "configmap"}) == k1 {
 		t.Fatal("input digest must change execution key")
 	}
+	// enabled=false / mode=none must differ from default configmap publish.
+	off := false
+	kNone := ExecutionKey(d, &twinopsv1alpha1.OutputPublish{Mode: "none"})
+	kDis := ExecutionKey(d, &twinopsv1alpha1.OutputPublish{Mode: "oci", Repository: "x", Enabled: &off})
+	if kNone == k1 || kDis == k2 {
+		t.Fatalf("disabled publish must change exec key: none=%s dis=%s", kNone, kDis)
+	}
+	if EffectivePublishMode(&twinopsv1alpha1.OutputPublish{Mode: "oci", Enabled: &off}) != "none" {
+		t.Fatal("enabled=false must force effective mode none")
+	}
+	if PublishEnabled(&twinopsv1alpha1.OutputPublish{Mode: "none"}) {
+		t.Fatal("mode=none must disable publish")
+	}
 }
 
 func TestJobAndResultNamesKeyByExecKey(t *testing.T) {

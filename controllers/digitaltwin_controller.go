@@ -262,7 +262,7 @@ func (r *DigitalTwinReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 				return ctrl.Result{RequeueAfter: time.Duration(interval) * time.Second}, nil
 			}
 
-			if publishEnabled(twin.Spec.OutputPublish) {
+			if buildjob.PublishEnabled(twin.Spec.OutputPublish) {
 				pub, pubErr := output.PublishDir(buildCtx, r.Client, &twin, outputDir, inputDigest)
 				if pubErr != nil {
 					logger.Error(pubErr, "output publish failed")
@@ -279,14 +279,15 @@ func (r *DigitalTwinReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 				}
 				now := metav1.Now()
 				outArtifact = twinopsv1alpha1.OutputArtifact{
-					Digest:      pub.Digest,
-					URI:         pub.URI,
-					Revision:    pub.Revision,
-					StageKey:    pub.StageKey,
-					MediaType:   pub.MediaType,
-					BundleKey:   pub.BundleKey,
-					PublishedAt: &now,
-					History:     pub.History,
+					Digest:             pub.Digest,
+					URI:                pub.URI,
+					Revision:           pub.Revision,
+					StageKey:           pub.StageKey,
+					MediaType:          pub.MediaType,
+					BundleKey:          pub.BundleKey,
+					PublishedAt:        &now,
+					PublishFingerprint: pub.PublishFingerprint,
+					History:            pub.History,
 				}
 				if pub.Created {
 					r.event(&twin, corev1.EventTypeNormal, "OutputPublished",
@@ -308,6 +309,7 @@ func (r *DigitalTwinReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	// Prefer structured drift returned from Job (incl. OCI/S3 remote path).
 	if jobDrift != nil {
 		driftStatus = *jobDrift
+		twinmetrics.DriftFindings.WithLabelValues(twin.Namespace, twin.Name).Set(float64(driftStatus.Findings))
 	}
 
 	// Apply phase/message from effective drift status.
@@ -533,12 +535,9 @@ func (r *DigitalTwinReconciler) composeViaJob(
 		spec.MemoryRequest = twin.Spec.Build.MemoryRequest
 		spec.MemoryLimit = twin.Spec.Build.MemoryLimit
 	}
-	pubMode := "configmap"
-	if twin.Spec.OutputPublish != nil && twin.Spec.OutputPublish.Mode != "" {
-		pubMode = twin.Spec.OutputPublish.Mode
-	}
-	spec.PublishMode = pubMode
-	if twin.Spec.OutputPublish != nil {
+	// Respect enabled=false / mode=none so Job does not publish on its own.
+	spec.PublishMode = buildjob.EffectivePublishMode(twin.Spec.OutputPublish)
+	if twin.Spec.OutputPublish != nil && buildjob.PublishEnabled(twin.Spec.OutputPublish) {
 		if twin.Spec.OutputPublish.AllowLabFallback != nil && *twin.Spec.OutputPublish.AllowLabFallback {
 			spec.AllowLabFallback = true
 		}
@@ -695,6 +694,7 @@ func (r *DigitalTwinReconciler) composeViaJob(
 
 	outArtifact := twin.Status.Output
 	now := metav1.Now()
+	fp := buildjob.PublishFingerprint(twin.Spec.OutputPublish)
 
 	if resultMeta.Published && resultMeta.URI != "" {
 		// Job already published to OCI/S3 — record status only (no ConfigMap re-bridge).
@@ -705,8 +705,10 @@ func (r *DigitalTwinReconciler) composeViaJob(
 				rev = 1
 			}
 		}
-		// Idempotent: same content digest + URI → keep existing revision.
-		if twin.Status.Output.Digest == digest && twin.Status.Output.URI == resultMeta.URI {
+		// Idempotent: same content digest + URI + fingerprint → keep existing revision.
+		if twin.Status.Output.Digest == digest &&
+			twin.Status.Output.URI == resultMeta.URI &&
+			twin.Status.Output.PublishFingerprint == fp {
 			outArtifact = twin.Status.Output
 		} else {
 			hist := append([]twinopsv1alpha1.OutputRevision{}, twin.Status.Output.History...)
@@ -725,19 +727,20 @@ func (r *DigitalTwinReconciler) composeViaJob(
 				hist = hist[len(hist)-keep:]
 			}
 			outArtifact = twinopsv1alpha1.OutputArtifact{
-				Digest:      digest,
-				URI:         resultMeta.URI,
-				Revision:    rev,
-				StageKey:    output.StageEntry,
-				MediaType:   output.MediaType,
-				BundleKey:   output.BundleKey,
-				PublishedAt: &now,
-				History:     hist,
+				Digest:             digest,
+				URI:                resultMeta.URI,
+				Revision:           rev,
+				StageKey:           output.StageEntry,
+				MediaType:          output.MediaType,
+				BundleKey:          output.BundleKey,
+				PublishedAt:        &now,
+				PublishFingerprint: fp,
+				History:            hist,
 			}
 			r.event(twin, corev1.EventTypeNormal, "OutputPublished",
 				fmt.Sprintf("published %s digest=%s rev=%d (job)", resultMeta.URI, digest, rev))
 		}
-	} else if publishEnabled(twin.Spec.OutputPublish) {
+	} else if buildjob.PublishEnabled(twin.Spec.OutputPublish) {
 		if len(raw) == 0 {
 			return zero, 0, fmt.Errorf("build result ConfigMap %s missing bundle for configmap publish", cmName)
 		}
@@ -747,18 +750,31 @@ func (r *DigitalTwinReconciler) composeViaJob(
 			return zero, 0, pubErr
 		}
 		outArtifact = twinopsv1alpha1.OutputArtifact{
-			Digest:      pub.Digest,
-			URI:         pub.URI,
-			Revision:    pub.Revision,
-			StageKey:    pub.StageKey,
-			MediaType:   pub.MediaType,
-			BundleKey:   pub.BundleKey,
-			PublishedAt: &now,
-			History:     pub.History,
+			Digest:             pub.Digest,
+			URI:                pub.URI,
+			Revision:           pub.Revision,
+			StageKey:           pub.StageKey,
+			MediaType:          pub.MediaType,
+			BundleKey:          pub.BundleKey,
+			PublishedAt:        &now,
+			PublishFingerprint: pub.PublishFingerprint,
+			History:            pub.History,
 		}
 		if pub.Created {
 			r.event(twin, corev1.EventTypeNormal, "OutputPublished",
 				fmt.Sprintf("published %s digest=%s rev=%d", pub.URI, pub.Digest, pub.Revision))
+		}
+	} else {
+		// Publish disabled: keep content digest for skipCompose, clear URI.
+		outArtifact = twinopsv1alpha1.OutputArtifact{
+			Digest:             digest,
+			URI:                "",
+			Revision:           twin.Status.Output.Revision,
+			StageKey:           output.StageEntry,
+			MediaType:          output.MediaType,
+			BundleKey:          output.BundleKey,
+			PublishFingerprint: fp,
+			History:            twin.Status.Output.History,
 		}
 	}
 	_ = workspacePath
@@ -787,16 +803,6 @@ func (r *DigitalTwinReconciler) ensureResultOwner(ctx context.Context, twin *twi
 	cm.Labels["twinops.io/twin"] = twin.Name
 	cm.Labels["twinops.io/build-result"] = "true"
 	return r.Update(ctx, cm)
-}
-
-func publishEnabled(pub *twinopsv1alpha1.OutputPublish) bool {
-	if pub == nil {
-		return true // default on for pilot durability
-	}
-	if pub.Enabled == nil {
-		return true
-	}
-	return *pub.Enabled
 }
 
 func (r *DigitalTwinReconciler) event(twin *twinopsv1alpha1.DigitalTwin, typ, reason, msg string) {

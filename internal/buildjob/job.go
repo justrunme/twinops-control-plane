@@ -84,17 +84,46 @@ func DigestKey(inputDigest string) string {
 	return d
 }
 
-// PublishFingerprint is a stable string covering publish destination fields that
-// must invalidate a finished Job when they change (mode, repo, bucket, secrets…).
-func PublishFingerprint(pub *twinopsv1alpha1.OutputPublish) string {
+// PublishEnabled reports whether durable publish should run (default true).
+// enabled=false or mode=none disables publish (including Job-side OCI/S3).
+func PublishEnabled(pub *twinopsv1alpha1.OutputPublish) bool {
 	if pub == nil {
-		return "mode=configmap"
+		return true
+	}
+	if pub.Enabled != nil && !*pub.Enabled {
+		return false
 	}
 	mode := strings.ToLower(strings.TrimSpace(pub.Mode))
-	if mode == "" {
-		mode = "configmap"
+	return mode != "none"
+}
+
+// EffectivePublishMode is the mode passed to twinops-job / PublishBundle.
+// Returns "none" when publish is disabled.
+func EffectivePublishMode(pub *twinopsv1alpha1.OutputPublish) string {
+	if !PublishEnabled(pub) {
+		return "none"
 	}
-	parts := []string{"mode=" + mode}
+	if pub == nil || strings.TrimSpace(pub.Mode) == "" {
+		return "configmap"
+	}
+	return strings.ToLower(strings.TrimSpace(pub.Mode))
+}
+
+// PublishFingerprint is a stable string covering publish destination fields that
+// must invalidate a finished Job (and inline publish idempotency) when they change.
+func PublishFingerprint(pub *twinopsv1alpha1.OutputPublish) string {
+	mode := EffectivePublishMode(pub)
+	enabled := PublishEnabled(pub)
+	parts := []string{
+		"mode=" + mode,
+		fmt.Sprintf("enabled=%v", enabled),
+	}
+	if !enabled || mode == "none" {
+		return strings.Join(parts, "|")
+	}
+	if pub == nil {
+		return strings.Join(parts, "|")
+	}
 	switch mode {
 	case "oci":
 		parts = append(parts, "repo="+strings.TrimSpace(pub.Repository))

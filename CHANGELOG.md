@@ -4,6 +4,15 @@ All notable TwinOps changes are listed here. Dates are UTC.
 
 ## Unreleased
 
+## 1.4.3 — 2026-08-02
+
+Small correctness pass (no new product surface):
+
+- Inline publish idempotency uses **`(contentDigest, publishFingerprint)`** — changing OCI repo / S3 bucket re-publishes even if the bundle is unchanged
+- Job respects **`outputPublish.enabled: false`** and **`mode: none`** (no Job-side OCI/S3 push); `enabled` is part of the publish fingerprint
+- Job mode updates **`twinops_drift_findings`**
+- Dockerfile builds ORAS without `|| true` (fail closed on dep issues)
+
 ## 1.4.2 — 2026-08-02
 
 Remote isolated Job path correctness (no new product surface):

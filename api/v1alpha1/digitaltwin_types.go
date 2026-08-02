@@ -33,9 +33,10 @@ type OutputPublish struct {
 	// configmap — immutable ConfigMap revisions (lab/kind default)
 	// oci — ORAS push to a container registry
 	// s3 — object storage (S3 / MinIO compatible)
+	// none — skip durable publish (equivalent to enabled=false)
 	// +optional
 	// +kubebuilder:default=configmap
-	// +kubebuilder:validation:Enum=configmap;oci;s3
+	// +kubebuilder:validation:Enum=configmap;oci;s3;none
 	Mode string `json:"mode,omitempty"`
 
 	// KeepRevisions is how many immutable revisions to retain (configmap mode).
@@ -205,6 +206,10 @@ type OutputArtifact struct {
 	// PublishedAt is the last successful publish time.
 	// +optional
 	PublishedAt *metav1.Time `json:"publishedAt,omitempty"`
+	// PublishFingerprint is the destination fingerprint (mode/repo/bucket/enabled)
+	// for this URI. Used with Digest for publish idempotency.
+	// +optional
+	PublishFingerprint string `json:"publishFingerprint,omitempty"`
 	// History is recent immutable revisions (newest last).
 	// +optional
 	History []OutputRevision `json:"history,omitempty"`
