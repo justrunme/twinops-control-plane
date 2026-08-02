@@ -1,4 +1,4 @@
-# TwinOps 1.4.1 — Immutable outputs + isolated Jobs
+# TwinOps 1.4.2 — Immutable outputs + isolated Jobs
 
 Date: 2026-08-02 (UTC)
 
@@ -9,7 +9,7 @@ Graduate the single-twin pilot toward **production-lean** execution:
 1. **Immutable output revisions** (ConfigMap / OCI / S3)
 2. **Isolated compose** via Kubernetes Job + sandbox securityContext
 
-v1.4.1 hardens the paths introduced in 1.4.0 so the README claim is accurate end-to-end.
+v1.4.1 hardened OCI/S3 + Jobs; **v1.4.2** closes remote Job drift + publish-spec re-key so the isolated path is correct without caveats.
 
 ## Spec
 
@@ -44,8 +44,10 @@ spec:
 status:
   build:
     mode: job
-    jobName: assembly-line-a-build-a81f94c2aaaa   # keyed by input digest
+    jobName: assembly-line-a-build-a1b2c3d4e5f6   # keyed by execution key
     phase: Succeeded
+  drift:
+    status: Detected   # from Job structured drift (even for OCI/S3)
   output:
     uri: oci://ghcr.io/org/twinops-artifacts@sha256:…
     digest: sha256:…          # TwinOps content digest
@@ -56,14 +58,16 @@ status:
 ## Job flow
 
 ```text
-Controller materialize (SSRF policy) → input digest D
-  → Job {twin}-build-{D12} (twinops-job)
+Controller materialize (SSRF policy) → input digest D + publish fingerprint P
+  → execKey = sha256(D||P)[:12]
+  → Job {twin}-build-{execKey} (twinops-job)
+       drift (structured) → abort publish on tool failure
        configmap mode: result CM carries bundle → controller mints output-rN
-       oci/s3 mode: Job pushes directly → result CM is metadata-only
-  → status.output + history
+       oci/s3 mode: Job pushes directly → result CM is metadata-only + drift
+  → status.output + status.drift + history
 ```
 
-Changing the input ConfigMap (same CR generation) creates a **new** Job because the name includes the input digest.
+Changing the input ConfigMap **or** publish destination (mode/repo/bucket) creates a **new** Job.
 
 ## Correctness (1.4.1)
 
