@@ -11,7 +11,7 @@
 
 TwinOps is a **stable reference architecture** that reconciles **PLM metadata**, **OpenUSD scene composition**, and **live telemetry** into a versioned, observable digital-twin runtime.
 
-> Status: **v1.4.0** — single-twin production-lean: immutable output revisions (ConfigMap/OCI/S3), isolated Job builds, deterministic USD bundles. Omniverse Kit optional. Not a multi-site plant platform.
+> Status: **v1.4.1** — single-twin production-lean: immutable output revisions (ConfigMap/OCI/S3), isolated Job builds, deterministic USD bundles. Omniverse Kit optional. Not a multi-site plant platform.
 
 [![CI](https://github.com/justrunme/twinops-control-plane/actions/workflows/ci.yml/badge.svg)](https://github.com/justrunme/twinops-control-plane/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/justrunme/twinops-control-plane?display_name=tag)](https://github.com/justrunme/twinops-control-plane/releases/latest)

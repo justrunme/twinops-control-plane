@@ -1,5 +1,4 @@
-# Experimental TwinOps operator image.
-# Includes twinopsctl (Python) so reconcile can compose/drift without a sidecar.
+# TwinOps operator image: manager + twinops-job + oras + aws CLI for OCI/S3 publish.
 FROM golang:1.26-bookworm AS builder
 WORKDIR /src
 COPY go.mod go.sum ./
@@ -12,16 +11,28 @@ RUN CGO_ENABLED=0 GOOS=linux go build -o /out/manager ./cmd/manager \
   && CGO_ENABLED=0 GOOS=linux go build -o /out/twinops-job ./cmd/twinops-job
 
 FROM python:3.12-slim-bookworm
-RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates \
-  && rm -rf /var/lib/apt/lists/*
+ARG TARGETARCH=amd64
+ARG ORAS_VERSION=1.2.3
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates curl \
+  && rm -rf /var/lib/apt/lists/* \
+  && ARCH="${TARGETARCH}" \
+  && if [ "$ARCH" = "arm64" ]; then ORAS_ARCH=arm64; else ORAS_ARCH=amd64; fi \
+  && curl -fsSL "https://github.com/oras-project/oras/releases/download/v${ORAS_VERSION}/oras_${ORAS_VERSION}_linux_${ORAS_ARCH}.tar.gz" \
+     | tar -xz -C /usr/local/bin oras \
+  && oras version
 WORKDIR /app
 COPY pyproject.toml README.md LICENSE ./
 COPY python ./python
 COPY examples ./examples
-RUN pip install --no-cache-dir .
+# twinopsctl + awscli (S3/MinIO publish). awscli via pip keeps the image simpler than awscliv2.
+RUN pip install --no-cache-dir . awscli \
+  && aws --version
 COPY --from=builder /out/manager /usr/local/bin/manager
 COPY --from=builder /out/twinops-job /usr/local/bin/twinops-job
 ENV TWINOPSCTL=/usr/local/bin/twinopsctl
 ENV TWINOPS_BUILD_IMAGE=""
+ENV TWINOPS_BUILD_SERVICE_ACCOUNT=twinops-build
+ENV HOME=/tmp
 USER 65532:65532
 ENTRYPOINT ["/usr/local/bin/manager"]

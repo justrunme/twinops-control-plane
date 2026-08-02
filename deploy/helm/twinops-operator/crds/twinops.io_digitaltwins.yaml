@@ -79,17 +79,7 @@ spec:
                   type: string
                 outputPublish:
                   type: object
-                  description: Publish composed artifacts to a durable cluster reference
-                  properties:
-                    enabled:
-                      type: boolean
-                      default: true
-                    mode:
-                      type: string
-                      enum: [configmap]
-                      default: configmap
-                outputPublish:
-                  type: object
+                  description: Publish composed artifacts to a durable cluster reference (configmap|oci|s3)
                   properties:
                     enabled:
                       type: boolean
@@ -106,6 +96,7 @@ spec:
                       maximum: 50
                     repository:
                       type: string
+                      description: OCI repository when mode=oci
                     registrySecretRef:
                       type: object
                       properties:
@@ -121,8 +112,12 @@ spec:
                       properties:
                         name: {type: string}
                         key: {type: string}
+                    allowLabFallback:
+                      type: boolean
+                      description: Lab only — fall back to ConfigMap when OCI/S3 push fails (default false, fail-closed)
                 build:
                   type: object
+                  description: Isolation mode. Image and ServiceAccount are Helm/operator-controlled (not CR fields).
                   properties:
                     mode:
                       type: string
@@ -135,8 +130,6 @@ spec:
                     cpuLimit: {type: string}
                     memoryRequest: {type: string}
                     memoryLimit: {type: string}
-                    image: {type: string}
-                    serviceAccountName: {type: string}
                 intervalSeconds:
                   type: integer
                   format: int64

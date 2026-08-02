@@ -5,6 +5,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
@@ -118,5 +119,103 @@ func TestHashFilesStable(t *testing.T) {
 	b := HashFiles(map[string][]byte{"a": []byte("1"), "b": []byte("2")})
 	if a != b {
 		t.Fatalf("%s vs %s", a, b)
+	}
+}
+
+func TestParseOrasDigest(t *testing.T) {
+	out := "Uploading ...\nPushed [registry] ghcr.io/org/repo:rev-1\nDigest: sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef\n"
+	got := parseOrasDigest(out)
+	if got != "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef" {
+		t.Fatalf("got %q", got)
+	}
+	if parseOrasDigest("no digest here") != "" {
+		t.Fatal("expected empty")
+	}
+}
+
+func TestOCIS3FailClosedWithoutFallback(t *testing.T) {
+	// Unset lab fallback env so fail-closed is enforced.
+	t.Setenv("TWINOPS_ALLOW_LAB_FALLBACK", "0")
+	t.Setenv("TWINOPS_OCI_PUSH_CMD", "false") // force push failure
+
+	scheme := runtime.NewScheme()
+	_ = corev1.AddToScheme(scheme)
+	_ = twinopsv1alpha1.AddToScheme(scheme)
+
+	dir := t.TempDir()
+	_ = os.WriteFile(filepath.Join(dir, "root.usda"), []byte("#usda 1.0\ndef Xform \"World\" {}\n"), 0o644)
+	bundle, err := BuildBundle(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	twin := &twinopsv1alpha1.DigitalTwin{
+		ObjectMeta: metav1.ObjectMeta{Name: "t", Namespace: "ns", UID: "u1"},
+		Spec: twinopsv1alpha1.DigitalTwinSpec{
+			OutputPublish: &twinopsv1alpha1.OutputPublish{
+				Mode:       "oci",
+				Repository: "localhost:5000/twinops-artifacts",
+				// AllowLabFallback intentionally nil/false
+			},
+		},
+	}
+	c := fake.NewClientBuilder().WithScheme(scheme).WithObjects(twin).Build()
+	_, _, err = publishOCI(context.Background(), c, twin, bundle, 1, "sha256:in")
+	if err == nil {
+		t.Fatal("expected fail-closed oci error")
+	}
+	if !strings.Contains(err.Error(), "fail-closed") {
+		t.Fatalf("expected fail-closed message, got %v", err)
+	}
+
+	twin.Spec.OutputPublish = &twinopsv1alpha1.OutputPublish{
+		Mode:     "s3",
+		S3Bucket: "twinops",
+	}
+	// aws will fail (no credentials / no server)
+	_, _, err = publishS3(context.Background(), c, twin, bundle, 1, "sha256:in")
+	if err == nil {
+		t.Fatal("expected fail-closed s3 error")
+	}
+	if !strings.Contains(err.Error(), "fail-closed") {
+		t.Fatalf("expected fail-closed message, got %v", err)
+	}
+}
+
+func TestOCILabFallbackWhenAllowed(t *testing.T) {
+	t.Setenv("TWINOPS_ALLOW_LAB_FALLBACK", "0")
+	t.Setenv("TWINOPS_OCI_PUSH_CMD", "false")
+
+	scheme := runtime.NewScheme()
+	_ = corev1.AddToScheme(scheme)
+	_ = twinopsv1alpha1.AddToScheme(scheme)
+
+	dir := t.TempDir()
+	_ = os.WriteFile(filepath.Join(dir, "root.usda"), []byte("#usda 1.0\ndef Xform \"World\" {}\n"), 0o644)
+	bundle, err := BuildBundle(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	allow := true
+	twin := &twinopsv1alpha1.DigitalTwin{
+		ObjectMeta: metav1.ObjectMeta{Name: "t", Namespace: "ns", UID: "u1"},
+		Spec: twinopsv1alpha1.DigitalTwinSpec{
+			OutputPublish: &twinopsv1alpha1.OutputPublish{
+				Mode:             "oci",
+				Repository:       "localhost:5000/twinops-artifacts",
+				AllowLabFallback: &allow,
+			},
+		},
+	}
+	c := fake.NewClientBuilder().WithScheme(scheme).WithObjects(twin).Build()
+	uri, name, err := publishOCI(context.Background(), c, twin, bundle, 1, "sha256:in")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.HasPrefix(uri, "configmap://") || !strings.Contains(uri, "labFallback=1") {
+		t.Fatalf("expected configmap lab fallback uri, got %s", uri)
+	}
+	if name == "" {
+		t.Fatal("expected revision configmap name")
 	}
 }
