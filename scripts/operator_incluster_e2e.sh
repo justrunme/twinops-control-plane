@@ -65,7 +65,8 @@ cp "${ROOT}/examples/assembly-line/desired.yaml" "${BUNDLE}/desired.yaml"
 cp "${ROOT}/examples/assembly-line/telemetry.json" "${BUNDLE}/telemetry.json"
 
 kubectl -n "$NAMESPACE" delete digitaltwin assembly-line-a --ignore-not-found
-kubectl -n "$NAMESPACE" delete configmap "$CM_NAME" assembly-line-a-output --ignore-not-found
+kubectl -n "$NAMESPACE" delete configmap "$CM_NAME" --ignore-not-found
+kubectl -n "$NAMESPACE" delete configmap -l twinops.io/twin=assembly-line-a --ignore-not-found
 kubectl -n "$NAMESPACE" create configmap "$CM_NAME" \
   --from-file=twin.yaml="${BUNDLE}/twin.yaml" \
   --from-file=root.usda="${BUNDLE}/root.usda" \
@@ -121,12 +122,14 @@ echo "    inputDigest=${DIGEST1}"
 echo "    output.uri=${OUT1}"
 echo "    output.digest=${OUT_DIGEST1}"
 echo "    output.revision=${OUT_REV1}"
-kubectl -n "$NAMESPACE" get configmap assembly-line-a-output >/dev/null
+kubectl -n "$NAMESPACE" get configmap "assembly-line-a-output-r${OUT_REV1}" >/dev/null
 
 extract_and_validate_bundle() {
-  local extract
+  local extract rev cm
   extract="$(mktemp -d)"
-  kubectl -n "$NAMESPACE" get configmap assembly-line-a-output -o jsonpath='{.binaryData.bundle\.tar\.gz}' \
+  rev="$(kubectl -n "$NAMESPACE" get digitaltwin assembly-line-a -o jsonpath='{.status.output.revision}')"
+  cm="assembly-line-a-output-r${rev}"
+  kubectl -n "$NAMESPACE" get configmap "${cm}" -o jsonpath='{.binaryData.bundle\.tar\.gz}' \
     | base64 -d >"${extract}/bundle.tar.gz"
   mkdir -p "${extract}/out"
   tar -xzf "${extract}/bundle.tar.gz" -C "${extract}/out"

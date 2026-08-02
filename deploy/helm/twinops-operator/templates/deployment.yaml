@@ -69,6 +69,10 @@ spec:
               value: {{ .Values.artifactAllowPrivate | default "0" | quote }}
             - name: TWINOPS_ARTIFACT_REQUIRE_URL_DIGEST
               value: {{ .Values.artifactRequireURLDigest | default "0" | quote }}
+            - name: TWINOPS_OPERATOR_IMAGE
+              value: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+            - name: TWINOPS_BUILD_IMAGE
+              value: {{ .Values.buildImage | default (printf "%s:%s" .Values.image.repository .Values.image.tag) | quote }}
           volumeMounts:
             # Single emptyDir covers managed workspace /tmp/twinops/<ns>/<uid>.
             - name: tmp

@@ -23,7 +23,7 @@ OpenUSD layers + variants
 Runtime (optional): Omniverse Kit · web UI · lab WebRTC
 ```
 
-> Status: **v1.3.1** — single-twin pilot: deterministic durable USD bundle (`bundle.tar.gz` + assets), in-cluster Helm E2E with Stage.Open + restart digest stability, safe workspace cleanup. Omniverse Kit optional. Not a multi-site plant platform.
+> Status: **v1.4.0** — single-twin production-lean: immutable output revisions (ConfigMap/OCI/S3), isolated Job builds, deterministic USD bundles. Omniverse Kit optional. Not a multi-site plant platform.
 
 [![CI](https://github.com/justrunme/twinops-control-plane/actions/workflows/ci.yml/badge.svg)](https://github.com/justrunme/twinops-control-plane/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/justrunme/twinops-control-plane?display_name=tag)](https://github.com/justrunme/twinops-control-plane/releases/latest)
@@ -85,7 +85,7 @@ Core TwinOps                         Optional runtimes
 
 Full one-pager: [docs/architecture-one-pager.md](docs/architecture-one-pager.md).  
 Frozen contracts: [docs/stability.md](docs/stability.md).  
-Current release: [docs/release-1.3.1.md](docs/release-1.3.1.md) · operator: [docs/operator.md](docs/operator.md).
+Current release: [docs/release-1.4.md](docs/release-1.4.md) · operator: [docs/operator.md](docs/operator.md).
 
 ---
 

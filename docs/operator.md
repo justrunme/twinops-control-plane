@@ -1,13 +1,14 @@
 # Kubernetes operator
 
-Pilot-ready DigitalTwin controller (single-twin) that reconciles:
+Single-twin controller (v1.4 production-lean) that reconciles:
 
 ```text
 DigitalTwin CR
-   → twinopsctl build
-   → twinopsctl drift (optional)
-   → optional live API probe (spec.liveAPIURL)
-   → status.phase / status.drift / status.live
+   → materialize artifactSource
+   → build (inline twinopsctl | isolated Job twinops-job)
+   → publish immutable output revision (configmap / oci / s3)
+   → drift + optional live API probe
+   → status.phase / status.output / status.build / status.drift
 ```
 
 ## Toolchain
@@ -28,35 +29,56 @@ The manager mounts a writable **emptyDir** at `/tmp`. Every twin uses a
 wiping another twin’s tree). On delete the finalizer removes only the managed
 workspace plus the published `{name}-output` ConfigMap.
 
-## Durable output (v1.3.1)
+## Durable output (v1.4 immutable revisions)
 
-After compose, the operator publishes a **deterministic** `bundle.tar.gz`
-(recursive USDA + `assets/`, no volatile reports) to ConfigMap
-`{digitaltwin}-output` and sets:
+After compose, the operator builds a **deterministic** `bundle.tar.gz` and publishes
+an **immutable** revision (default ConfigMap mode):
+
+```text
+{name}-output-r{N}   # immutable: true
+{name}-output        # optional mutable index (latest pointer)
+```
 
 ```yaml
 status:
   inputDigest: sha256:...
   output:
-    uri: configmap://twinops-system/assembly-line-a-output
-    digest: sha256:...          # content digest (stable across rebuild)
-    revision: 1
+    uri: configmap://twinops-system/assembly-line-a-output-r2
+    digest: sha256:...
+    revision: 2
     mediaType: application/vnd.twinops.bundle.v1+tar+gzip
     bundleKey: bundle.tar.gz
-    stageKey: root.usda
+    history: [...]
+  build:
+    mode: inline   # or job
+    phase: Succeeded
 ```
 
 Extract:
 
 ```bash
-kubectl get cm assembly-line-a-output -n twinops-system \
+kubectl get cm assembly-line-a-output-r2 -n twinops-system \
   -o jsonpath='{.binaryData.bundle\.tar\.gz}' | base64 -d | tar -tzf -
 ```
+
+Modes: `configmap` (default) · `oci` · `s3` — see [ADR-0024](adr/0024-immutable-output-revisions.md).
+
+### Isolated Job builds (v1.4)
+
+```yaml
+spec:
+  build:
+    mode: job
+    activeDeadlineSeconds: 300
+```
+
+Requires `artifactSource.configMapName`. Job SA `twinops-build` + RBAC ship in Helm.
+See [ADR-0023](adr/0023-isolated-build-job.md).
 
 Workspace is always `/tmp/twinops/<namespace>/<uid>` (finalizer-safe).
 `spec.outputDir` is ignored for cleanup.
 
-Disable with `spec.outputPublish.enabled: false`. Manager flags:
+Disable publish with `spec.outputPublish.enabled: false`. Manager flags:
 
 ```text
 --build-timeout=120s
