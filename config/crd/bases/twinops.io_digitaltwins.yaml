@@ -88,6 +88,55 @@ spec:
                       type: string
                       enum: [configmap]
                       default: configmap
+                outputPublish:
+                  type: object
+                  properties:
+                    enabled:
+                      type: boolean
+                      default: true
+                    mode:
+                      type: string
+                      enum: [configmap, oci, s3]
+                      default: configmap
+                    keepRevisions:
+                      type: integer
+                      format: int32
+                      default: 5
+                      minimum: 1
+                      maximum: 50
+                    repository:
+                      type: string
+                    registrySecretRef:
+                      type: object
+                      properties:
+                        name: {type: string}
+                        key: {type: string}
+                    s3Bucket: {type: string}
+                    s3Prefix: {type: string}
+                    s3Endpoint: {type: string}
+                    s3Region: {type: string}
+                    s3PathStyle: {type: boolean}
+                    s3SecretRef:
+                      type: object
+                      properties:
+                        name: {type: string}
+                        key: {type: string}
+                build:
+                  type: object
+                  properties:
+                    mode:
+                      type: string
+                      enum: [inline, job]
+                      default: inline
+                    activeDeadlineSeconds:
+                      type: integer
+                      format: int64
+                    cpuRequest: {type: string}
+                    cpuLimit: {type: string}
+                    memoryRequest: {type: string}
+                    memoryLimit: {type: string}
+                    image: {type: string}
+                    serviceAccountName: {type: string}
                 intervalSeconds:
                   type: integer
                   format: int64
@@ -149,6 +198,25 @@ spec:
                     publishedAt:
                       type: string
                       format: date-time
+                    history:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          revision: {type: integer, format: int64}
+                          digest: {type: string}
+                          uri: {type: string}
+                          inputDigest: {type: string}
+                          publishedAt: {type: string, format: date-time}
+                build:
+                  type: object
+                  properties:
+                    mode: {type: string}
+                    jobName: {type: string}
+                    phase: {type: string}
+                    message: {type: string}
+                lastComposeInputDigest:
+                  type: string
                 message:
                   type: string
                 observedGeneration:

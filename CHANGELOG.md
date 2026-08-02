@@ -4,13 +4,15 @@ All notable TwinOps changes are listed here. Dates are UTC.
 
 ## Unreleased
 
-- README animated TwinOps lifecycle GIF (compressed)
-- Preserve nested paths in URL/tar/zip artifact materialize (safe relative paths; reject `..`/symlinks)
-- Helm umbrella default image tags aligned to Chart.appVersion; deploy_smoke asserts match
-- `deploy/helm/twinops/values-production.yaml` pilot-lean defaults
-- README: separate Twin manifest vs DigitalTwin CR
-- CRD CEL: artifactSource requires exactly one of configMapName/url
-- Docs: security.md / operator.md posture up to date; Syft SBOM step non-blocking on flaky action
+## 1.4.0 — 2026-08-02
+
+Production-lean single-twin control plane:
+
+- **Immutable output revisions** (ADR-0024): ConfigMap `{name}-output-r{N}` (`immutable: true`), history on status; modes `configmap|oci|s3`
+- **Isolated builds** (ADR-0023): `spec.build.mode=job` runs `twinops-job` in a sandboxed Kubernetes Job (resources, deadline, non-root)
+- OCI/S3 publish with Secret refs; lab fallback to immutable ConfigMap when push tools missing
+- Helm: build SA + Job RBAC; `TWINOPS_BUILD_IMAGE` / `TWINOPS_OPERATOR_IMAGE`
+- Keep last `keepRevisions` (default 5); same content digest does not mint a new revision
 
 ## 1.3.1 — 2026-08-02
 
