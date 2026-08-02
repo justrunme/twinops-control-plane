@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -297,35 +298,43 @@ func (r *DigitalTwinReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 
 	phase := "Ready"
 	message := "stage composed"
-	driftStatus := twinopsv1alpha1.DriftStatus{Status: "Unknown"}
+	// Preserve prior drift on skipCompose / OCI job paths without a local stage.
+	// Otherwise interval requeues rewrite status.drift back to Unknown.
+	driftStatus := twin.Status.Drift
+	if driftStatus.Status == "" {
+		driftStatus = twinopsv1alpha1.DriftStatus{Status: "Unknown"}
+	}
 
 	// Prefer structured drift returned from Job (incl. OCI/S3 remote path).
 	if jobDrift != nil {
 		driftStatus = *jobDrift
-		if driftStatus.Status == "Detected" {
-			phase = "DriftDetected"
-			if driftStatus.Summary != "" {
-				message = fmt.Sprintf("drift detected (%s)", driftStatus.Summary)
-			} else {
-				message = "drift detected"
-			}
-		} else if driftStatus.Status == "Synced" {
-			if driftStatus.Summary != "" {
-				message = fmt.Sprintf("synced (%s)", driftStatus.Summary)
-			} else {
-				message = "synced"
-			}
-		} else if driftStatus.Status == "Error" {
-			phase = "Error"
-			message = driftStatus.Summary
-			if message == "" {
-				message = "drift evaluation failed"
-			}
+	}
+
+	// Apply phase/message from effective drift status.
+	switch driftStatus.Status {
+	case "Detected":
+		phase = "DriftDetected"
+		if driftStatus.Summary != "" {
+			message = fmt.Sprintf("drift detected (%s)", driftStatus.Summary)
+		} else {
+			message = "drift detected"
+		}
+	case "Synced":
+		if driftStatus.Summary != "" {
+			message = fmt.Sprintf("synced (%s)", driftStatus.Summary)
+		} else {
+			message = "synced"
+		}
+	case "Error":
+		phase = "Error"
+		message = driftStatus.Summary
+		if message == "" {
+			message = "drift evaluation failed"
 		}
 	}
 
 	// Local drift needs a stage on disk. Job+OCI/S3 paths publish remotely and may
-	// leave stagePath empty — use Job drift instead of re-running controller-side.
+	// leave stagePath empty — use Job drift (and preserve above) instead of re-running.
 	canDriftLocally := jobDrift == nil && desiredPath != "" && observedPath != "" && stagePath != ""
 	if canDriftLocally {
 		if _, err := os.Stat(stagePath); err != nil {
@@ -590,13 +599,22 @@ func (r *DigitalTwinReconciler) composeViaJob(
 
 	// Parse result.json for Job-side publish metadata + structured drift.
 	var resultMeta struct {
-		Published   bool `json:"published"`
-		URI         string `json:"uri"`
-		PublishName string `json:"publishName"`
-		Revision    int64  `json:"revision"`
-		PublishMode string `json:"publishMode"`
-		// Structured drift (v1.4.2+).
-		Drift struct {
+		Published    bool   `json:"published"`
+		URI          string `json:"uri"`
+		PublishName  string `json:"publishName"`
+		Revision     int64  `json:"revision"`
+		PublishMode  string `json:"publishMode"`
+		Drift        json.RawMessage `json:"drift"`
+		DriftSummary string          `json:"driftSummary"`
+	}
+	if rawJSON, ok := cm.Data["result.json"]; ok && rawJSON != "" {
+		_ = json.Unmarshal([]byte(rawJSON), &resultMeta)
+	}
+
+	// Apply Job drift into status (do not drop to Unknown on OCI/S3 path).
+	var jobDrift *twinopsv1alpha1.DriftStatus
+	if len(resultMeta.Drift) > 0 && string(resultMeta.Drift) != "null" {
+		var dr struct {
 			Ran      bool   `json:"ran"`
 			OK       bool   `json:"ok"`
 			Error    string `json:"error"`
@@ -606,43 +624,43 @@ func (r *DigitalTwinReconciler) composeViaJob(
 			Warning  int    `json:"warning"`
 			Summary  string `json:"summary"`
 			Status   string `json:"status"`
-		} `json:"drift"`
-		// Legacy fallback.
-		DriftSummary string `json:"driftSummary"`
+		}
+		if err := json.Unmarshal(resultMeta.Drift, &dr); err == nil && (dr.Ran || dr.Status != "" || dr.Summary != "") {
+			nowDrift := metav1.Now()
+			ds := twinopsv1alpha1.DriftStatus{
+				Findings:    dr.Findings,
+				Critical:    dr.Critical,
+				Warning:     dr.Warning,
+				Summary:     dr.Summary,
+				LastChecked: &nowDrift,
+			}
+			switch {
+			case dr.Status != "":
+				ds.Status = dr.Status
+			case dr.HasDrift:
+				ds.Status = "Detected"
+			case dr.Ran:
+				ds.Status = "Synced"
+			default:
+				ds.Status = "Unknown"
+			}
+			if dr.Error != "" && !dr.OK {
+				ds.Status = "Error"
+				ds.Summary = dr.Error
+			}
+			jobDrift = &ds
+		}
 	}
-	if rawJSON, ok := cm.Data["result.json"]; ok && rawJSON != "" {
-		_ = json.Unmarshal([]byte(rawJSON), &resultMeta)
-	}
-
-	// Apply Job drift into status (do not drop to Unknown on OCI/S3 path).
-	var jobDrift *twinopsv1alpha1.DriftStatus
-	if resultMeta.Drift.Ran {
+	if jobDrift == nil && resultMeta.DriftSummary != "" {
 		nowDrift := metav1.Now()
-		ds := twinopsv1alpha1.DriftStatus{
-			Findings:    resultMeta.Drift.Findings,
-			Critical:    resultMeta.Drift.Critical,
-			Warning:     resultMeta.Drift.Warning,
-			Summary:     resultMeta.Drift.Summary,
-			LastChecked: &nowDrift,
+		// Legacy string only — still better than Unknown with no detail.
+		st := "Unknown"
+		if strings.Contains(strings.ToUpper(resultMeta.DriftSummary), "CRITICAL") ||
+			strings.Contains(strings.ToLower(resultMeta.DriftSummary), "drift") {
+			st = "Detected"
 		}
-		switch {
-		case resultMeta.Drift.Status != "":
-			ds.Status = resultMeta.Drift.Status
-		case resultMeta.Drift.HasDrift:
-			ds.Status = "Detected"
-		default:
-			ds.Status = "Synced"
-		}
-		if !resultMeta.Drift.OK && resultMeta.Drift.Error != "" {
-			ds.Status = "Error"
-			ds.Summary = resultMeta.Drift.Error
-		}
-		jobDrift = &ds
-	} else if resultMeta.DriftSummary != "" {
-		// Legacy result: summary only.
-		nowDrift := metav1.Now()
 		jobDrift = &twinopsv1alpha1.DriftStatus{
-			Status:      "Unknown",
+			Status:      st,
 			Summary:     resultMeta.DriftSummary,
 			LastChecked: &nowDrift,
 		}
