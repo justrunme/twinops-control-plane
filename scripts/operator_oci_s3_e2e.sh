@@ -329,13 +329,27 @@ if [[ -n "${RESULT_CM}" ]]; then
   fi
 fi
 echo "    job=${JOB_NAME} uri=${URI_JOB}"
-# Job path must surface structured drift (not Unknown with empty summary).
-DRIFT_JOB="$(kubectl -n "$NAMESPACE" get digitaltwin "$TWIN_JOB" -o jsonpath='{.status.drift.status}')"
+# Job path must surface structured drift (not Unknown). Wait briefly for status settle.
+DRIFT_JOB=""
+for _ in $(seq 1 30); do
+  DRIFT_JOB="$(kubectl -n "$NAMESPACE" get digitaltwin "$TWIN_JOB" -o jsonpath='{.status.drift.status}' 2>/dev/null || true)"
+  if [[ -n "${DRIFT_JOB}" && "${DRIFT_JOB}" != "Unknown" ]]; then
+    break
+  fi
+  sleep 2
+done
 if [[ -z "${DRIFT_JOB}" || "${DRIFT_JOB}" == "Unknown" ]]; then
-  # Sample telemetry usually produces Detected; allow Synced if fixtures change.
   echo "error: Job+OCI drift status missing/Unknown (got '${DRIFT_JOB}')" >&2
-  kubectl -n "$NAMESPACE" get digitaltwin "$TWIN_JOB" -o jsonpath='{.status}' >&2
-  echo >&2
+  kubectl -n "$NAMESPACE" get digitaltwin "$TWIN_JOB" -o jsonpath='{.status}' >&2; echo >&2
+  # Dump job result CM for diagnosis
+  RESULT_CM="$(kubectl -n "$NAMESPACE" get cm -l twinops.io/build-result=true,twinops.io/twin=${TWIN_JOB} -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)"
+  if [[ -n "${RESULT_CM}" ]]; then
+    echo "--- result CM ${RESULT_CM} ---" >&2
+    kubectl -n "$NAMESPACE" get cm "${RESULT_CM}" -o jsonpath='{.data.result\.json}' >&2; echo >&2
+    kubectl -n "$NAMESPACE" get cm "${RESULT_CM}" -o jsonpath='{.metadata.annotations}' >&2; echo >&2
+  fi
+  kubectl -n "$NAMESPACE" get jobs,pods -l twinops.io/twin=${TWIN_JOB} -o wide >&2 || true
+  kubectl -n "$NAMESPACE" logs -l twinops.io/twin=${TWIN_JOB},twinops.io/build=true --tail=80 >&2 || true
   exit 1
 fi
 echo "    drift.status=${DRIFT_JOB}"
