@@ -8,7 +8,7 @@ live:
   replicas: 1
   image:
     repository: ghcr.io/justrunme/twinops-live
-    tag: "1.2.0"
+    tag: "1.3.1"
     pullPolicy: IfNotPresent
   example: examples/assembly-line
   workDir: /tmp/twinops/live
@@ -29,9 +29,10 @@ live:
       memory: 512Mi
 
 # Forwarded into the operator subchart when using umbrella install.
+# Keep image.tag in sync with Chart.appVersion (asserted by deploy_smoke).
 twinops-operator:
   image:
-    tag: "1.2.0"
+    tag: "1.3.1"
   examples:
     enabled: false
   sampleTwin:

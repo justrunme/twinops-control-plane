@@ -15,6 +15,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -104,13 +105,20 @@ func Materialize(ctx context.Context, c client.Client, src Source, workspaceDir 
 	}
 
 	for name, data := range files {
-		path := filepath.Join(stage, name)
+		rel, err := safeRelPath(name)
+		if err != nil {
+			return nil, err
+		}
+		path := filepath.Join(stage, filepath.FromSlash(rel))
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			return nil, err
+		}
 		if err := os.WriteFile(path, data, 0o644); err != nil {
 			return nil, err
 		}
 	}
 
-	manifest := firstExisting(stage, "twin.yaml", "manifest.yaml")
+	manifest := findNamed(stage, "twin.yaml", "manifest.yaml")
 	if manifest == "" {
 		return nil, fmt.Errorf("artifact missing twin.yaml (or manifest.yaml)")
 	}
@@ -120,11 +128,13 @@ func Materialize(ctx context.Context, c client.Client, src Source, workspaceDir 
 	}
 	committed = true
 
+	// Remap absolute stage paths into final workspace.
+	relManifest, _ := filepath.Rel(stage, manifest)
 	return &Result{
 		Workspace:    workspaceDir,
-		ManifestPath: filepath.Join(workspaceDir, filepath.Base(manifest)),
-		DesiredPath:  firstExisting(workspaceDir, "desired.yaml"),
-		ObservedPath: firstExisting(workspaceDir, "telemetry.json", "observed.json"),
+		ManifestPath: filepath.Join(workspaceDir, relManifest),
+		DesiredPath:  findNamed(workspaceDir, "desired.yaml"),
+		ObservedPath: findNamed(workspaceDir, "telemetry.json", "observed.json"),
 		Digest:       digest,
 	}, nil
 }
@@ -307,16 +317,16 @@ func validateFileSet(files map[string][]byte) error {
 	var total int
 	seen := map[string]struct{}{}
 	for name, data := range files {
-		base := filepath.Base(name)
-		if base == "." || base == ".." || base == "" || strings.Contains(name, "..") {
-			return fmt.Errorf("artifact file name rejected: %q", name)
+		rel, err := safeRelPath(name)
+		if err != nil {
+			return err
 		}
-		if _, ok := seen[base]; ok {
-			return fmt.Errorf("artifact has duplicate basename %q", base)
+		if _, ok := seen[rel]; ok {
+			return fmt.Errorf("artifact has duplicate path %q", rel)
 		}
-		seen[base] = struct{}{}
+		seen[rel] = struct{}{}
 		if len(data) > MaxFileBytes {
-			return fmt.Errorf("artifact file %q exceeds per-file limit (%d bytes)", base, MaxFileBytes)
+			return fmt.Errorf("artifact file %q exceeds per-file limit (%d bytes)", rel, MaxFileBytes)
 		}
 		total += len(data)
 		if total > MaxDecompressedBytes {
@@ -324,6 +334,37 @@ func validateFileSet(files map[string][]byte) error {
 		}
 	}
 	return nil
+}
+
+// safeRelPath normalizes archive/ConfigMap keys to clean relative slash paths.
+// Rejects absolute paths, drive prefixes, and ".." traversal.
+func safeRelPath(name string) (string, error) {
+	name = strings.TrimSpace(name)
+	name = strings.ReplaceAll(name, "\\", "/")
+	// Strip a single leading ./ and optional single root folder is kept.
+	name = strings.TrimPrefix(name, "./")
+	if name == "" || name == "." {
+		return "", fmt.Errorf("artifact file name rejected: %q", name)
+	}
+	if strings.HasPrefix(name, "/") || strings.HasPrefix(name, "../") || strings.Contains(name, "/../") || strings.HasSuffix(name, "/..") || name == ".." {
+		return "", fmt.Errorf("artifact path unsafe: %q", name)
+	}
+	// Reject Windows absolute / UNC-ish
+	if len(name) >= 2 && name[1] == ':' {
+		return "", fmt.Errorf("artifact path unsafe: %q", name)
+	}
+	clean := path.Clean("/" + name)
+	clean = strings.TrimPrefix(clean, "/")
+	if clean == "" || clean == "." || strings.HasPrefix(clean, "../") || clean == ".." {
+		return "", fmt.Errorf("artifact path unsafe: %q", name)
+	}
+	// No empty segments / hidden traversal after clean
+	for _, seg := range strings.Split(clean, "/") {
+		if seg == "" || seg == "." || seg == ".." {
+			return "", fmt.Errorf("artifact path unsafe: %q", name)
+		}
+	}
+	return clean, nil
 }
 
 func isPrivateIP(ip net.IP) bool {
@@ -348,9 +389,16 @@ func unzipBytes(data []byte) (map[string][]byte, error) {
 		if f.FileInfo().IsDir() {
 			continue
 		}
-		name := filepath.Base(f.Name)
+		// Zip can store symlinks; FileInfo Mode doesn't always expose Type — skip mode bits that look like links.
+		if f.Mode()&os.ModeSymlink != 0 {
+			return nil, fmt.Errorf("zip symlink rejected: %q", f.Name)
+		}
+		name, err := safeRelPath(f.Name)
+		if err != nil {
+			return nil, fmt.Errorf("zip entry %q: %w", f.Name, err)
+		}
 		if _, exists := out[name]; exists {
-			return nil, fmt.Errorf("zip has duplicate basename %q", name)
+			return nil, fmt.Errorf("zip has duplicate path %q", name)
 		}
 		rc, err := f.Open()
 		if err != nil {
@@ -385,12 +433,20 @@ func untarGzBytes(data []byte) (map[string][]byte, error) {
 		if err != nil {
 			return nil, err
 		}
-		if hdr.Typeflag != tar.TypeReg {
+		switch hdr.Typeflag {
+		case tar.TypeReg, tar.TypeRegA:
+			// ok
+		case tar.TypeSymlink, tar.TypeLink:
+			return nil, fmt.Errorf("tar link rejected: %q", hdr.Name)
+		default:
 			continue
 		}
-		name := filepath.Base(hdr.Name)
+		name, err := safeRelPath(hdr.Name)
+		if err != nil {
+			return nil, fmt.Errorf("tar entry %q: %w", hdr.Name, err)
+		}
 		if _, exists := out[name]; exists {
-			return nil, fmt.Errorf("tar has duplicate basename %q", name)
+			return nil, fmt.Errorf("tar has duplicate path %q", name)
 		}
 		payload, err := readLimited(tr, MaxFileBytes)
 		if err != nil {
@@ -428,4 +484,27 @@ func firstExisting(dir string, names ...string) string {
 		}
 	}
 	return ""
+}
+
+// findNamed looks for basename matches at the workspace root first, then walks the tree.
+func findNamed(dir string, names ...string) string {
+	if p := firstExisting(dir, names...); p != "" {
+		return p
+	}
+	want := map[string]struct{}{}
+	for _, n := range names {
+		want[n] = struct{}{}
+	}
+	var found string
+	_ = filepath.WalkDir(dir, func(path string, d os.DirEntry, err error) error {
+		if err != nil || d.IsDir() {
+			return err
+		}
+		if _, ok := want[d.Name()]; !ok {
+			return nil
+		}
+		found = path
+		return filepath.SkipAll
+	})
+	return found
 }

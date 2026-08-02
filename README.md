@@ -2,7 +2,11 @@
 
 **GitOps Control Plane for Industrial Digital Twins**
 
-![TwinOps lifecycle](docs/assets/twinops-lifecycle.svg)
+<p align="center">
+  <img src="docs/assets/twinops-lifecycle.gif" alt="TwinOps lifecycle: PLM → GitOps manifest → control plane → OpenUSD → telemetry/drift → reconcile → SYNCED" width="800" />
+</p>
+
+<p align="center"><em>TwinOps lifecycle — desired PLM/Git, rendered OpenUSD, observed telemetry, drift detection, and GitOps reconcile.</em></p>
 
 TwinOps is a **stable reference architecture** that reconciles **PLM metadata**, **OpenUSD scene composition**, and **live telemetry** into a versioned, observable digital-twin runtime.
 
@@ -213,20 +217,25 @@ See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ---
 
-## DigitalTwin manifest
+## Two documents, two roles
+
+TwinOps uses the same `apiVersion` family for two **different** documents. Do not mix them up.
+
+### 1) Twin **manifest** (compiler input — lives *inside* the artifact)
+
+Stored as `twin.yaml` in a ConfigMap / tarball. Consumed by `twinopsctl build`.
 
 ```yaml
+# twin.yaml — what to compose (OpenUSD + PLM + telemetry mappings)
 apiVersion: twinops.io/v1alpha1
-kind: DigitalTwin
+kind: TwinManifest   # conceptual name; file may say DigitalTwin historically
 metadata:
   name: assembly-line-a
 spec:
   source:
-    baseStage: assets/root.usda
-
+    baseStage: assets/root.usda   # nested paths preserved in URL/tar artifacts
   configuration:
     variant: high-throughput
-
   telemetry:
     provider: mqtt
     endpoint: mqtt://factory-broker
@@ -234,21 +243,33 @@ spec:
       - topic: factory/robot-01/temperature
         prim: /World/Factory/LineA/Robot01
         attribute: twinops:temperature
-
   plm:
     provider: mock
     mappings:
       - itemId: "1004711"
         revision: "C"
         prim: /World/Factory/LineA/Robot01
-
-  streaming:
-    enabled: false
-    gpuClass: graphics
-    idleTimeout: 20m
 ```
 
-The compiler turns this into OpenUSD overlay layers with `twinops:*` custom attributes, references, and a selected scene variant.
+### 2) DigitalTwin **CR** (Kubernetes — tells the operator *where* the artifact is)
+
+```yaml
+# DigitalTwin CR — operator control loop, not the scene itself
+apiVersion: twinops.io/v1alpha1
+kind: DigitalTwin
+metadata:
+  name: assembly-line-a
+  namespace: twinops-system
+spec:
+  artifactSource:
+    configMapName: assembly-line-inputs   # or url: https://…/bundle.tar.gz
+    # expectedDigest: sha256:…
+  intervalSeconds: 30
+  # outputPublish.enabled defaults true → status.output.uri = configmap://…/assembly-line-a-output
+```
+
+The compiler turns the **manifest** into OpenUSD overlay layers with `twinops:*` attributes.  
+The **CR** drives materialize → build → drift → durable `bundle.tar.gz` publish.
 
 ---
 

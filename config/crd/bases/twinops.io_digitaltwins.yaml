@@ -53,6 +53,11 @@ spec:
                 artifactSource:
                   type: object
                   description: Twin inputs (exactly one of configMapName or url); preferred over hostPath
+                  x-kubernetes-validations:
+                    - rule: "!(has(self.configMapName) && self.configMapName != '' && has(self.url) && self.url != '')"
+                      message: "set exactly one of configMapName or url (not both)"
+                    - rule: "(has(self.configMapName) && self.configMapName != '') || (has(self.url) && self.url != '')"
+                      message: "artifactSource requires configMapName or url"
                   properties:
                     configMapName:
                       type: string
