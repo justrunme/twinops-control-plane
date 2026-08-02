@@ -54,6 +54,11 @@ func (in *OutputPublish) DeepCopyInto(out *OutputPublish) {
 		*out = new(SecretKeyRef)
 		**out = **in
 	}
+	if in.AllowLabFallback != nil {
+		in, out := &in.AllowLabFallback, &out.AllowLabFallback
+		*out = new(bool)
+		**out = **in
+	}
 }
 
 func (in *OutputPublish) DeepCopy() *OutputPublish {

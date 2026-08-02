@@ -51,6 +51,33 @@ if [[ "${UMBRELLA_OP_TAG}" != "${APP_VER}" ]]; then
   exit 1
 fi
 echo "    tags OK (appVersion=${APP_VER})"
+
+echo "==> CRD has no duplicate YAML keys (outputPublish)"
+python3 - <<'PY'
+from pathlib import Path
+import sys
+paths = [
+    Path("deploy/helm/twinops-operator/crds/twinops.io_digitaltwins.yaml"),
+    Path("config/crd/bases/twinops.io_digitaltwins.yaml"),
+]
+for p in paths:
+    text = p.read_text()
+    # Count top-level-ish occurrences of outputPublish under spec.properties
+    count = text.count("\n                outputPublish:")
+    if count != 1:
+        print(f"error: {p} has {count} outputPublish keys (want 1)", file=sys.stderr)
+        sys.exit(1)
+    if "serviceAccountName" in text and "build:" in text:
+        # build.serviceAccountName must not be a user CR field
+        if "\n                    serviceAccountName:" in text or "\n                    image:" in text:
+            # only flag if under build properties (indent of build fields)
+            build = text.split("build:")[1].split("intervalSeconds:")[0] if "build:" in text else ""
+            if "serviceAccountName:" in build or "\n                    image:" in build:
+                print(f"error: {p} still exposes build.image/serviceAccountName", file=sys.stderr)
+                sys.exit(1)
+print("    CRD keys OK")
+PY
+
 echo "    helm render OK"
 
 echo "==> docker build live"
@@ -98,10 +125,10 @@ else
 fi
 docker rm -f twinops-operator-smoke >/dev/null 2>&1 || true
 
-# Binary presence check
-docker run --rm --entrypoint /usr/local/bin/manager "${OP_TAG}" --help >/dev/null 2>&1 \
-  || docker run --rm --entrypoint /bin/sh "${OP_TAG}" -c 'test -x /usr/local/bin/manager && test -x /usr/local/bin/twinopsctl'
-echo "    operator binaries present"
+# Binary + publish client presence check (oras + aws required for OCI/S3).
+docker run --rm --entrypoint /bin/sh "${OP_TAG}" -c \
+  'test -x /usr/local/bin/manager && test -x /usr/local/bin/twinops-job && test -x /usr/local/bin/twinopsctl && oras version >/dev/null && aws --version >/dev/null'
+echo "    operator binaries + oras + aws present"
 
 rm -f "${RENDER}"
 echo "deploy smoke OK"

@@ -63,17 +63,32 @@ kubectl get cm assembly-line-a-output-r2 -n twinops-system \
 
 Modes: `configmap` (default) · `oci` · `s3` — see [ADR-0024](adr/0024-immutable-output-revisions.md).
 
-### Isolated Job builds (v1.4)
+### Isolated Job builds (v1.4+)
 
 ```yaml
 spec:
   build:
     mode: job
     activeDeadlineSeconds: 300
+    # image + serviceAccountName are Helm/env only (not CR) to prevent privilege escalation
 ```
 
-Requires `artifactSource.configMapName`. Job SA `twinops-build` + RBAC ship in Helm.
+Requires `artifactSource.configMapName`. Jobs are named
+`{twin}-build-{inputDigest12}` so an input ConfigMap change always starts a new Job.
+
+Helm: `buildImage`, `buildServiceAccountName` (default `twinops-build`).
+In `rbac.mode=namespaced`, the build SA is created **in each** `watchNamespaces` entry.
 See [ADR-0023](adr/0023-isolated-build-job.md).
+
+### OCI / S3 publish
+
+Fail-closed by default. Set `outputPublish.allowLabFallback: true` only for lab demos
+without a registry/MinIO. Production image includes `oras` and `aws`.
+
+```bash
+make operator-job-e2e
+make operator-oci-s3-e2e
+```
 
 Workspace is always `/tmp/twinops/<namespace>/<uid>` (finalizer-safe).
 `spec.outputDir` is ignored for cleanup.
@@ -105,6 +120,10 @@ Namespaced mode installs Role/RoleBinding per watched namespace and passes
 ```bash
 # kind + docker build + helm install + restart recovery
 bash scripts/operator_incluster_e2e.sh
+# Job keyed by input digest + re-compose on CM update
+bash scripts/operator_job_e2e.sh
+# Real OCI (local registry) + S3 (MinIO) publish
+bash scripts/operator_oci_s3_e2e.sh
 ```
 
 ## Fastest path: local cluster demo

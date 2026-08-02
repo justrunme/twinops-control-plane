@@ -73,6 +73,10 @@ spec:
               value: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
             - name: TWINOPS_BUILD_IMAGE
               value: {{ .Values.buildImage | default (printf "%s:%s" .Values.image.repository .Values.image.tag) | quote }}
+            - name: TWINOPS_BUILD_SERVICE_ACCOUNT
+              value: {{ .Values.buildServiceAccountName | default "twinops-build" | quote }}
+            - name: TWINOPS_ALLOW_LAB_FALLBACK
+              value: {{ .Values.allowLabFallback | default "0" | quote }}
           volumeMounts:
             # Single emptyDir covers managed workspace /tmp/twinops/<ns>/<uid>.
             - name: tmp

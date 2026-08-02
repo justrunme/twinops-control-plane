@@ -8,7 +8,7 @@ Navigation index for the control plane docs.
 | --- | --- |
 | Architecture overview | [architecture.md](architecture.md) |
 | Architecture one-pager | [architecture-one-pager.md](architecture-one-pager.md) |
-| **Current release (1.4.0)** | [release-1.4.md](release-1.4.md) |
+| **Current release (1.4.1)** | [release-1.4.md](release-1.4.md) |
 | Frozen contracts (1.0 baseline) | [stability.md](stability.md) |
 | 2-minute live demo | [demo.md](demo.md) |
 | E2E operational demo | [e2e-demo.md](e2e-demo.md) |
@@ -24,7 +24,7 @@ Navigation index for the control plane docs.
 
 | Version | Doc |
 | --- | --- |
-| 1.4.0 immutable outputs + Jobs | [release-1.4.md](release-1.4.md) |
+| 1.4.1 immutable outputs + Jobs | [release-1.4.md](release-1.4.md) |
 | 1.3.1 pilot correctness | [release-1.3.1.md](release-1.3.1.md) |
 | 1.3.0 pilot control plane | [release-1.3.md](release-1.3.md) |
 | 1.2.x hardening | [release-1.2.md](release-1.2.md) · [release-1.2.1.md](release-1.2.1.md) |

@@ -4,13 +4,28 @@ All notable TwinOps changes are listed here. Dates are UTC.
 
 ## Unreleased
 
+## 1.4.1 — 2026-08-02
+
+Correctness release so ConfigMap/OCI/S3 + Job isolation are production-lean (not preview):
+
+- **Jobs keyed by input digest** (`{twin}-build-{digest12}`), not CR generation — input ConfigMap updates always create a new Job
+- **Fail-closed OCI/S3** by default; ConfigMap lab fallback only with `allowLabFallback: true` / `TWINOPS_ALLOW_LAB_FALLBACK=1`
+- Operator image includes **oras + AWS CLI**; `DOCKER_CONFIG` wired for `registrySecretRef`
+- OCI URI is immutable **`oci://repo@sha256:<manifest-digest>`** (content digest stays in status)
+- **Job-side OCI/S3 publish** — large bundles never bridge through a result ConfigMap
+- Result ConfigMaps get OwnerReference + finalizer cleanup
+- Namespaced mode: **build ServiceAccount per watched namespace**
+- CR no longer accepts arbitrary `build.image` / `build.serviceAccountName` (Helm/env only)
+- CRD: single `outputPublish` schema (duplicate key removed)
+- Tests: buildjob digest keying, fail-closed publish; E2E: job input-update, local registry + MinIO
+
 ## 1.4.0 — 2026-08-02
 
 Production-lean single-twin control plane:
 
 - **Immutable output revisions** (ADR-0024): ConfigMap `{name}-output-r{N}` (`immutable: true`), history on status; modes `configmap|oci|s3`
 - **Isolated builds** (ADR-0023): `spec.build.mode=job` runs `twinops-job` in a sandboxed Kubernetes Job (resources, deadline, non-root)
-- OCI/S3 publish with Secret refs; lab fallback to immutable ConfigMap when push tools missing
+- OCI/S3 publish with Secret refs (preview quality in 1.4.0; hardened in 1.4.1)
 - Helm: build SA + Job RBAC; `TWINOPS_BUILD_IMAGE` / `TWINOPS_OPERATOR_IMAGE`
 - Keep last `keepRevisions` (default 5); same content digest does not mint a new revision
 

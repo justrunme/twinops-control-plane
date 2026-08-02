@@ -1,5 +1,10 @@
 // twinops-job runs an isolated twinopsctl build (and optional drift) then
-// writes a result ConfigMap for the controller to publish durably.
+// publishes according to TWINOPS_PUBLISH_MODE and writes a result ConfigMap.
+//
+// For mode=configmap the Job returns the full bundle via the result ConfigMap
+// (size-limited); the controller then mints immutable output revisions.
+// For mode=oci|s3 the Job pushes the bundle itself and returns only metadata
+// (digest + URI) so large industrial bundles never traverse a ConfigMap bridge.
 package main
 
 import (
@@ -9,6 +14,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
+	"strings"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -55,6 +62,7 @@ func main() {
 	if err != nil {
 		fail("build: %v", err)
 	}
+	_ = stage
 
 	desired := firstFile(inputDir, "desired.yaml")
 	observed := firstFile(inputDir, "telemetry.json", "observed.json")
@@ -62,7 +70,6 @@ func main() {
 	if desired != "" && observed != "" {
 		dr, derr := runner.Drift(ctx, desired, stage, observed, manifest, filepath.Join(outDir, "drift"))
 		if derr != nil {
-			// Non-fatal: still publish stage; controller can mark Error if needed.
 			driftSummary = derr.Error()
 		} else if dr != nil {
 			driftSummary = dr.Summary
@@ -74,11 +81,67 @@ func main() {
 		fail("bundle: %v", err)
 	}
 
+	publishMode := strings.ToLower(strings.TrimSpace(os.Getenv("TWINOPS_PUBLISH_MODE")))
+	if publishMode == "" {
+		publishMode = "configmap"
+	}
+	twinName := os.Getenv("TWINOPS_TWIN_NAME")
+	inputDigest := os.Getenv("TWINOPS_INPUT_DIGEST")
+	rev, _ := strconv.ParseInt(os.Getenv("TWINOPS_OUTPUT_REVISION"), 10, 64)
+	if rev <= 0 {
+		rev = 1
+	}
+
+	publishedURI := ""
+	publishedName := ""
+	jobPublished := false
+
+	switch publishMode {
+	case "oci":
+		repo := os.Getenv("TWINOPS_OCI_REPOSITORY")
+		uri, ref, perr := output.PublishOCIStandalone(ctx, repo, bundle, rev, inputDigest, twinName, namespace, os.Environ())
+		if perr != nil {
+			fail("oci publish: %v", perr)
+		}
+		publishedURI = uri
+		publishedName = ref
+		jobPublished = true
+	case "s3":
+		uri, key, perr := output.PublishS3Standalone(
+			ctx,
+			os.Getenv("TWINOPS_S3_BUCKET"),
+			os.Getenv("TWINOPS_S3_PREFIX"),
+			os.Getenv("TWINOPS_S3_ENDPOINT"),
+			os.Getenv("TWINOPS_S3_REGION"),
+			namespace,
+			twinName,
+			bundle,
+			rev,
+			os.Environ(),
+		)
+		if perr != nil {
+			fail("s3 publish: %v", perr)
+		}
+		publishedURI = uri
+		publishedName = key
+		jobPublished = true
+	case "configmap", "":
+		// Bundle returned to controller for immutable ConfigMap revision publish.
+	default:
+		fail("unknown TWINOPS_PUBLISH_MODE=%q", publishMode)
+	}
+
 	result := map[string]any{
 		"phase":         "Succeeded",
 		"stagePath":     "root.usda",
 		"contentDigest": bundle.Digest,
+		"inputDigest":   inputDigest,
 		"driftSummary":  driftSummary,
+		"publishMode":   publishMode,
+		"published":     jobPublished,
+		"uri":           publishedURI,
+		"publishName":   publishedName,
+		"revision":      rev,
 	}
 	resultJSON, _ := json.MarshalIndent(result, "", "  ")
 
@@ -91,26 +154,41 @@ func main() {
 		fail("clientset: %v", err)
 	}
 
+	labels := map[string]string{
+		"twinops.io/build-result": "true",
+	}
+	if twinName != "" {
+		labels["twinops.io/twin"] = twinName
+	}
+
 	cm := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      resultCM,
 			Namespace: namespace,
-			Labels: map[string]string{
-				"twinops.io/build-result": "true",
-			},
+			Labels:    labels,
 			Annotations: map[string]string{
 				"twinops.io/output-digest": bundle.Digest,
+				"twinops.io/input-digest":  inputDigest,
+				"twinops.io/publish-mode":  publishMode,
 			},
-		},
-		BinaryData: map[string][]byte{
-			output.BundleKey: bundle.Bytes,
 		},
 		Data: map[string]string{
 			"result.json": string(resultJSON),
 		},
 	}
+	// Only embed full bundle for configmap mode (size-bounded). OCI/S3 results are metadata-only.
+	if !jobPublished {
+		if len(bundle.Bytes) > output.MaxBundleBytes {
+			fail("bundle exceeds ConfigMap budget (%d > %d); use mode=oci or mode=s3 for large stages",
+				len(bundle.Bytes), output.MaxBundleBytes)
+		}
+		cm.BinaryData = map[string][]byte{
+			output.BundleKey: bundle.Bytes,
+		}
+	} else if publishedURI != "" {
+		cm.Annotations["twinops.io/output-uri"] = publishedURI
+	}
 
-	// Create or replace.
 	_, err = cs.CoreV1().ConfigMaps(namespace).Create(ctx, cm, metav1.CreateOptions{})
 	if apierrors.IsAlreadyExists(err) {
 		existing, gerr := cs.CoreV1().ConfigMaps(namespace).Get(ctx, resultCM, metav1.GetOptions{})
@@ -118,12 +196,15 @@ func main() {
 			fail("get result cm: %v", gerr)
 		}
 		cm.ResourceVersion = existing.ResourceVersion
+		// Preserve owner refs if controller set them later (usually not).
+		cm.OwnerReferences = existing.OwnerReferences
 		_, err = cs.CoreV1().ConfigMaps(namespace).Update(ctx, cm, metav1.UpdateOptions{})
 	}
 	if err != nil {
 		fail("write result configmap: %v", err)
 	}
-	fmt.Printf("twinops-job OK digest=%s cm=%s/%s\n", bundle.Digest, namespace, resultCM)
+	fmt.Printf("twinops-job OK digest=%s mode=%s published=%v uri=%s cm=%s/%s\n",
+		bundle.Digest, publishMode, jobPublished, publishedURI, namespace, resultCM)
 }
 
 func firstFile(dir string, names ...string) string {
@@ -133,7 +214,6 @@ func firstFile(dir string, names ...string) string {
 			return p
 		}
 	}
-	// shallow walk
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		return ""

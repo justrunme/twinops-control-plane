@@ -77,9 +77,15 @@ type OutputPublish struct {
 	// S3PathStyle forces path-style addressing (MinIO).
 	// +optional
 	S3PathStyle bool `json:"s3PathStyle,omitempty"`
+
+	// AllowLabFallback permits falling back to immutable ConfigMap when OCI/S3 push fails.
+	// Default false (fail closed). Set true only for local lab demos without a registry/MinIO.
+	// +optional
+	AllowLabFallback *bool `json:"allowLabFallback,omitempty"`
 }
 
 // BuildIsolation controls where twinopsctl build/drift executes.
+// Image and ServiceAccount are operator/Helm-controlled (not user CR fields) to prevent privilege escalation.
 type BuildIsolation struct {
 	// Mode is inline (controller process, default) or job (Kubernetes Job).
 	// +optional
@@ -102,14 +108,6 @@ type BuildIsolation struct {
 	MemoryRequest string `json:"memoryRequest,omitempty"`
 	// +optional
 	MemoryLimit string `json:"memoryLimit,omitempty"`
-
-	// Image overrides the worker image (defaults to operator image / env).
-	// +optional
-	Image string `json:"image,omitempty"`
-
-	// ServiceAccountName for the Job Pod (defaults to twinops-build).
-	// +optional
-	ServiceAccountName string `json:"serviceAccountName,omitempty"`
 }
 
 // DigitalTwinSpec defines the desired state of a digital twin.

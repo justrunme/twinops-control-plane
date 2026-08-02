@@ -245,3 +245,79 @@ jobs:
           TWINOPS_KIND_CLUSTER: twinops-incluster
           TWINOPS_OPERATOR_IMAGE: twinops-operator:incluster-e2e
         run: bash scripts/operator_incluster_e2e.sh
+
+  operator-job:
+    name: Operator Job-mode E2E (kind)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version: "1.26.x"
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: v3.16.4
+
+      - name: Install twinopsctl
+        run: |
+          python -m pip install -U pip
+          python -m pip install -e .
+
+      - name: Create kind cluster
+        uses: helm/kind-action@v1
+        with:
+          cluster_name: twinops-job-e2e
+
+      - name: Job mode input-digest E2E
+        env:
+          TWINOPS_KIND_CLUSTER: twinops-job-e2e
+          TWINOPS_OPERATOR_IMAGE: twinops-operator:job-e2e
+        run: bash scripts/operator_job_e2e.sh
+
+  operator-oci-s3:
+    name: Operator OCI/S3 E2E (kind + registry + MinIO)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version: "1.26.x"
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: v3.16.4
+
+      - name: Install twinopsctl
+        run: |
+          python -m pip install -U pip
+          python -m pip install -e .
+
+      - name: Create kind cluster
+        uses: helm/kind-action@v1
+        with:
+          cluster_name: twinops-oci-s3-e2e
+
+      - name: OCI + S3 publish E2E
+        env:
+          TWINOPS_KIND_CLUSTER: twinops-oci-s3-e2e
+          TWINOPS_OPERATOR_IMAGE: twinops-operator:oci-s3-e2e
+        run: bash scripts/operator_oci_s3_e2e.sh
