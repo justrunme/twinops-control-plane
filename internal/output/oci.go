@@ -174,10 +174,19 @@ func materializeDockerConfig(ctx context.Context, c client.Client, ns string, re
 }
 
 func orasPush(ctx context.Context, env []string, ref, bundlePath, metaPath string) (manifestDigest string, err error) {
+	// ORAS 1.2+ rejects absolute file paths unless --disable-path-validation is set.
+	// Prefer relative paths from the files' directory when both share a parent.
+	dir := filepath.Dir(bundlePath)
+	bundleBase := filepath.Base(bundlePath)
+	metaBase := filepath.Base(metaPath)
+	if filepath.Dir(metaPath) != dir {
+		// Different dirs — fall back to absolute + disable validation.
+		return orasPushAbs(ctx, env, ref, bundlePath, metaPath)
+	}
+
 	if cmd := os.Getenv("TWINOPS_OCI_PUSH_CMD"); cmd != "" {
-		// Custom push: receives $1=ref $2=bundlePath $3=metaPath
-		script := fmt.Sprintf(`%s "$1" "$2:%s" "$3:application/vnd.twinops.meta.v1+json"`, cmd, MediaType)
-		out, err := runCmdOut(ctx, env, "sh", "-c", script, "_", ref, bundlePath, metaPath)
+		script := fmt.Sprintf(`cd %q && %s "$1" "$2:%s" "$3:application/vnd.twinops.meta.v1+json"`, dir, cmd, MediaType)
+		out, err := runCmdOut(ctx, env, "sh", "-c", script, "_", ref, bundleBase, metaBase)
 		if err != nil {
 			return "", err
 		}
@@ -185,6 +194,23 @@ func orasPush(ctx context.Context, env []string, ref, bundlePath, metaPath strin
 	}
 	args := []string{"push"}
 	// Local/kind registries without TLS (set TWINOPS_OCI_PLAIN_HTTP=1).
+	if os.Getenv("TWINOPS_OCI_PLAIN_HTTP") == "1" || os.Getenv("TWINOPS_OCI_INSECURE") == "1" {
+		args = append(args, "--plain-http")
+	}
+	// Always allow absolute when needed; relative paths from cwd are preferred via shell.
+	args = append(args, "--disable-path-validation", ref,
+		fmt.Sprintf("%s:%s", bundlePath, MediaType),
+		fmt.Sprintf("%s:application/vnd.twinops.meta.v1+json", metaPath),
+	)
+	out, err := runCmdOut(ctx, env, "oras", args...)
+	if err != nil {
+		return "", err
+	}
+	return parseOrasDigest(out), nil
+}
+
+func orasPushAbs(ctx context.Context, env []string, ref, bundlePath, metaPath string) (string, error) {
+	args := []string{"push", "--disable-path-validation"}
 	if os.Getenv("TWINOPS_OCI_PLAIN_HTTP") == "1" || os.Getenv("TWINOPS_OCI_INSECURE") == "1" {
 		args = append(args, "--plain-http")
 	}
