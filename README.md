@@ -2,26 +2,7 @@
 
 **GitOps Control Plane for Industrial Digital Twins**
 
-<p align="center">
-  <img src="docs/assets/twinops-lifecycle.gif" alt="TwinOps lifecycle: PLM → GitOps manifest → control plane → OpenUSD → telemetry/drift → reconcile → SYNCED" width="800" />
-</p>
-
-<p align="center"><em>TwinOps lifecycle — desired PLM/Git, rendered OpenUSD, observed telemetry, drift detection, and GitOps reconcile.<br/>
-(15&nbsp;fps · full 30s · <a href="docs/assets/twinops-lifecycle.mp4">MP4</a> for smoother local playback)</em></p>
-
 TwinOps is a **stable reference architecture** that reconciles **PLM metadata**, **OpenUSD scene composition**, and **live telemetry** into a versioned, observable digital-twin runtime.
-
-```text
-PLM / ERP / IoT data
-        ↓
-Digital Twin Manifest (Git)
-        ↓
-TwinOps Compiler / Controller  ← control plane (the product)
-        ↓
-OpenUSD layers + variants
-        ↓
-Runtime (optional): Omniverse Kit · web UI · lab WebRTC
-```
 
 > Status: **v1.4.0** — single-twin production-lean: immutable output revisions (ConfigMap/OCI/S3), isolated Job builds, deterministic USD bundles. Omniverse Kit optional. Not a multi-site plant platform.
 
@@ -32,6 +13,71 @@ Runtime (optional): Omniverse Kit · web UI · lab WebRTC
 [![Go](https://img.shields.io/badge/Go-operator-brightgreen.svg)](docs/operator.md)
 [![Kubernetes](https://img.shields.io/badge/Kubernetes-CRD-brightgreen.svg)](docs/operator.md)
 [![Omniverse](https://img.shields.io/badge/NVIDIA%20Omniverse-optional-orange.svg)](#roadmap)
+
+---
+
+## Architecture
+
+<p align="center">
+  <img src="docs/assets/twinops-architecture.svg" alt="TwinOps architecture: sources, control plane, three-way drift, immutable outputs, optional runtimes" width="100%" />
+</p>
+
+<p align="center"><em>Control plane first: materialize → compose (inline or Job) → three-way drift → immutable output revisions. Kit / WebRTC are optional runtimes.</em></p>
+
+<details>
+<summary><strong>Animated lifecycle</strong> (demo narrative)</summary>
+
+<p align="center">
+  <img src="docs/assets/twinops-lifecycle.gif" alt="TwinOps lifecycle animation" width="800" />
+</p>
+
+<p align="center"><em>Desired PLM/Git → Rendered OpenUSD → Observed telemetry → Drift → Reconcile → SYNCED<br/>
+(<a href="docs/assets/twinops-lifecycle.mp4">MP4</a> for smoother local playback)</em></p>
+
+</details>
+
+```mermaid
+flowchart LR
+  subgraph Sources
+    PLM[PLM / ERP]
+    Git[Git twin.yaml + USD]
+    MQTT[MQTT / IoT]
+  end
+
+  subgraph ControlPlane["Control plane (the product)"]
+    CR[DigitalTwin CR]
+    Mat[Materialize + digest]
+    Build["Build: inline | Job"]
+    USD[OpenUSD compose]
+    Drift[Three-way drift]
+    Out[Immutable publish]
+  end
+
+  subgraph Durable
+    CM["ConfigMap rN"]
+    OCI[OCI registry]
+    S3[S3 / MinIO]
+  end
+
+  subgraph Optional["Optional runtimes"]
+    Web[Web UI / live API]
+    Kit[Omniverse Kit]
+    RTC[WebRTC sidecar]
+  end
+
+  PLM --> Git
+  Git --> CR
+  CR --> Mat --> Build --> USD --> Drift --> Out
+  MQTT --> Drift
+  Out --> CM
+  Out --> OCI
+  Out --> S3
+  Drift --> Web
+  Out --> Kit
+  Out --> RTC
+```
+
+Full one-pager: [docs/architecture-one-pager.md](docs/architecture-one-pager.md) · operator: [docs/operator.md](docs/operator.md) · release: [docs/release-1.4.md](docs/release-1.4.md)
 
 ---
 
@@ -59,33 +105,15 @@ TwinOps connects both worlds:
 | drift detection       | PLM / scene / IoT drift   |
 | rollback              | previous USD composition  |
 
-The distinctive feature is **three-way drift detection**:
+The distinctive feature is **three-way drift detection** (see diagram above):
 
-```text
-Desired: Git / PLM
-Rendered: OpenUSD
-Observed: MQTT / IoT
-          ↓
-       Drift
-          ↓
- Proposal → Git apply → rebuild → verify
-          ↓
-       SYNCED
-```
+| Plane | Source | Role |
+| ----- | ------ | ---- |
+| **Desired** | Git + PLM mappings | Engineering intent |
+| **Rendered** | Composed OpenUSD | What the twin scene encodes |
+| **Observed** | MQTT / IoT | Live factory signal |
 
-```text
-Core TwinOps                         Optional runtimes
-├── compiler                         ├── Web UI
-├── drift / reconciliation           ├── Omniverse Kit
-├── operator                         └── WebRTC / streaming sidecar
-├── incidents / replay
-├── PLM adapters
-└── API / security
-```
-
-Full one-pager: [docs/architecture-one-pager.md](docs/architecture-one-pager.md).  
-Frozen contracts: [docs/stability.md](docs/stability.md).  
-Current release: [docs/release-1.4.md](docs/release-1.4.md) · operator: [docs/operator.md](docs/operator.md).
+Frozen contracts: [docs/stability.md](docs/stability.md).
 
 ---
 

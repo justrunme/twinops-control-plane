@@ -3,6 +3,8 @@
 TwinOps is a **GitOps / Kubernetes control plane** for industrial digital twins.
 Omniverse Kit is an **optional runtime**, not the center of the product.
 
+![TwinOps architecture](assets/twinops-architecture.svg)
+
 ## Control loop
 
 ```text
