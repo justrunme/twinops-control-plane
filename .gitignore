@@ -55,3 +55,7 @@ deploy/demo/live-certs/
 
 # Helm dependency packages (regenerate via make helm-deps)
 deploy/helm/*/charts/
+
+# Large media intermediates (keep compressed assets only)
+docs/assets/*.mp4
+docs/assets/*-poster.png

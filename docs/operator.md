@@ -1,6 +1,6 @@
 # Kubernetes operator
 
-Experimental DigitalTwin controller that reconciles:
+Pilot-ready DigitalTwin controller (single-twin) that reconciles:
 
 ```text
 DigitalTwin CR
