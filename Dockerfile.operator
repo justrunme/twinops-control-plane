@@ -10,26 +10,30 @@ COPY internal ./internal
 RUN CGO_ENABLED=0 GOOS=linux go build -o /out/manager ./cmd/manager \
   && CGO_ENABLED=0 GOOS=linux go build -o /out/twinops-job ./cmd/twinops-job
 
+# Build oras from source with the same Go toolchain so image stdlib CVEs stay current.
+FROM golang:1.26-bookworm AS oras
+ARG ORAS_VERSION=v1.3.3
+RUN git clone --depth 1 --branch "${ORAS_VERSION}" https://github.com/oras-project/oras.git /src \
+  && cd /src \
+  && go get oras.land/oras-go/v2@v2.6.1 || true \
+  && go mod tidy || true \
+  && CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/oras ./cmd/oras
+
 FROM python:3.12-slim-bookworm
-ARG TARGETARCH=amd64
-ARG ORAS_VERSION=1.2.3
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    ca-certificates curl \
-  && rm -rf /var/lib/apt/lists/* \
-  && ARCH="${TARGETARCH}" \
-  && if [ "$ARCH" = "arm64" ]; then ORAS_ARCH=arm64; else ORAS_ARCH=amd64; fi \
-  && curl -fsSL "https://github.com/oras-project/oras/releases/download/v${ORAS_VERSION}/oras_${ORAS_VERSION}_linux_${ORAS_ARCH}.tar.gz" \
-     | tar -xz -C /usr/local/bin oras \
-  && oras version
+    ca-certificates \
+  && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY pyproject.toml README.md LICENSE ./
 COPY python ./python
 COPY examples ./examples
-# twinopsctl + awscli (S3/MinIO publish). awscli via pip keeps the image simpler than awscliv2.
+# twinopsctl + awscli (S3/MinIO publish).
 RUN pip install --no-cache-dir . awscli \
   && aws --version
 COPY --from=builder /out/manager /usr/local/bin/manager
 COPY --from=builder /out/twinops-job /usr/local/bin/twinops-job
+COPY --from=oras /out/oras /usr/local/bin/oras
+RUN oras version
 ENV TWINOPSCTL=/usr/local/bin/twinopsctl
 ENV TWINOPS_BUILD_IMAGE=""
 ENV TWINOPS_BUILD_SERVICE_ACCOUNT=twinops-build
