@@ -1,13 +1,17 @@
 # Security notes
 
-## Current posture
+## Current posture (v1.3.1 pilot)
 
 - Compiler / drift / PLM mock are local filesystem tools — no cloud credentials required.
 - Live API (`twinopsctl serve`) binds to `127.0.0.1` by default for demos.
 - MQTT demo broker is intentionally anonymous for local smoke tests only.
 - TwinOps MQTT publish payloads are tagged `source: twinops` so ingest can ignore echoes.
 - Generated USDA / reports are plain text suitable for Git review — do not embed secrets.
-- Kubernetes operator uses namespaced `DigitalTwin` CRs; Helm chart expects least-privilege SA (review before cluster install).
+- Operator: non-root `securityContext`, drop ALL capabilities, readOnlyRootFilesystem, managed workspace only.
+- RBAC: Helm `rbac.mode=cluster|namespaced` + optional `watchNamespaces`.
+- Artifact URL: SSRF deny private/loopback; optional `TWINOPS_ARTIFACT_REQUIRE_URL_DIGEST=1`.
+- Supply chain CI: `pip-audit`, `govulncheck`, `npm audit`, Trivy (operator/live/sidecar), Syft SBOM.
+- Prefer `deploy/helm/twinops/values-production.yaml` for pilot-lean defaults (not multi-site plant).
 
 ## Threat notes for demos
 
@@ -21,18 +25,16 @@
 | MQTT TLS lab stub | Self-signed cert + anonymous | `docker-compose.mqtt-tls.yml` on `:8883`; certs gitignored; not a CA/PKI story |
 | Kit / streaming mock | Fake viewport may be mistaken for real GPU stream | Docs mark mock / no NVCF claims |
 | PLM catalog | Accidental commit of vendor secrets | Mock JSON only; no proprietary SDKs |
+| Artifact URL | SSRF / oversized archive | Fail-closed host policy, size caps, nested path sanitization (no `..`/symlinks) |
 
-## Upcoming controls
+## Still upcoming (not claimed)
 
 | Area | Plan |
 | --- | --- |
-| GitOps | PR review for twin revisions and overlay layers |
-| Operator | RBAC-limited ServiceAccount, namespaced CRDs |
-| Object storage | Signed URLs / least-privilege IAM |
-| Streaming | Authenticated session API, idle timeout |
-| Telemetry | Lab TLS+ACL demos shipped; production CA/client certs later; no secrets in USD layers |
-| Supply chain | CI checks, pinned Actions, SBOM later |
-| Live API | Bearer token (ADR-0008); SSO JWT + HTTPS/mTLS lab path (ADR-0013); operator SecretRef |
+| Object storage / OCI | Signed digests, immutable revisions (v1.4) |
+| Isolated builds | Kubernetes Job sandbox for twinopsctl |
+| Telemetry | Production CA/client certs (lab TLS already shipped) |
+| Compliance | No enterprise SSO / IEC 62443 claims yet |
 
 ## Lab HTTPS / mTLS / SSO
 

@@ -32,6 +32,25 @@ if grep -A20 'name: twinops-live' "${RENDER}" | grep -E '^\s+- twinopsctl$' >/de
 fi
 grep -A30 'name: twinops-live' "${RENDER}" | grep -E '^\s+- serve$' >/dev/null
 grep 'appVersion:' deploy/helm/twinops/Chart.yaml
+
+echo "==> default image tags match Chart.appVersion"
+APP_VER="$(grep -E '^appVersion:' deploy/helm/twinops/Chart.yaml | awk '{print $2}' | tr -d '"')"
+OP_TAG="$(grep -E '^\s+tag:' deploy/helm/twinops-operator/values.yaml | head -1 | awk '{print $2}' | tr -d '"')"
+LIVE_TAG="$(awk '/^live:/{p=1} p&&/tag:/{print $2; exit}' deploy/helm/twinops/values.yaml | tr -d '"')"
+UMBRELLA_OP_TAG="$(awk '/twinops-operator:/{p=1} p&&/tag:/{print $2; exit}' deploy/helm/twinops/values.yaml | tr -d '"')"
+if [[ "${OP_TAG}" != "${APP_VER}" ]]; then
+  echo "error: operator values tag ${OP_TAG} != Chart.appVersion ${APP_VER}" >&2
+  exit 1
+fi
+if [[ "${LIVE_TAG}" != "${APP_VER}" ]]; then
+  echo "error: live values tag ${LIVE_TAG} != Chart.appVersion ${APP_VER}" >&2
+  exit 1
+fi
+if [[ "${UMBRELLA_OP_TAG}" != "${APP_VER}" ]]; then
+  echo "error: umbrella twinops-operator.tag ${UMBRELLA_OP_TAG} != Chart.appVersion ${APP_VER}" >&2
+  exit 1
+fi
+echo "    tags OK (appVersion=${APP_VER})"
 echo "    helm render OK"
 
 echo "==> docker build live"

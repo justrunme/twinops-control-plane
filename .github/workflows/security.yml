@@ -102,13 +102,17 @@ jobs:
             --scanners vuln \
             twinops-streaming-sidecar:secscan
       - name: Syft SBOM (operator)
+        continue-on-error: true
         uses: anchore/sbom-action@v0
         with:
           image: twinops-operator:secscan
           format: spdx-json
           output-file: twinops-operator.spdx.json
       - name: Upload SBOM
+        if: always()
+        continue-on-error: true
         uses: actions/upload-artifact@v7
         with:
           name: twinops-sbom
           path: "*.spdx.json"
+          if-no-files-found: ignore
