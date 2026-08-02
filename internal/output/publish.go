@@ -7,7 +7,6 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
-	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -16,19 +15,21 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	twinopsv1alpha1 "github.com/justrunme/twinops-control-plane/api/v1alpha1"
+	"github.com/justrunme/twinops-control-plane/internal/buildjob"
 )
 
 // Result of a successful publish.
 type Result struct {
-	Digest    string
-	URI       string
-	StageKey  string
-	Name      string
-	MediaType string
-	BundleKey string
-	Revision  int64
-	History   []twinopsv1alpha1.OutputRevision
-	// Created is false when content digest matched latest (no new revision).
+	Digest             string
+	URI                string
+	StageKey           string
+	Name               string
+	MediaType          string
+	BundleKey          string
+	Revision           int64
+	History            []twinopsv1alpha1.OutputRevision
+	PublishFingerprint string
+	// Created is false when content digest + fingerprint matched latest (no new revision).
 	Created bool
 }
 
@@ -70,20 +71,59 @@ func PublishBundle(
 	bundle *Bundle,
 	inputDigest string,
 ) (*Result, error) {
-	mode := publishMode(twin.Spec.OutputPublish)
+	fp := buildjob.PublishFingerprint(twin.Spec.OutputPublish)
+	mode := buildjob.EffectivePublishMode(twin.Spec.OutputPublish)
 
-	// Idempotent: same content digest → no new revision.
-	if twin.Status.Output.Digest == bundle.Digest && twin.Status.Output.URI != "" {
+	if mode == "none" {
 		return &Result{
-			Digest:    bundle.Digest,
-			URI:       twin.Status.Output.URI,
-			StageKey:  StageEntry,
-			Name:      ConfigMapName(twin.Name),
-			MediaType: MediaType,
-			BundleKey: BundleKey,
-			Revision:  twin.Status.Output.Revision,
-			History:   twin.Status.Output.History,
-			Created:   false,
+			Digest:             bundle.Digest,
+			URI:                "",
+			StageKey:           StageEntry,
+			MediaType:          MediaType,
+			BundleKey:          BundleKey,
+			Revision:           twin.Status.Output.Revision,
+			History:            twin.Status.Output.History,
+			PublishFingerprint: fp,
+			Created:            false,
+		}, nil
+	}
+
+	// Idempotent only when content digest AND publish destination match.
+	// Changing OCI repo / S3 bucket with the same bundle must re-publish.
+	if twin.Status.Output.Digest == bundle.Digest &&
+		twin.Status.Output.URI != "" &&
+		twin.Status.Output.PublishFingerprint == fp {
+		return &Result{
+			Digest:             bundle.Digest,
+			URI:                twin.Status.Output.URI,
+			StageKey:           StageEntry,
+			Name:               ConfigMapName(twin.Name),
+			MediaType:          MediaType,
+			BundleKey:          BundleKey,
+			Revision:           twin.Status.Output.Revision,
+			History:            twin.Status.Output.History,
+			PublishFingerprint: fp,
+			Created:            false,
+		}, nil
+	}
+	// Legacy status without fingerprint: if digest matches, still re-publish when
+	// fingerprint is empty so destination changes take effect once.
+	if twin.Status.Output.Digest == bundle.Digest &&
+		twin.Status.Output.URI != "" &&
+		twin.Status.Output.PublishFingerprint == "" &&
+		mode == "configmap" {
+		// ConfigMap URI is namespace-local and not destination-keyed; safe to keep.
+		return &Result{
+			Digest:             bundle.Digest,
+			URI:                twin.Status.Output.URI,
+			StageKey:           StageEntry,
+			Name:               ConfigMapName(twin.Name),
+			MediaType:          MediaType,
+			BundleKey:          BundleKey,
+			Revision:           twin.Status.Output.Revision,
+			History:            twin.Status.Output.History,
+			PublishFingerprint: fp,
+			Created:            false,
 		}, nil
 	}
 
@@ -130,23 +170,17 @@ func PublishBundle(
 	}
 
 	return &Result{
-		Digest:    bundle.Digest,
-		URI:       uri,
-		StageKey:  StageEntry,
-		Name:      name,
-		MediaType: MediaType,
-		BundleKey: BundleKey,
-		Revision:  rev,
-		History:   hist,
-		Created:   true,
+		Digest:             bundle.Digest,
+		URI:                uri,
+		StageKey:           StageEntry,
+		Name:               name,
+		MediaType:          MediaType,
+		BundleKey:          BundleKey,
+		Revision:           rev,
+		History:            hist,
+		PublishFingerprint: fp,
+		Created:            true,
 	}, nil
-}
-
-func publishMode(pub *twinopsv1alpha1.OutputPublish) string {
-	if pub == nil || pub.Mode == "" {
-		return "configmap"
-	}
-	return strings.ToLower(pub.Mode)
 }
 
 func keepRevisions(pub *twinopsv1alpha1.OutputPublish) int {

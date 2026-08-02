@@ -219,7 +219,7 @@ make operator-incluster-e2e     # Helm-installed image + restart digest stabilit
 ```bash
 helm upgrade --install twinops-operator deploy/helm/twinops-operator \
   --namespace twinops-system --create-namespace \
-  --set image.tag=1.4.2
+  --set image.tag=1.4.3
 ```
 
 Useful values: `rbac.mode`, `artifactRequireURLDigest`, `leaderElect`, `securityContext` (always on).
@@ -227,7 +227,7 @@ Useful values: `rbac.mode`, `artifactRequireURLDigest`, `leaderElect`, `security
 Image build:
 
 ```bash
-docker build -f Dockerfile.operator -t ghcr.io/justrunme/twinops-operator:1.4.2 .
+docker build -f Dockerfile.operator -t ghcr.io/justrunme/twinops-operator:1.4.3 .
 ```
 
 ## Status phases
