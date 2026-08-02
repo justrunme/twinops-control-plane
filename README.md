@@ -2,6 +2,13 @@
 
 **GitOps Control Plane for Industrial Digital Twins**
 
+<p align="center">
+  <img src="docs/assets/twinops-lifecycle.gif" alt="TwinOps lifecycle: PLM → GitOps manifest → control plane → OpenUSD → telemetry/drift → reconcile → SYNCED" width="800" />
+</p>
+
+<p align="center"><em>TwinOps lifecycle — Desired PLM/Git → Rendered OpenUSD → Observed telemetry → Drift → Reconcile → SYNCED<br/>
+(<a href="docs/assets/twinops-lifecycle.mp4">MP4</a> for smoother local playback)</em></p>
+
 TwinOps is a **stable reference architecture** that reconciles **PLM metadata**, **OpenUSD scene composition**, and **live telemetry** into a versioned, observable digital-twin runtime.
 
 > Status: **v1.4.0** — single-twin production-lean: immutable output revisions (ConfigMap/OCI/S3), isolated Job builds, deterministic USD bundles. Omniverse Kit optional. Not a multi-site plant platform.
@@ -23,18 +30,6 @@ TwinOps is a **stable reference architecture** that reconciles **PLM metadata**,
 </p>
 
 <p align="center"><em>Control plane first: materialize → compose (inline or Job) → three-way drift → immutable output revisions. Kit / WebRTC are optional runtimes.</em></p>
-
-<details>
-<summary><strong>Animated lifecycle</strong> (demo narrative)</summary>
-
-<p align="center">
-  <img src="docs/assets/twinops-lifecycle.gif" alt="TwinOps lifecycle animation" width="800" />
-</p>
-
-<p align="center"><em>Desired PLM/Git → Rendered OpenUSD → Observed telemetry → Drift → Reconcile → SYNCED<br/>
-(<a href="docs/assets/twinops-lifecycle.mp4">MP4</a> for smoother local playback)</em></p>
-
-</details>
 
 ```mermaid
 flowchart LR
