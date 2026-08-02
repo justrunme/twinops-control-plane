@@ -182,6 +182,53 @@ func TestOCIS3FailClosedWithoutFallback(t *testing.T) {
 	}
 }
 
+func TestPublishIdempotencyRequiresFingerprint(t *testing.T) {
+	scheme := runtime.NewScheme()
+	_ = corev1.AddToScheme(scheme)
+	_ = twinopsv1alpha1.AddToScheme(scheme)
+
+	dir := t.TempDir()
+	_ = os.WriteFile(filepath.Join(dir, "root.usda"), []byte("#usda 1.0\ndef Xform \"World\" {}\n"), 0o644)
+
+	twin := &twinopsv1alpha1.DigitalTwin{
+		ObjectMeta: metav1.ObjectMeta{Name: "t", Namespace: "ns", UID: "u1"},
+		Spec: twinopsv1alpha1.DigitalTwinSpec{
+			OutputPublish: &twinopsv1alpha1.OutputPublish{Mode: "configmap"},
+		},
+	}
+	c := fake.NewClientBuilder().WithScheme(scheme).WithObjects(twin).Build()
+	res1, err := PublishDir(context.Background(), c, twin, dir, "sha256:in")
+	if err != nil {
+		t.Fatal(err)
+	}
+	twin.Status.Output = twinopsv1alpha1.OutputArtifact{
+		Digest: res1.Digest, URI: res1.URI, Revision: res1.Revision,
+		History: res1.History, PublishFingerprint: res1.PublishFingerprint,
+	}
+	res2, err := PublishDir(context.Background(), c, twin, dir, "sha256:in")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res2.Created {
+		t.Fatal("same digest+fingerprint must be idempotent")
+	}
+
+	// Same digest, different destination fingerprint → new revision (OCI fails closed without registry).
+	// Use configmap still but change keep/mode fingerprint via allowLabFallback.
+	allow := true
+	twin.Spec.OutputPublish = &twinopsv1alpha1.OutputPublish{Mode: "configmap", AllowLabFallback: &allow}
+	res3, err := PublishDir(context.Background(), c, twin, dir, "sha256:in")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !res3.Created || res3.Revision != 2 {
+		t.Fatalf("fingerprint change must mint new revision: %+v", res3)
+	}
+	if res3.PublishFingerprint == res1.PublishFingerprint {
+		t.Fatal("fingerprints must differ")
+	}
+}
+
 func TestOCILabFallbackWhenAllowed(t *testing.T) {
 	t.Setenv("TWINOPS_ALLOW_LAB_FALLBACK", "0")
 	t.Setenv("TWINOPS_OCI_PUSH_CMD", "false")

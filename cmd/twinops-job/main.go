@@ -154,6 +154,12 @@ func main() {
 		jobPublished = true
 	case "configmap", "":
 		// Bundle returned to controller for immutable ConfigMap revision publish.
+	case "none":
+		// Explicit no-publish (enabled=false / mode=none). Still write result metadata.
+		jobPublished = false
+		// Do not embed full bundle when publish is disabled and mode was oci/s3 intent —
+		// controller only needs digest for status; for none we keep optional small bundle
+		// only if under budget (helps local drift path). Prefer metadata-only.
 	default:
 		fail("unknown TWINOPS_PUBLISH_MODE=%q", publishMode)
 	}
@@ -215,8 +221,9 @@ func main() {
 		}
 		cm.Annotations["twinops.io/drift-summary"] = sum
 	}
-	// Only embed full bundle for configmap mode (size-bounded). OCI/S3 results are metadata-only.
-	if !jobPublished {
+	// Embed full bundle only for configmap publish path (controller mints revisions).
+	// OCI/S3 and mode=none are metadata-only (no ConfigMap size bridge).
+	if !jobPublished && publishMode != "none" {
 		if len(bundle.Bytes) > output.MaxBundleBytes {
 			fail("bundle exceeds ConfigMap budget (%d > %d); use mode=oci or mode=s3 for large stages",
 				len(bundle.Bytes), output.MaxBundleBytes)
