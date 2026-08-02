@@ -11,7 +11,7 @@
 
 TwinOps is a **stable reference architecture** that reconciles **PLM metadata**, **OpenUSD scene composition**, and **live telemetry** into a versioned, observable digital-twin runtime.
 
-> Status: **v1.4.1** — single-twin production-lean: immutable output revisions (ConfigMap/OCI/S3), isolated Job builds, deterministic USD bundles. Omniverse Kit optional. Not a multi-site plant platform.
+> Status: **v1.4.2** — single-twin production-lean: immutable output revisions (ConfigMap/OCI/S3), isolated Job builds, deterministic USD bundles. Omniverse Kit optional. Not a multi-site plant platform.
 
 [![CI](https://github.com/justrunme/twinops-control-plane/actions/workflows/ci.yml/badge.svg)](https://github.com/justrunme/twinops-control-plane/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/justrunme/twinops-control-plane?display_name=tag)](https://github.com/justrunme/twinops-control-plane/releases/latest)
@@ -341,9 +341,9 @@ Milestones 1–2 deliver composition, drift detection, HTML report, and a reconc
 | Track | Focus | Status |
 | ----- | ----- | ------ |
 | 0–5 | Compiler, drift, live API, web demo | **done** |
-| Operator | CRD, Helm, durable ConfigMap output, in-cluster E2E | **done (1.3.1)** |
+| Operator | CRD, Helm, durable ConfigMap/OCI/S3 output, Job isolation, in-cluster E2E | **done (1.4.2)** |
 | Kit / media | Highlight contract, lab WebRTC, single-session NVENC ingest | **lab / optional** |
-| Next | OCI output artifacts, isolated reconcile jobs | planned (1.4+) |
+| Next | Multi-site fleet, large non-ConfigMap Job inputs | not claimed |
 
 See full [docs/roadmap.md](docs/roadmap.md) and [docs/architecture.md](docs/architecture.md).
 

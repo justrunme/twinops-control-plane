@@ -210,6 +210,9 @@ spec:
                     message: {type: string}
                 lastComposeInputDigest:
                   type: string
+                lastComposeExecKey:
+                  type: string
+                  description: input+publish fingerprint for last successful compose
                 message:
                   type: string
                 observedGeneration:

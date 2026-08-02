@@ -73,8 +73,15 @@ spec:
     # image + serviceAccountName are Helm/env only (not CR) to prevent privilege escalation
 ```
 
-Requires `artifactSource.configMapName`. Jobs are named
-`{twin}-build-{inputDigest12}` so an input ConfigMap change always starts a new Job.
+Requires `artifactSource.configMapName` (Job input is a ConfigMap mount; large CAD/USD
+inputs should use OCI/S3 *output* and keep job inputs compact, or use `inline` + URL).
+
+Jobs are named `{twin}-build-{execKey12}` where **execKey** hashes input digest **and**
+publish destination (`mode` / repository / bucket / secrets). Changing either starts a new Job.
+
+Job result includes structured `drift` (Synced/Detected); controller writes it to
+`status.drift` even for OCI/S3 paths (no local stage). Fatal drift tool errors fail the Job
+before publish.
 
 Helm: `buildImage`, `buildServiceAccountName` (default `twinops-build`).
 In `rbac.mode=namespaced`, the build SA is created **in each** `watchNamespaces` entry.
@@ -212,7 +219,7 @@ make operator-incluster-e2e     # Helm-installed image + restart digest stabilit
 ```bash
 helm upgrade --install twinops-operator deploy/helm/twinops-operator \
   --namespace twinops-system --create-namespace \
-  --set image.tag=1.3.1
+  --set image.tag=1.4.2
 ```
 
 Useful values: `rbac.mode`, `artifactRequireURLDigest`, `leaderElect`, `securityContext` (always on).
@@ -220,7 +227,7 @@ Useful values: `rbac.mode`, `artifactRequireURLDigest`, `leaderElect`, `security
 Image build:
 
 ```bash
-docker build -f Dockerfile.operator -t ghcr.io/justrunme/twinops-operator:1.3.1 .
+docker build -f Dockerfile.operator -t ghcr.io/justrunme/twinops-operator:1.4.2 .
 ```
 
 ## Status phases

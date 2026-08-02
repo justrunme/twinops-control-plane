@@ -329,5 +329,116 @@ if [[ -n "${RESULT_CM}" ]]; then
   fi
 fi
 echo "    job=${JOB_NAME} uri=${URI_JOB}"
+# Job path must surface structured drift (not Unknown with empty summary).
+DRIFT_JOB="$(kubectl -n "$NAMESPACE" get digitaltwin "$TWIN_JOB" -o jsonpath='{.status.drift.status}')"
+if [[ -z "${DRIFT_JOB}" || "${DRIFT_JOB}" == "Unknown" ]]; then
+  # Sample telemetry usually produces Detected; allow Synced if fixtures change.
+  echo "error: Job+OCI drift status missing/Unknown (got '${DRIFT_JOB}')" >&2
+  kubectl -n "$NAMESPACE" get digitaltwin "$TWIN_JOB" -o jsonpath='{.status}' >&2
+  echo >&2
+  exit 1
+fi
+echo "    drift.status=${DRIFT_JOB}"
+
+# --- Job mode + S3 (direct Job publish, no ConfigMap bridge) ---
+TWIN_JOB_S3="assembly-line-job-s3"
+cat <<EOF | kubectl apply -f -
+apiVersion: twinops.io/v1alpha1
+kind: DigitalTwin
+metadata:
+  name: ${TWIN_JOB_S3}
+  namespace: ${NAMESPACE}
+spec:
+  artifactSource:
+    configMapName: ${CM_NAME}
+  intervalSeconds: 10
+  build:
+    mode: job
+    activeDeadlineSeconds: 240
+  outputPublish:
+    mode: s3
+    s3Bucket: twinops
+    s3Prefix: e2e-job
+    s3Endpoint: http://minio.minio.svc.cluster.local:9000
+    s3Region: us-east-1
+    s3PathStyle: true
+    s3SecretRef:
+      name: twinops-s3
+    keepRevisions: 3
+EOF
+
+echo -n "==> Wait Job+S3 publish "
+OUT="$(wait_ready "${TWIN_JOB_S3}")"
+echo "${OUT}"
+URI_JOB_S3="$(kubectl -n "$NAMESPACE" get digitaltwin "$TWIN_JOB_S3" -o jsonpath='{.status.output.uri}')"
+JOB_S3="$(kubectl -n "$NAMESPACE" get digitaltwin "$TWIN_JOB_S3" -o jsonpath='{.status.build.jobName}')"
+if [[ -z "${JOB_S3}" ]]; then
+  JOB_S3="$(kubectl -n "$NAMESPACE" get jobs -l twinops.io/twin="$TWIN_JOB_S3" -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)"
+fi
+if [[ "${URI_JOB_S3}" != s3://* ]]; then
+  echo "error: job s3 uri invalid: ${URI_JOB_S3}" >&2
+  exit 1
+fi
+if [[ "${URI_JOB_S3}" == *labFallback* || "${URI_JOB_S3}" == configmap://* ]]; then
+  echo "error: Job+S3 fell back to ConfigMap: ${URI_JOB_S3}" >&2
+  exit 1
+fi
+RESULT_S3="$(kubectl -n "$NAMESPACE" get cm -l twinops.io/build-result=true,twinops.io/twin=${TWIN_JOB_S3} -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)"
+if [[ -n "${RESULT_S3}" ]]; then
+  BUNDLE_B64="$(kubectl -n "$NAMESPACE" get cm "${RESULT_S3}" -o jsonpath='{.binaryData.bundle\.tar\.gz}' 2>/dev/null || true)"
+  if [[ -n "${BUNDLE_B64}" ]]; then
+    echo "error: S3 job result ConfigMap must not carry bundle.tar.gz" >&2
+    exit 1
+  fi
+fi
+DRIFT_S3="$(kubectl -n "$NAMESPACE" get digitaltwin "$TWIN_JOB_S3" -o jsonpath='{.status.drift.status}')"
+if [[ -z "${DRIFT_S3}" || "${DRIFT_S3}" == "Unknown" ]]; then
+  echo "error: Job+S3 drift status missing/Unknown (got '${DRIFT_S3}')" >&2
+  exit 1
+fi
+echo "    job=${JOB_S3} uri=${URI_JOB_S3} drift=${DRIFT_S3}"
+
+# --- Publish-spec change creates a NEW Job (same input, different mode) ---
+# Switch Job-OCI twin to a different repository → new execution key → new Job name.
+PREV_JOB="${JOB_NAME}"
+cat <<EOF | kubectl apply -f -
+apiVersion: twinops.io/v1alpha1
+kind: DigitalTwin
+metadata:
+  name: ${TWIN_JOB}
+  namespace: ${NAMESPACE}
+spec:
+  artifactSource:
+    configMapName: ${CM_NAME}
+  intervalSeconds: 10
+  build:
+    mode: job
+    activeDeadlineSeconds: 240
+  outputPublish:
+    mode: oci
+    repository: registry.registry.svc.cluster.local:5000/twinops/job-artifacts-v2
+    keepRevisions: 3
+EOF
+
+echo -n "==> Wait Job re-key after publish-spec change "
+NEW_JOB=""
+NEW_URI=""
+for _ in $(seq 1 120); do
+  NEW_JOB="$(kubectl -n "$NAMESPACE" get digitaltwin "$TWIN_JOB" -o jsonpath='{.status.build.jobName}' 2>/dev/null || true)"
+  NEW_URI="$(kubectl -n "$NAMESPACE" get digitaltwin "$TWIN_JOB" -o jsonpath='{.status.output.uri}' 2>/dev/null || true)"
+  phase="$(kubectl -n "$NAMESPACE" get digitaltwin "$TWIN_JOB" -o jsonpath='{.status.phase}' 2>/dev/null || true)"
+  if [[ -n "${NEW_JOB}" && "${NEW_JOB}" != "${PREV_JOB}" && "${NEW_URI}" == oci://*job-artifacts-v2* && ( "$phase" == "Ready" || "$phase" == "DriftDetected" ) ]]; then
+    echo "ok"
+    break
+  fi
+  sleep 2
+done
+if [[ -z "${NEW_JOB}" || "${NEW_JOB}" == "${PREV_JOB}" ]]; then
+  echo "error: expected NEW Job after repository change (old=${PREV_JOB} new=${NEW_JOB})" >&2
+  kubectl -n "$NAMESPACE" get digitaltwin "$TWIN_JOB" -o yaml | tail -60 >&2
+  exit 1
+fi
+echo "    job ${PREV_JOB} → ${NEW_JOB}"
+echo "    uri=${NEW_URI}"
 
 echo "operator-oci-s3-e2e OK"

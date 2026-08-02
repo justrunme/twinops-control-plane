@@ -180,14 +180,23 @@ func (r *DigitalTwinReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		buildMode = twin.Spec.Build.Mode
 	}
 
-	// Build idempotency: skip when generation+input digest match and we already composed.
+	// Execution key: input digest + publish-spec fingerprint (mode/repo/bucket…).
+	execKey := buildjob.ExecutionKey(inputDigest, twin.Spec.OutputPublish)
+
+	// Build idempotency: skip when generation+input+publish-spec match and we already composed.
 	skipCompose := twin.Status.LastComposeGeneration == twin.Generation &&
 		inputDigest != "" &&
 		twin.Status.LastComposeInputDigest == inputDigest &&
+		(twin.Status.LastComposeExecKey == "" || twin.Status.LastComposeExecKey == execKey) &&
 		twin.Status.Output.Digest != ""
+	// If publish destination changed, force recompose even when input is unchanged.
+	if twin.Status.LastComposeExecKey != "" && twin.Status.LastComposeExecKey != execKey {
+		skipCompose = false
+	}
 	if !skipCompose && twin.Status.LastComposeGeneration == twin.Generation &&
 		inputDigest != "" &&
 		(twin.Status.InputDigest == inputDigest || twin.Status.ArtifactDigest == inputDigest) &&
+		(twin.Status.LastComposeExecKey == "" || twin.Status.LastComposeExecKey == execKey) &&
 		twin.Status.StagePath != "" {
 		if _, err := os.Stat(twin.Status.StagePath); err == nil {
 			skipCompose = true
@@ -196,6 +205,8 @@ func (r *DigitalTwinReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 
 	stagePath := twin.Status.StagePath
 	outArtifact := twin.Status.Output
+	// Job path may return structured drift (especially OCI/S3 without local stage).
+	var jobDrift *twinopsv1alpha1.DriftStatus
 
 	if !skipCompose {
 		_, _ = r.patchStatus(ctx, &twin, func(status *twinopsv1alpha1.DigitalTwinStatus) {
@@ -209,7 +220,7 @@ func (r *DigitalTwinReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		})
 
 		if buildMode == "job" {
-			res, requeue, err := r.composeViaJob(buildCtx, &twin, inputDigest, workspacePath)
+			res, requeue, err := r.composeViaJob(buildCtx, &twin, inputDigest, execKey, workspacePath)
 			if err != nil {
 				logger.Error(err, "job compose failed")
 				r.event(&twin, corev1.EventTypeWarning, "ComposeFailed", err.Error())
@@ -229,6 +240,9 @@ func (r *DigitalTwinReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 			}
 			stagePath = res.stagePath
 			outArtifact = res.output
+			if res.drift != nil {
+				jobDrift = res.drift
+			}
 		} else {
 			start := time.Now()
 			var err error
@@ -285,9 +299,34 @@ func (r *DigitalTwinReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	message := "stage composed"
 	driftStatus := twinopsv1alpha1.DriftStatus{Status: "Unknown"}
 
+	// Prefer structured drift returned from Job (incl. OCI/S3 remote path).
+	if jobDrift != nil {
+		driftStatus = *jobDrift
+		if driftStatus.Status == "Detected" {
+			phase = "DriftDetected"
+			if driftStatus.Summary != "" {
+				message = fmt.Sprintf("drift detected (%s)", driftStatus.Summary)
+			} else {
+				message = "drift detected"
+			}
+		} else if driftStatus.Status == "Synced" {
+			if driftStatus.Summary != "" {
+				message = fmt.Sprintf("synced (%s)", driftStatus.Summary)
+			} else {
+				message = "synced"
+			}
+		} else if driftStatus.Status == "Error" {
+			phase = "Error"
+			message = driftStatus.Summary
+			if message == "" {
+				message = "drift evaluation failed"
+			}
+		}
+	}
+
 	// Local drift needs a stage on disk. Job+OCI/S3 paths publish remotely and may
-	// leave stagePath empty — skip controller-side drift rather than fail closed.
-	canDriftLocally := desiredPath != "" && observedPath != "" && stagePath != ""
+	// leave stagePath empty — use Job drift instead of re-running controller-side.
+	canDriftLocally := jobDrift == nil && desiredPath != "" && observedPath != "" && stagePath != ""
 	if canDriftLocally {
 		if _, err := os.Stat(stagePath); err != nil {
 			canDriftLocally = false
@@ -382,8 +421,8 @@ func (r *DigitalTwinReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	// Preserve / recompute Job identity so status.build.jobName stays populated.
 	prevBuild := twin.Status.Build
 	jobName := prevBuild.JobName
-	if buildMode == "job" && jobName == "" && inputDigest != "" {
-		jobName = buildjob.JobName(&twin, inputDigest)
+	if buildMode == "job" && jobName == "" && execKey != "" {
+		jobName = buildjob.JobName(&twin, execKey)
 	}
 	_, err := r.patchStatus(ctx, &twin, func(status *twinopsv1alpha1.DigitalTwinStatus) {
 		status.Phase = phase
@@ -403,6 +442,7 @@ func (r *DigitalTwinReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		if !skipCompose {
 			status.LastComposeGeneration = twin.Generation
 			status.LastComposeInputDigest = inputDigest
+			status.LastComposeExecKey = execKey
 			status.Build.Phase = "Succeeded"
 			if buildMode != "job" {
 				status.Build.Mode = "inline"
@@ -441,14 +481,15 @@ func (r *DigitalTwinReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 type jobComposeResult struct {
 	stagePath string
 	output    twinopsv1alpha1.OutputArtifact
+	drift     *twinopsv1alpha1.DriftStatus
 }
 
-// composeViaJob ensures a build Job keyed by input digest, waits for success,
-// then publishes durable output (or accepts Job-side OCI/S3 publish metadata).
+// composeViaJob ensures a build Job keyed by execution key (input + publish-spec),
+// waits for success, then publishes durable output (or accepts Job-side OCI/S3 metadata).
 func (r *DigitalTwinReconciler) composeViaJob(
 	ctx context.Context,
 	twin *twinopsv1alpha1.DigitalTwin,
-	inputDigest, workspacePath string,
+	inputDigest, execKey, workspacePath string,
 ) (jobComposeResult, time.Duration, error) {
 	var zero jobComposeResult
 	inputCM := ""
@@ -461,11 +502,15 @@ func (r *DigitalTwinReconciler) composeViaJob(
 	if inputDigest == "" {
 		return zero, 0, fmt.Errorf("spec.build.mode=job requires a materialized input digest")
 	}
+	if execKey == "" {
+		execKey = buildjob.ExecutionKey(inputDigest, twin.Spec.OutputPublish)
+	}
 
 	// Image / SA are operator-configured only (env from Helm) — never from CR.
 	spec := buildjob.Spec{
 		InputConfigMap: inputCM,
 		InputDigest:    inputDigest,
+		ExecKey:        execKey,
 		TwinUID:        twin.UID,
 		Revision:       twin.Status.Output.Revision + 1,
 	}
@@ -529,7 +574,7 @@ func (r *DigitalTwinReconciler) composeViaJob(
 
 	// Succeeded: read result ConfigMap.
 	var cm corev1.ConfigMap
-	cmName := buildjob.ResultConfigMapName(twin, inputDigest)
+	cmName := buildjob.ResultConfigMapName(twin, execKey)
 	if err := r.Get(ctx, types.NamespacedName{Namespace: twin.Namespace, Name: cmName}, &cm); err != nil {
 		return zero, 5 * time.Second, nil // result may lag Job completion
 	}
@@ -543,17 +588,64 @@ func (r *DigitalTwinReconciler) composeViaJob(
 		return zero, 0, fmt.Errorf("build result missing content digest annotation")
 	}
 
-	// Parse result.json for Job-side publish metadata.
+	// Parse result.json for Job-side publish metadata + structured drift.
 	var resultMeta struct {
-		Published    bool   `json:"published"`
-		URI          string `json:"uri"`
-		PublishName  string `json:"publishName"`
-		Revision     int64  `json:"revision"`
-		PublishMode  string `json:"publishMode"`
+		Published   bool `json:"published"`
+		URI         string `json:"uri"`
+		PublishName string `json:"publishName"`
+		Revision    int64  `json:"revision"`
+		PublishMode string `json:"publishMode"`
+		// Structured drift (v1.4.2+).
+		Drift struct {
+			Ran      bool   `json:"ran"`
+			OK       bool   `json:"ok"`
+			Error    string `json:"error"`
+			HasDrift bool   `json:"hasDrift"`
+			Findings int    `json:"findings"`
+			Critical int    `json:"critical"`
+			Warning  int    `json:"warning"`
+			Summary  string `json:"summary"`
+			Status   string `json:"status"`
+		} `json:"drift"`
+		// Legacy fallback.
 		DriftSummary string `json:"driftSummary"`
 	}
 	if rawJSON, ok := cm.Data["result.json"]; ok && rawJSON != "" {
 		_ = json.Unmarshal([]byte(rawJSON), &resultMeta)
+	}
+
+	// Apply Job drift into status (do not drop to Unknown on OCI/S3 path).
+	var jobDrift *twinopsv1alpha1.DriftStatus
+	if resultMeta.Drift.Ran {
+		nowDrift := metav1.Now()
+		ds := twinopsv1alpha1.DriftStatus{
+			Findings:    resultMeta.Drift.Findings,
+			Critical:    resultMeta.Drift.Critical,
+			Warning:     resultMeta.Drift.Warning,
+			Summary:     resultMeta.Drift.Summary,
+			LastChecked: &nowDrift,
+		}
+		switch {
+		case resultMeta.Drift.Status != "":
+			ds.Status = resultMeta.Drift.Status
+		case resultMeta.Drift.HasDrift:
+			ds.Status = "Detected"
+		default:
+			ds.Status = "Synced"
+		}
+		if !resultMeta.Drift.OK && resultMeta.Drift.Error != "" {
+			ds.Status = "Error"
+			ds.Summary = resultMeta.Drift.Error
+		}
+		jobDrift = &ds
+	} else if resultMeta.DriftSummary != "" {
+		// Legacy result: summary only.
+		nowDrift := metav1.Now()
+		jobDrift = &twinopsv1alpha1.DriftStatus{
+			Status:      "Unknown",
+			Summary:     resultMeta.DriftSummary,
+			LastChecked: &nowDrift,
+		}
 	}
 
 	stagePath := ""
@@ -570,9 +662,7 @@ func (r *DigitalTwinReconciler) composeViaJob(
 		}
 		stagePath = filepath.Join(stageDir, "root.usda")
 	}
-	// OCI/S3 path: no ConfigMap bundle bridge — stage stays remote; drift ran in-Job.
-	// stagePath may be empty; outer reconcile skips local drift when stage file is absent.
-	_ = resultMeta.DriftSummary
+	// OCI/S3 path: no ConfigMap bundle bridge — stage stays remote; drift is jobDrift.
 
 	outArtifact := twin.Status.Output
 	now := metav1.Now()
@@ -586,8 +676,8 @@ func (r *DigitalTwinReconciler) composeViaJob(
 				rev = 1
 			}
 		}
-		// Idempotent: same content digest → keep existing revision.
-		if twin.Status.Output.Digest == digest && twin.Status.Output.URI != "" {
+		// Idempotent: same content digest + URI → keep existing revision.
+		if twin.Status.Output.Digest == digest && twin.Status.Output.URI == resultMeta.URI {
 			outArtifact = twin.Status.Output
 		} else {
 			hist := append([]twinopsv1alpha1.OutputRevision{}, twin.Status.Output.History...)
@@ -643,7 +733,7 @@ func (r *DigitalTwinReconciler) composeViaJob(
 		}
 	}
 	_ = workspacePath
-	return jobComposeResult{stagePath: stagePath, output: outArtifact}, 0, nil
+	return jobComposeResult{stagePath: stagePath, output: outArtifact, drift: jobDrift}, 0, nil
 }
 
 func (r *DigitalTwinReconciler) ensureResultOwner(ctx context.Context, twin *twinopsv1alpha1.DigitalTwin, cm *corev1.ConfigMap) error {
