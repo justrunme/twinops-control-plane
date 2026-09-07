@@ -21,6 +21,10 @@ TwinOps is a **stable reference architecture** that reconciles **PLM metadata**,
 [![Kubernetes](https://img.shields.io/badge/Kubernetes-CRD-brightgreen.svg)](docs/operator.md)
 [![Omniverse](https://img.shields.io/badge/NVIDIA%20Omniverse-optional-orange.svg)](#roadmap)
 
+[![Case study](https://img.shields.io/badge/case-justrunme.com-111111)](https://justrunme.com/cases/twinops-control-plane/)
+
+Case study: [TwinOps Control Plane](https://justrunme.com/cases/twinops-control-plane/) · [Andrey Lesnikov](https://justrunme.com/)
+
 ---
 
 ## Architecture
