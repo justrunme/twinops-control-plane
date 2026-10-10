@@ -1,7 +1,17 @@
-# Supply-chain gate on PRs that touch deps / images (plus manual dispatch).
+# Supply-chain gate on main/PR when deps or images change (plus manual dispatch).
 name: Security
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - "go.mod"
+      - "go.sum"
+      - "pyproject.toml"
+      - "web/package-lock.json"
+      - "Dockerfile.*"
+      - ".github/workflows/security.yml"
+      - "scripts/security_scan.sh"
   pull_request:
     paths:
       - "go.mod"

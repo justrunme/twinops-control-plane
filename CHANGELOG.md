@@ -6,8 +6,8 @@ All notable TwinOps changes are listed here. Dates are UTC.
 
 ### Changed
 
-- CI and Security workflows run on pull requests only (publish/GPU remain tag/manual)
-- Drift SARIF CI step no longer masks non-zero exits; only expected drift codes (0/1/3) pass
+- CI and Security workflows keep `push` to `main` and `pull_request` (publish/GPU remain tag/manual)
+- Drift SARIF CI step and `scripts/e2e_demo.sh` no longer mask non-zero exits; only expected drift codes (0/1/3) pass
 - Security SBOM steps fail closed (`continue-on-error` removed)
 - GPU validate copies NVENC smoke artifacts without `|| true`
 - Dependabot updates are grouped per ecosystem (pip, npm, gomod, github-actions, docker)
