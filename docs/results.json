@@ -1,0 +1,22 @@
+{
+  "repo": "twinops-control-plane",
+  "source_run": "https://github.com/justrunme/twinops-control-plane/actions/runs/38066458460",
+  "source_job": "Python 3.12",
+  "measured_at": "2026-10-10T16:11:43Z",
+  "metrics": {
+    "smoke_spike_to_synced_seconds": 0.43,
+    "e2e_spike_to_persistence_seconds": 1.9,
+    "reconcile_changes": 3,
+    "replay_steps_played": 6,
+    "replay_verified": true,
+    "persisted_timeline_events": 5
+  },
+  "flow": [
+    "PLM desired",
+    "heat spike CRITICAL",
+    "scene highlight",
+    "reconcile SYNCED",
+    "incident replay verify",
+    "SQLite persistence"
+  ]
+}
