@@ -82,7 +82,7 @@ spec:
 EOF
 kubectl -n "${REGISTRY_NS}" rollout status deploy/registry --timeout=120s
 
-echo "==> Deploy MinIO"
+echo "==> Deploy SeaweedFS S3"
 kubectl create namespace "${MINIO_NS}" --dry-run=client -o yaml | kubectl apply -f -
 kubectl -n "${MINIO_NS}" apply -f - <<'EOF'
 apiVersion: apps/v1
@@ -98,17 +98,54 @@ spec:
       labels: {app: minio}
     spec:
       containers:
-        - name: minio
-          image: bitnami/minio:latest
-          env:
-            - name: MINIO_ROOT_USER
-              value: minioadmin
-            - name: MINIO_ROOT_PASSWORD
-              value: minioadmin
-            - name: MINIO_DEFAULT_BUCKETS
-              value: twinops
+        - name: seaweedfs
+          image: chrislusf/seaweedfs:3.79
+          args:
+            - server
+            - -s3
+            - -s3.config=/config/s3config.json
+            - -dir=/data
           ports:
-            - containerPort: 9000
+            - containerPort: 8333
+              name: s3
+            - containerPort: 9333
+              name: master
+            - containerPort: 8080
+              name: volume
+          volumeMounts:
+            - name: config
+              mountPath: /config
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 9333
+            initialDelaySeconds: 5
+            periodSeconds: 5
+      volumes:
+        - name: config
+          configMap:
+            name: s3-config
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: s3-config
+data:
+  s3config.json: |
+    {
+      "identities": [
+        {
+          "name": "minioadmin",
+          "credentials": [
+            {
+              "accessKey": "minioadmin",
+              "secretKey": "minioadmin"
+            }
+          ],
+          "actions": ["Admin", "Read", "Write"]
+        }
+      ]
+    }
 ---
 apiVersion: v1
 kind: Service
@@ -118,21 +155,14 @@ spec:
   selector: {app: minio}
   ports:
     - port: 9000
-      targetPort: 9000
+      targetPort: 8333
+      name: s3
 EOF
 
-# Wait a moment for the pod to be created
-sleep 5
-
-# Debug: check pod status and events
-echo "==> Checking MinIO pod status and events"
-kubectl -n "${MINIO_NS}" get pods -l app=minio
-kubectl -n "${MINIO_NS}" describe pod -l app=minio || true
-kubectl -n "${MINIO_NS}" get events --sort-by='.lastTimestamp' | grep -i minio || true
-
+echo "==> Waiting for SeaweedFS to be ready"
 kubectl -n "${MINIO_NS}" rollout status deploy/minio --timeout=180s
 
-# Create bucket via ephemeral mc job.
+# Create bucket via aws-cli
 kubectl -n "${MINIO_NS}" delete job minio-init --ignore-not-found
 kubectl -n "${MINIO_NS}" apply -f - <<'EOF'
 apiVersion: batch/v1
@@ -144,14 +174,19 @@ spec:
     spec:
       restartPolicy: OnFailure
       containers:
-        - name: mc
-          image: bitnami/minio-client:latest
+        - name: aws-cli
+          image: amazon/aws-cli:2.15.54
+          env:
+            - name: AWS_ACCESS_KEY_ID
+              value: minioadmin
+            - name: AWS_SECRET_ACCESS_KEY
+              value: minioadmin
           command:
             - /bin/sh
             - -c
             - |
-              mc alias set local http://minio.minio.svc.cluster.local:9000 minioadmin minioadmin
-              mc mb -p local/twinops || true
+              aws --endpoint-url=http://minio.minio.svc.cluster.local:9000 s3 mb s3://twinops || true
+              aws --endpoint-url=http://minio.minio.svc.cluster.local:9000 s3 ls
 EOF
 kubectl -n "${MINIO_NS}" wait --for=condition=complete job/minio-init --timeout=120s
 
