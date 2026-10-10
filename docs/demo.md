@@ -67,9 +67,9 @@ twinopsctl incident export --from-url http://127.0.0.1:8080 \
 
 # Replay against composed stage + observed baseline:
 twinopsctl incident replay examples/assembly-line/incident-heat-spike.json \
-  --desired examples/assembly-line/desired.usda \
+  --desired examples/assembly-line/desired.yaml \
   --stage examples/assembly-line/generated/root.usda \
-  --observed examples/assembly-line/observed.json \
+  --observed examples/assembly-line/telemetry.json \
   --manifest examples/assembly-line/twin.yaml \
   --json
 ```

@@ -205,9 +205,9 @@ twinopsctl live spike
 twinopsctl live reconcile
 twinopsctl incident export --from-url http://127.0.0.1:8080 --out /tmp/incident.json
 twinopsctl incident replay examples/assembly-line/incident-heat-spike.json \
-  --desired examples/assembly-line/desired.usda \
+  --desired examples/assembly-line/desired.yaml \
   --stage examples/assembly-line/generated/root.usda \
-  --observed examples/assembly-line/observed.json --json
+  --observed examples/assembly-line/telemetry.json --json
 make scene-live
 twinopsctl openapi --out /tmp/twinops-openapi.json
 make verify-all
@@ -316,7 +316,6 @@ twinops-control-plane/
 ├── Dockerfile.live          # Demo live API + web UI image
 ├── Dockerfile.operator      # Operator manager image
 ├── extensions/              # Omniverse Kit highlight stub
-├── usd/                     # Generated / shared USD workspace
 └── web/                     # Live control-plane UI + mock Kit viewport
 ```
 

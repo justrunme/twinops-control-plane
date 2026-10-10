@@ -4,6 +4,19 @@ All notable TwinOps changes are listed here. Dates are UTC.
 
 ## Unreleased
 
+### Changed
+
+- CI and Security workflows run on pull requests only (publish/GPU remain tag/manual)
+- Drift SARIF CI step no longer masks non-zero exits; only expected drift codes (0/1/3) pass
+- Security SBOM steps fail closed (`continue-on-error` removed)
+- GPU validate copies NVENC smoke artifacts without `|| true`
+- Dependabot updates are grouped per ecosystem (pip, npm, gomod, github-actions, docker)
+
+### Fixed
+
+- README / demo docs: incident replay paths use `desired.yaml` and `telemetry.json`
+- README repository layout: removed non-existent `usd/` tree
+
 ## 1.4.3 — 2026-08-02
 
 Small correctness pass (no new product surface):
