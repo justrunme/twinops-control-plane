@@ -82,7 +82,7 @@ spec:
 EOF
 kubectl -n "${REGISTRY_NS}" rollout status deploy/registry --timeout=120s
 
-echo "==> Deploy MinIO"
+echo "==> Deploy S3Mock"
 kubectl create namespace "${MINIO_NS}" --dry-run=client -o yaml | kubectl apply -f -
 kubectl -n "${MINIO_NS}" apply -f - <<'EOF'
 apiVersion: apps/v1
@@ -98,16 +98,24 @@ spec:
       labels: {app: minio}
     spec:
       containers:
-        - name: minio
-          image: minio/minio:latest
-          args: ["server", "/data", "--console-address", ":9001"]
+        - name: s3mock
+          image: adobe/s3mock:3.11.0
           env:
-            - name: MINIO_ROOT_USER
-              value: minioadmin
-            - name: MINIO_ROOT_PASSWORD
-              value: minioadmin
+            - name: initialBuckets
+              value: twinops
+            - name: root
+              value: /data
           ports:
-            - containerPort: 9000
+            - containerPort: 9090
+              name: http
+            - containerPort: 9191
+              name: https
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 9090
+            initialDelaySeconds: 5
+            periodSeconds: 5
 ---
 apiVersion: v1
 kind: Service
@@ -117,32 +125,15 @@ spec:
   selector: {app: minio}
   ports:
     - port: 9000
-      targetPort: 9000
+      targetPort: 9090
+      name: s3
 EOF
+
+echo "==> Waiting for S3Mock to be ready"
 kubectl -n "${MINIO_NS}" rollout status deploy/minio --timeout=180s
 
-# Create bucket via ephemeral mc job.
-kubectl -n "${MINIO_NS}" delete job minio-init --ignore-not-found
-kubectl -n "${MINIO_NS}" apply -f - <<'EOF'
-apiVersion: batch/v1
-kind: Job
-metadata:
-  name: minio-init
-spec:
-  template:
-    spec:
-      restartPolicy: OnFailure
-      containers:
-        - name: mc
-          image: minio/mc:latest
-          command:
-            - /bin/sh
-            - -c
-            - |
-              mc alias set local http://minio.minio.svc.cluster.local:9000 minioadmin minioadmin
-              mc mb -p local/twinops || true
-EOF
-kubectl -n "${MINIO_NS}" wait --for=condition=complete job/minio-init --timeout=120s
+# S3Mock auto-creates the bucket via initialBuckets env var, so just verify it's ready
+echo "==> S3Mock is ready with bucket 'twinops' pre-created"
 
 echo "==> Helm install operator"
 kubectl create namespace "${NAMESPACE}" --dry-run=client -o yaml | kubectl apply -f -
