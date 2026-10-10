@@ -99,7 +99,7 @@ spec:
     spec:
       containers:
         - name: minio
-          image: bitnami/minio:2024.10.2
+          image: bitnami/minio:latest
           env:
             - name: MINIO_ROOT_USER
               value: minioadmin
@@ -145,7 +145,7 @@ spec:
       restartPolicy: OnFailure
       containers:
         - name: mc
-          image: bitnami/minio-client:2024.10.8
+          image: bitnami/minio-client:latest
           command:
             - /bin/sh
             - -c
