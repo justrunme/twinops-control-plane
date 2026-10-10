@@ -1,0 +1,81 @@
+name: Demo results
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '17 5 * * 1'
+
+jobs:
+  record-e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install tools
+        run: |
+          python -m pip install asciinema
+          npm install -g svg-term-cli
+          sudo apt-get update -qq && sudo apt-get install -y -qq make
+
+      - name: Install TwinOps + web
+        run: |
+          make install
+          make web
+
+      - name: Record e2e demo
+        run: |
+          mkdir -p docs/assets
+          asciinema rec --overwrite -c 'bash scripts/e2e_demo.sh' docs/assets/e2e-demo.cast
+          svg-term --in docs/assets/e2e-demo.cast --out docs/assets/e2e-demo.svg --window --width 100 --height 28 --no-cursor
+
+      - name: Write results.json from artifacts
+        env:
+          RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          python3 <<'PY'
+          import json, os, time
+          from pathlib import Path
+          out = Path("/tmp/twinops-e2e-demo/out")
+          reconcile = json.loads((out / "reconcile.json").read_text()) if (out / "reconcile.json").exists() else {}
+          replay = json.loads((out / "replay-verify.json").read_text()) if (out / "replay-verify.json").exists() else {}
+          payload = {
+            "repo": "twinops-control-plane",
+            "source_run": os.environ["RUN_URL"],
+            "measured_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+            "metrics": {
+              "reconcile_changes": reconcile.get("changes"),
+              "replay_verified": replay.get("verified"),
+              "replay_steps_played": replay.get("stepsPlayed"),
+            },
+            "flow": [
+              "PLM desired",
+              "heat spike CRITICAL",
+              "scene highlight",
+              "reconcile SYNCED",
+              "incident replay verify",
+              "SQLite persistence",
+            ],
+          }
+          Path("docs/results.json").write_text(json.dumps(payload, indent=2) + "\n")
+          print(json.dumps(payload, indent=2))
+          PY
+
+      - name: Upload demo artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: demo-results
+          path: |
+            docs/assets/e2e-demo.cast
+            docs/assets/e2e-demo.svg
+            docs/results.json
+          if-no-files-found: error

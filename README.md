@@ -164,6 +164,39 @@ Full walkthrough: [docs/demo.md](docs/demo.md) · [docs/e2e-demo.md](docs/e2e-de
 
 ---
 
+## Demo
+
+Terminal capture of the CI end-to-end flow (`scripts/e2e_demo.sh`): heat spike → CRITICAL → reconcile → SYNCED → incident replay.
+
+<p align="center">
+  <img src="docs/assets/e2e-demo.svg" alt="TwinOps e2e demo terminal: spike to SYNCED with incident replay" width="100%" />
+</p>
+
+Offline self-healing compose demo:
+
+```bash
+make demo
+```
+
+<p align="center">
+  <img src="docs/assets/demo-self-healing.svg" alt="TwinOps offline self-healing demo terminal" width="100%" />
+</p>
+
+Live UI demo: [docs/demo.md](docs/demo.md) · E2E walkthrough: [docs/e2e-demo.md](docs/e2e-demo.md)
+
+## Results
+
+Measured numbers from CI (not estimates). Full table: [docs/results.md](docs/results.md) · machine-readable: [docs/results.json](docs/results.json).
+
+| Metric | Value | Source run |
+| --- | ---: | --- |
+| Smoke: spike → SYNCED | 0.43 s | [38066458460](https://github.com/justrunme/twinops-control-plane/actions/runs/38066458460) (Python 3.12) |
+| E2E: spike → replay → persistence | 1.90 s | same run |
+| Reconcile changes to SYNCED | 3 | same run (`reconcile.json`) |
+| Incident replay verified | true (`stepsPlayed=6`) | same run (`replay-verify.json`) |
+
+---
+
 ## Quickstart extras
 
 ### Offline CLI demo
