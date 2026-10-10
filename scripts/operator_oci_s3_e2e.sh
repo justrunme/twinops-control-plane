@@ -82,7 +82,7 @@ spec:
 EOF
 kubectl -n "${REGISTRY_NS}" rollout status deploy/registry --timeout=120s
 
-echo "==> Deploy SeaweedFS S3"
+echo "==> Deploy S3Mock"
 kubectl create namespace "${MINIO_NS}" --dry-run=client -o yaml | kubectl apply -f -
 kubectl -n "${MINIO_NS}" apply -f - <<'EOF'
 apiVersion: apps/v1
@@ -98,54 +98,24 @@ spec:
       labels: {app: minio}
     spec:
       containers:
-        - name: seaweedfs
-          image: chrislusf/seaweedfs:3.79
-          args:
-            - server
-            - -s3
-            - -s3.config=/config/s3config.json
-            - -dir=/data
+        - name: s3mock
+          image: adobe/s3mock:3.11.0
+          env:
+            - name: initialBuckets
+              value: twinops
+            - name: root
+              value: /data
           ports:
-            - containerPort: 8333
-              name: s3
-            - containerPort: 9333
-              name: master
-            - containerPort: 8080
-              name: volume
-          volumeMounts:
-            - name: config
-              mountPath: /config
+            - containerPort: 9090
+              name: http
+            - containerPort: 9191
+              name: https
           readinessProbe:
             httpGet:
               path: /
-              port: 9333
+              port: 9090
             initialDelaySeconds: 5
             periodSeconds: 5
-      volumes:
-        - name: config
-          configMap:
-            name: s3-config
----
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: s3-config
-data:
-  s3config.json: |
-    {
-      "identities": [
-        {
-          "name": "minioadmin",
-          "credentials": [
-            {
-              "accessKey": "minioadmin",
-              "secretKey": "minioadmin"
-            }
-          ],
-          "actions": ["Admin", "Read", "Write"]
-        }
-      ]
-    }
 ---
 apiVersion: v1
 kind: Service
@@ -155,48 +125,15 @@ spec:
   selector: {app: minio}
   ports:
     - port: 9000
-      targetPort: 8333
+      targetPort: 9090
       name: s3
 EOF
 
-echo "==> Waiting for SeaweedFS to be ready"
+echo "==> Waiting for S3Mock to be ready"
 kubectl -n "${MINIO_NS}" rollout status deploy/minio --timeout=180s
 
-# Create bucket via aws-cli
-kubectl -n "${MINIO_NS}" delete job minio-init --ignore-not-found
-kubectl -n "${MINIO_NS}" apply -f - <<'EOF'
-apiVersion: batch/v1
-kind: Job
-metadata:
-  name: minio-init
-spec:
-  template:
-    spec:
-      restartPolicy: OnFailure
-      containers:
-        - name: aws-cli
-          image: amazon/aws-cli:2.15.54
-          env:
-            - name: AWS_ACCESS_KEY_ID
-              value: minioadmin
-            - name: AWS_SECRET_ACCESS_KEY
-              value: minioadmin
-          command:
-            - /bin/sh
-            - -c
-            - |
-              aws --endpoint-url=http://minio.minio.svc.cluster.local:9000 s3 mb s3://twinops || true
-              aws --endpoint-url=http://minio.minio.svc.cluster.local:9000 s3 ls
-EOF
-
-# Wait a bit and check job status
-sleep 10
-echo "==> Checking bucket init job status"
-kubectl -n "${MINIO_NS}" get job minio-init
-kubectl -n "${MINIO_NS}" get pods -l job-name=minio-init
-kubectl -n "${MINIO_NS}" logs -l job-name=minio-init --tail=50 || true
-
-kubectl -n "${MINIO_NS}" wait --for=condition=complete job/minio-init --timeout=120s
+# S3Mock auto-creates the bucket via initialBuckets env var, so just verify it's ready
+echo "==> S3Mock is ready with bucket 'twinops' pre-created"
 
 echo "==> Helm install operator"
 kubectl create namespace "${NAMESPACE}" --dry-run=client -o yaml | kubectl apply -f -
