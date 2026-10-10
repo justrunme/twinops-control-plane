@@ -78,34 +78,44 @@ jobs:
       - name: Build streaming-sidecar image
         run: docker build -f Dockerfile.streaming-sidecar -t twinops-streaming-sidecar:secscan .
       # docker-run avoids flaky trivy-action binary install (install.sh exit 1 on some runners).
+      # Mount .trivyignore when present (only for CVEs with no upstream fix + documented reason).
       - name: Trivy operator
         run: |
           docker run --rm \
             -v /var/run/docker.sock:/var/run/docker.sock \
+            -v "$PWD:/.workspace:ro" \
+            -w /.workspace \
             aquasec/trivy:0.66.0 image \
             --exit-code 1 \
             --severity CRITICAL,HIGH \
             --ignore-unfixed \
+            --ignorefile .trivyignore \
             --scanners vuln \
             twinops-operator:secscan
       - name: Trivy live
         run: |
           docker run --rm \
             -v /var/run/docker.sock:/var/run/docker.sock \
+            -v "$PWD:/.workspace:ro" \
+            -w /.workspace \
             aquasec/trivy:0.66.0 image \
             --exit-code 1 \
             --severity CRITICAL,HIGH \
             --ignore-unfixed \
+            --ignorefile .trivyignore \
             --scanners vuln \
             twinops-live:secscan
       - name: Trivy streaming-sidecar
         run: |
           docker run --rm \
             -v /var/run/docker.sock:/var/run/docker.sock \
+            -v "$PWD:/.workspace:ro" \
+            -w /.workspace \
             aquasec/trivy:0.66.0 image \
             --exit-code 1 \
             --severity CRITICAL,HIGH \
             --ignore-unfixed \
+            --ignorefile .trivyignore \
             --scanners vuln \
             twinops-streaming-sidecar:secscan
       - name: Syft SBOM (operator)
