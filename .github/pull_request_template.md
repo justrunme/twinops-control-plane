@@ -1,9 +1,13 @@
 ## Summary
 
--
+<!-- What changed and why (1–3 bullets). -->
 
-## Test plan
+## Validation
 
-- [ ] `make verify-all` (or relevant subset)
-- [ ] Docs updated if behavior changed
-- [ ] No production / vendor PLM claims added
+- [ ] Local checks from `CONTRIBUTING.md` pass
+- [ ] CI is green on this branch
+- [ ] Docs / examples updated when behavior changes
+
+## Notes
+
+<!-- Risk, rollout, or follow-ups. -->
