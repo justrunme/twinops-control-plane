@@ -1,31 +1,31 @@
 # TwinOps
 
-**GitOps Control Plane for Industrial Digital Twins**
-
-<p align="center">
-  <img src="docs/assets/twinops-lifecycle.gif" alt="TwinOps lifecycle: PLM → GitOps manifest → control plane → OpenUSD → telemetry/drift → reconcile → SYNCED" width="800" />
-</p>
-
-<p align="center"><em>TwinOps lifecycle — Desired PLM/Git → Rendered OpenUSD → Observed telemetry → Drift → Reconcile → SYNCED<br/>
-(<a href="docs/assets/twinops-lifecycle.mp4">MP4</a> for smoother local playback)</em></p>
-
-TwinOps is a **stable reference architecture** that reconciles **PLM metadata**, **OpenUSD scene composition**, and **live telemetry** into a versioned, observable digital-twin runtime.
-
-> Status: **v1.4.3** — single-twin production-lean: immutable output revisions (ConfigMap/OCI/S3), isolated Job builds, deterministic USD bundles. Omniverse Kit optional. Not a multi-site plant platform.
+GitOps control plane for industrial digital twins (OpenUSD + Omniverse).
 
 [![CI](https://github.com/justrunme/twinops-control-plane/actions/workflows/ci.yml/badge.svg)](https://github.com/justrunme/twinops-control-plane/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/justrunme/twinops-control-plane?display_name=tag)](https://github.com/justrunme/twinops-control-plane/releases/latest)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
-[![OpenUSD](https://img.shields.io/badge/OpenUSD-compiler-brightgreen.svg)](#2-minute-live-demo)
-[![Go](https://img.shields.io/badge/Go-operator-brightgreen.svg)](docs/operator.md)
-[![Kubernetes](https://img.shields.io/badge/Kubernetes-CRD-brightgreen.svg)](docs/operator.md)
-[![Omniverse](https://img.shields.io/badge/NVIDIA%20Omniverse-optional-orange.svg)](#roadmap)
-
-[![Case study](https://img.shields.io/badge/case-justrunme.com-111111)](https://justrunme.com/cases/twinops-control-plane/)
 
 Case study: [TwinOps Control Plane](https://justrunme.com/cases/twinops-control-plane/) · [Andrey Lesnikov](https://justrunme.com/)
 
----
+## What it does
+
+- Reconciles PLM metadata, OpenUSD scene composition, and live telemetry into a versioned digital-twin runtime
+- Runs a Kubernetes operator over `DigitalTwin` CRs with immutable output revisions (ConfigMap / OCI / S3)
+- Detects three-way drift (desired vs rendered vs observed) and drives reconcile toward SYNCED
+
+## Why
+
+- Digital-twin pipelines need GitOps-style desired state, not one-off scene exports
+- Operators need observable drift and deterministic builds without treating Omniverse Kit as mandatory
+
+## Quickstart
+
+```bash
+make install
+make live-demo
+make live-demo-smoke
+```
 
 ## Architecture
 
