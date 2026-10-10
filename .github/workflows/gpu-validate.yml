@@ -45,7 +45,7 @@ jobs:
         run: |
           mkdir -p /tmp/twinops-kit-frames
           bash scripts/streaming_nvenc_smoke.sh
-          cp -a "${TMPDIR:-/tmp}/twinops-nvenc-smoke/." /tmp/twinops-gpu-validate/ || true
+          cp -a "${TMPDIR:-/tmp}/twinops-nvenc-smoke/." /tmp/twinops-gpu-validate/
 
       - name: Upload GPU validation artifacts
         if: always()

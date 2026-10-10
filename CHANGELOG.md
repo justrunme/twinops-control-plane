@@ -4,6 +4,23 @@ All notable TwinOps changes are listed here. Dates are UTC.
 
 ## Unreleased
 
+### Changed
+
+- CI and Security workflows keep `push` to `main` and `pull_request` (publish/GPU remain tag/manual)
+- Drift SARIF CI step and `scripts/e2e_demo.sh` no longer mask non-zero exits; only expected drift codes (0/1/3) pass
+- Security SBOM steps fail closed (`continue-on-error` removed)
+- GPU validate copies NVENC smoke artifacts without `|| true`
+- Dependabot updates are grouped per ecosystem (pip, npm, gomod, github-actions, docker)
+- Go toolchain **1.26.9**; `golang.org/x/net` **v0.60.0** (govulncheck / HTTP/2 fixes)
+- Operator image builds with `golang:1.26.9-bookworm`; oras deps bumped (`x/crypto` ≥ 0.55, `x/net` ≥ 0.60)
+- Runtime Docker bases run `apt-get upgrade` before install
+
+### Fixed
+
+- README / demo docs: incident replay paths use `desired.yaml` and `telemetry.json`
+- README repository layout: removed non-existent `usd/` tree
+
+
 ## 1.4.3 — 2026-08-02
 
 Small correctness pass (no new product surface):

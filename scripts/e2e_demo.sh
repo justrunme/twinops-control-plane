@@ -175,13 +175,21 @@ echo "==> Export final incident + artifacts"
 # SARIF from offline drift against post-reconcile stage when available.
 STAGE="${ARTIFACTS}/work/stage/root.usda"
 if [[ -f "${STAGE}" ]]; then
+  set +e
   "${TWINOPSCTL}" drift \
     --desired "${EXAMPLE}/desired.yaml" \
     --stage "${STAGE}" \
     --observed "${ARTIFACTS}/work/observed-latest.json" \
     --manifest "${EXAMPLE}/twin.yaml" \
     --out "${ARTIFACTS}/out/drift" \
-    --sarif "${ARTIFACTS}/out/drift-report.sarif" || true
+    --sarif "${ARTIFACTS}/out/drift-report.sarif"
+  drift_code=$?
+  set -e
+  # Expected findings: 0=clean, 1=DRIFT, 3=CRITICAL. Fail on load/tool errors (2+) and unknowns.
+  case "${drift_code}" in
+    0|1|3) ;;
+    *) exit "${drift_code}" ;;
+  esac
 fi
 
 curl -fsS "${BASE}/api/audit?limit=50" >"${ARTIFACTS}/out/audit.json" || echo '{"items":[]}' >"${ARTIFACTS}/out/audit.json"

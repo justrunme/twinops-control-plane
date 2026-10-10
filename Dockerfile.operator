@@ -1,5 +1,5 @@
 # TwinOps operator image: manager + twinops-job + oras + aws CLI for OCI/S3 publish.
-FROM golang:1.26-bookworm AS builder
+FROM golang:1.26.9-bookworm AS builder
 WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
@@ -11,16 +11,20 @@ RUN CGO_ENABLED=0 GOOS=linux go build -o /out/manager ./cmd/manager \
   && CGO_ENABLED=0 GOOS=linux go build -o /out/twinops-job ./cmd/twinops-job
 
 # Build oras from source with the same Go toolchain so image stdlib CVEs stay current.
-# Fail hard on dependency issues (no || true).
-FROM golang:1.26-bookworm AS oras
-ARG ORAS_VERSION=v1.3.3
+# Fail hard on dependency issues (no || true). Bump x/crypto + x/net for known HIGH fixes.
+FROM golang:1.26.9-bookworm AS oras
+ARG ORAS_VERSION=v1.3.4
 RUN git clone --depth 1 --branch "${ORAS_VERSION}" https://github.com/oras-project/oras.git /src \
   && cd /src \
+  && go get golang.org/x/crypto@v0.55.0 \
+  && go get golang.org/x/net@v0.60.0 \
+  && go mod tidy \
   && CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/oras ./cmd/oras
 
 FROM python:3.12-slim-bookworm
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    ca-certificates \
+RUN apt-get update \
+  && apt-get upgrade -y --no-install-recommends \
+  && apt-get install -y --no-install-recommends ca-certificates \
   && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY pyproject.toml README.md LICENSE ./
