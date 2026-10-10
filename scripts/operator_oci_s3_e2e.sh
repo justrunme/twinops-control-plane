@@ -188,6 +188,14 @@ spec:
               aws --endpoint-url=http://minio.minio.svc.cluster.local:9000 s3 mb s3://twinops || true
               aws --endpoint-url=http://minio.minio.svc.cluster.local:9000 s3 ls
 EOF
+
+# Wait a bit and check job status
+sleep 10
+echo "==> Checking bucket init job status"
+kubectl -n "${MINIO_NS}" get job minio-init
+kubectl -n "${MINIO_NS}" get pods -l job-name=minio-init
+kubectl -n "${MINIO_NS}" logs -l job-name=minio-init --tail=50 || true
+
 kubectl -n "${MINIO_NS}" wait --for=condition=complete job/minio-init --timeout=120s
 
 echo "==> Helm install operator"
