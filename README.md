@@ -10,6 +10,7 @@ GitOps control plane for industrial digital twins (OpenUSD + Omniverse).
 [![Kubernetes](https://img.shields.io/badge/Kubernetes-CRD-brightgreen.svg)](docs/operator.md)
 [![Omniverse](https://img.shields.io/badge/NVIDIA%20Omniverse-optional-orange.svg)](#roadmap-summary)
 [![Case study](https://img.shields.io/badge/case-justrunme.com-111111)](https://justrunme.com/cases/twinops-control-plane/)
+[![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/justrunme/twinops-control-plane/badge)](https://securityscorecards.dev/viewer/?uri=github.com/justrunme/twinops-control-plane)
 
 <p align="center">
   <img src="docs/assets/twinops-lifecycle.gif" alt="TwinOps lifecycle: PLM → GitOps manifest → control plane → OpenUSD → telemetry/drift → reconcile → SYNCED" width="800" />
