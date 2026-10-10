@@ -1,0 +1,3 @@
+# Ignore only HIGH/CRITICAL CVEs with no upstream fix available.
+# Each entry must include a reason comment on the preceding line.
+# (Currently empty — fixed vulns are resolved via base image / module bumps.)

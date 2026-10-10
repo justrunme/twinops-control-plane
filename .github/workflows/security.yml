@@ -1,10 +1,7 @@
-# On-demand / release — supply-chain gate (not every PR minute-burn).
+# Supply-chain gate on main/PR when deps or images change (plus manual dispatch).
 name: Security
 
 on:
-  workflow_dispatch:
-  release:
-    types: [published]
   push:
     branches: [main]
     paths:
@@ -15,6 +12,16 @@ on:
       - "Dockerfile.*"
       - ".github/workflows/security.yml"
       - "scripts/security_scan.sh"
+  pull_request:
+    paths:
+      - "go.mod"
+      - "go.sum"
+      - "pyproject.toml"
+      - "web/package-lock.json"
+      - "Dockerfile.*"
+      - ".github/workflows/security.yml"
+      - "scripts/security_scan.sh"
+  workflow_dispatch:
 
 jobs:
   python:
@@ -39,7 +46,7 @@ jobs:
       - uses: actions/checkout@v7
       - uses: actions/setup-go@v7
         with:
-          go-version: "1.26.x"
+          go-version: "1.26.9"
       - name: Install govulncheck
         run: go install golang.org/x/vuln/cmd/govulncheck@latest
       - name: Scan
@@ -71,48 +78,55 @@ jobs:
       - name: Build streaming-sidecar image
         run: docker build -f Dockerfile.streaming-sidecar -t twinops-streaming-sidecar:secscan .
       # docker-run avoids flaky trivy-action binary install (install.sh exit 1 on some runners).
+      # Mount .trivyignore when present (only for CVEs with no upstream fix + documented reason).
       - name: Trivy operator
         run: |
           docker run --rm \
             -v /var/run/docker.sock:/var/run/docker.sock \
+            -v "$PWD:/.workspace:ro" \
+            -w /.workspace \
             aquasec/trivy:0.66.0 image \
             --exit-code 1 \
             --severity CRITICAL,HIGH \
             --ignore-unfixed \
+            --ignorefile .trivyignore \
             --scanners vuln \
             twinops-operator:secscan
       - name: Trivy live
         run: |
           docker run --rm \
             -v /var/run/docker.sock:/var/run/docker.sock \
+            -v "$PWD:/.workspace:ro" \
+            -w /.workspace \
             aquasec/trivy:0.66.0 image \
             --exit-code 1 \
             --severity CRITICAL,HIGH \
             --ignore-unfixed \
+            --ignorefile .trivyignore \
             --scanners vuln \
             twinops-live:secscan
       - name: Trivy streaming-sidecar
         run: |
           docker run --rm \
             -v /var/run/docker.sock:/var/run/docker.sock \
+            -v "$PWD:/.workspace:ro" \
+            -w /.workspace \
             aquasec/trivy:0.66.0 image \
             --exit-code 1 \
             --severity CRITICAL,HIGH \
             --ignore-unfixed \
+            --ignorefile .trivyignore \
             --scanners vuln \
             twinops-streaming-sidecar:secscan
       - name: Syft SBOM (operator)
-        continue-on-error: true
         uses: anchore/sbom-action@v0
         with:
           image: twinops-operator:secscan
           format: spdx-json
           output-file: twinops-operator.spdx.json
       - name: Upload SBOM
-        if: always()
-        continue-on-error: true
         uses: actions/upload-artifact@v7
         with:
           name: twinops-sbom
           path: "*.spdx.json"
-          if-no-files-found: ignore
+          if-no-files-found: error
