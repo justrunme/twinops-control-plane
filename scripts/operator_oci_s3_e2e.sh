@@ -99,13 +99,14 @@ spec:
     spec:
       containers:
         - name: minio
-          image: quay.io/minio/minio:RELEASE.2024-09-13T20-26-02Z
-          args: ["server", "/data", "--console-address", ":9001"]
+          image: bitnami/minio:2024.10.2
           env:
             - name: MINIO_ROOT_USER
               value: minioadmin
             - name: MINIO_ROOT_PASSWORD
               value: minioadmin
+            - name: MINIO_DEFAULT_BUCKETS
+              value: twinops
           ports:
             - containerPort: 9000
 ---
@@ -144,7 +145,7 @@ spec:
       restartPolicy: OnFailure
       containers:
         - name: mc
-          image: quay.io/minio/mc:RELEASE.2024-09-16T17-43-14Z
+          image: bitnami/minio-client:2024.10.8
           command:
             - /bin/sh
             - -c
