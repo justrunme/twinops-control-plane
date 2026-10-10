@@ -119,6 +119,16 @@ spec:
     - port: 9000
       targetPort: 9000
 EOF
+
+# Wait a moment for the pod to be created
+sleep 5
+
+# Debug: check pod status and events
+echo "==> Checking MinIO pod status and events"
+kubectl -n "${MINIO_NS}" get pods -l app=minio
+kubectl -n "${MINIO_NS}" describe pod -l app=minio || true
+kubectl -n "${MINIO_NS}" get events --sort-by='.lastTimestamp' | grep -i minio || true
+
 kubectl -n "${MINIO_NS}" rollout status deploy/minio --timeout=180s
 
 # Create bucket via ephemeral mc job.
