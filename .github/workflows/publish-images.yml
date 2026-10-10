@@ -134,7 +134,7 @@ jobs:
       - name: Sign container image
         env:
           DIGEST: ${{ steps.build.outputs.digest }}
-        run: cosign sign --yes "${{ steps.meta.outputs.image }}@${DIGEST}"
+        run: cosign sign --yes --registry-referrers-mode=legacy "${{ steps.meta.outputs.image }}@${DIGEST}"
 
       - name: Verify signed image
         env:
