@@ -26,15 +26,18 @@ def _binding() -> list[TopicBinding]:
 
 
 def test_out_of_order_sequence_dropped() -> None:
-    ingest = ObservationIngest(_binding(), ttl_seconds=60)
+    ingest = ObservationIngest(_binding(), ttl_seconds=60, max_skew_seconds=3600)
+    now = datetime.now(UTC)
+    t5 = (now + timedelta(seconds=5)).isoformat().replace("+00:00", "Z")
+    t3 = (now + timedelta(seconds=3)).isoformat().replace("+00:00", "Z")
     assert ingest.handle_message(
         "factory/robot-01/temperature",
-        b'{"value": 50, "sequence": 5, "source": "plc", "timestamp": "2026-10-11T10:00:05Z"}',
+        f'{{"value": 50, "sequence": 5, "source": "plc", "timestamp": "{t5}"}}'.encode(),
     )
     assert (
         ingest.handle_message(
             "factory/robot-01/temperature",
-            b'{"value": 40, "sequence": 3, "source": "plc", "timestamp": "2026-10-11T10:00:03Z"}',
+            f'{{"value": 40, "sequence": 3, "source": "plc", "timestamp": "{t3}"}}'.encode(),
         )
         is False
     )
@@ -43,15 +46,18 @@ def test_out_of_order_sequence_dropped() -> None:
 
 
 def test_out_of_order_timestamp_dropped() -> None:
-    ingest = ObservationIngest(_binding(), ttl_seconds=60)
+    ingest = ObservationIngest(_binding(), ttl_seconds=60, max_skew_seconds=3600)
+    now = datetime.now(UTC)
+    t5 = (now + timedelta(seconds=5)).isoformat().replace("+00:00", "Z")
+    t1 = (now + timedelta(seconds=1)).isoformat().replace("+00:00", "Z")
     assert ingest.handle_message(
         "factory/robot-01/temperature",
-        b'{"value": 50, "source": "plc", "timestamp": "2026-10-11T10:00:05Z"}',
+        f'{{"value": 50, "source": "plc", "timestamp": "{t5}"}}'.encode(),
     )
     assert (
         ingest.handle_message(
             "factory/robot-01/temperature",
-            b'{"value": 40, "source": "plc", "timestamp": "2026-10-11T10:00:01Z"}',
+            f'{{"value": 40, "source": "plc", "timestamp": "{t1}"}}'.encode(),
         )
         is False
     )
@@ -59,27 +65,29 @@ def test_out_of_order_timestamp_dropped() -> None:
 
 
 def test_duplicate_message_id_dropped() -> None:
-    ingest = ObservationIngest(_binding(), dedupe_window_seconds=60)
+    ingest = ObservationIngest(_binding(), dedupe_window_seconds=60, max_skew_seconds=3600)
+    ts = datetime.now(UTC).isoformat().replace("+00:00", "Z")
     payload = (
-        b'{"value": 55, "source": "plc", "messageId": "m-1",'
-        b' "timestamp": "2026-10-11T10:00:00Z", "sequence": 1}'
-    )
+        f'{{"value": 55, "source": "plc", "messageId": "m-1",'
+        f' "timestamp": "{ts}", "sequence": 1}}'
+    ).encode()
     assert ingest.handle_message("factory/robot-01/temperature", payload)
     assert ingest.handle_message("factory/robot-01/temperature", payload) is False
     assert ingest.duplicates_dropped == 1
 
 
 def test_stale_sensor_never_normal() -> None:
-    tracker = SensorTracker(ttl_seconds=0.01)
+    import time
+
+    tracker = SensorTracker(ttl_seconds=0.05, max_skew_seconds=3600)
     ingest = ObservationIngest(_binding(), tracker=tracker)
+    now = datetime.now(UTC)
+    ts = now.isoformat().replace("+00:00", "Z")
     assert ingest.handle_message(
         "factory/robot-01/status",
-        b'{"value": "running", "source": "plc", '
-        b'"timestamp": "2026-10-11T10:00:00Z", "sequence": 1}',
+        f'{{"value": "running", "source": "plc", "timestamp": "{ts}", "sequence": 1}}'.encode(),
     )
-    # Force received_at into the past.
-    state = tracker._sensors["factory/robot-01/status"]
-    state.received_at = datetime.now(UTC) - timedelta(seconds=5)
+    time.sleep(0.12)
     stale = ingest.apply_stale()
     assert "factory/robot-01/status" in stale
     merged = ingest.merge_observations(
@@ -100,20 +108,50 @@ def test_stale_sensor_never_normal() -> None:
     assert attrs["twinops:status"] != "running"
 
 
-def test_clock_skew_flagged() -> None:
-    ingest = ObservationIngest(_binding(), max_skew_seconds=5)
-    far = (datetime.now(UTC) + timedelta(hours=2)).isoformat().replace("+00:00", "Z")
+def test_clock_skew_rejected_without_advancing_state() -> None:
+    tracker = SensorTracker(max_skew_seconds=5)
+    ingest = ObservationIngest(_binding(), tracker=tracker)
+    now = datetime.now(UTC)
+    ok_ts = now.isoformat().replace("+00:00", "Z")
     assert ingest.handle_message(
         "factory/robot-01/temperature",
-        f'{{"value": 60, "source": "plc", "timestamp": "{far}", "sequence": 1}}'.encode(),
+        f'{{"value": 50, "source": "plc", "timestamp": "{ok_ts}", "sequence": 2}}'.encode(),
+    )
+    far = (now + timedelta(hours=2)).isoformat().replace("+00:00", "Z")
+    assert (
+        ingest.handle_message(
+            "factory/robot-01/temperature",
+            f'{{"value": 99, "source": "plc", "timestamp": "{far}", "sequence": 99}}'.encode(),
+        )
+        is False
     )
     assert ingest.clock_skew_violations == 1
-    status = ingest.status()
-    assert status["reliability"]["clockSkewSensors"] >= 1
-    assert any(
-        c["type"] == "TelemetryClockSkew" and c["status"] == "True"
-        for c in status["conditions"]
+    # Far-future must not advance sequence — later in-order message still accepted.
+    later = (now + timedelta(seconds=1)).isoformat().replace("+00:00", "Z")
+    assert ingest.handle_message(
+        "factory/robot-01/temperature",
+        f'{{"value": 55, "source": "plc", "timestamp": "{later}", "sequence": 3}}'.encode(),
     )
+    assert ingest.last_value == 55
+    assert tracker.snapshot()["factory/robot-01/temperature"].sequence == 3
+
+
+def test_sequence_epoch_reset_bounded() -> None:
+    tracker = SensorTracker(max_skew_seconds=3600)
+    now = datetime.now(UTC)
+    ts = now.isoformat().replace("+00:00", "Z")
+    assert tracker.accept("s1", 1, sequence=100, timestamp=ts, epoch="e1", now=now).accepted
+    # Backwards without new epoch → reject
+    r = tracker.accept("s1", 2, sequence=1, timestamp=ts, epoch="e1", now=now)
+    assert not r.accepted and r.out_of_order
+    # New epoch + backwards jump → reset
+    r2 = tracker.accept("s1", 3, sequence=1, timestamp=ts, epoch="e2", now=now)
+    assert r2.accepted and r2.reason == "epoch_reset"
+    assert tracker.metrics.sequence_resets == 1
+    # Bound resets
+    tracker.max_sequence_resets = 1
+    r3 = tracker.accept("s1", 4, sequence=0, timestamp=ts, epoch="e3", now=now)
+    assert not r3.accepted and r3.out_of_order
 
 
 def test_drift_treats_stale_as_not_synced() -> None:

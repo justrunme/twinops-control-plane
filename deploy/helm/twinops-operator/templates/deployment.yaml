@@ -50,6 +50,10 @@ spec:
             {{- if .Values.liveAPIHostAllowlist }}
             - --live-api-host-allowlist={{ .Values.liveAPIHostAllowlist }}
             {{- end }}
+            - --plm-allow-private={{ .Values.plmAllowPrivate | default false }}
+            {{- if .Values.plmHostAllowlist }}
+            - --plm-host-allowlist={{ .Values.plmHostAllowlist }}
+            {{- end }}
             {{- $secretNs := .Values.rbac.secretNamespaces | default (list) }}
             {{- if eq (len $secretNs) 0 }}
             {{- $secretNs = list .Values.namespace }}

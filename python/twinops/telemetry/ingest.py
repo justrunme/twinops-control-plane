@@ -30,7 +30,7 @@ class ObservationIngest:
     - out-of-order sequence or timestamp → drop
     - duplicate message id / sequence within dedupe window → drop
     - TTL without fresh reading → STALE/UNKNOWN (never left as 'normal')
-    - bounded clock skew → flag CLOCK_SKEW
+    - bounded clock skew → reject/quarantine without advancing sensor state
     """
 
     def __init__(
@@ -121,7 +121,10 @@ class ObservationIngest:
     def _conditions_unlocked(self, reliability: dict[str, Any]) -> list[dict[str, Any]]:
         conditions = []
         stale = int(reliability.get("staleSensors") or 0)
-        skew = int(reliability.get("clockSkewSensors") or 0)
+        metrics = reliability.get("metrics") or {}
+        skew = int(metrics.get("clockSkewViolations") or reliability.get("clockSkewSensors") or 0)
+        if skew == 0:
+            skew = int(self.clock_skew_violations)
         conditions.append(
             {
                 "type": "TelemetryFresh",
@@ -168,8 +171,12 @@ class ObservationIngest:
             sequence=meta.get("sequence"),
             timestamp=meta.get("timestamp"),
             message_id=meta.get("message_id"),
+            epoch=meta.get("epoch"),
+            session_id=meta.get("session_id"),
         )
         with self._lock:
+            if result.clock_skew:
+                self.clock_skew_violations += 1
             if result.duplicate:
                 self.duplicates_dropped += 1
                 return False
@@ -179,8 +186,6 @@ class ObservationIngest:
             if not result.accepted:
                 self.rejected += 1
                 return False
-            if result.clock_skew:
-                self.clock_skew_violations += 1
 
             self._overrides.setdefault(binding.prim, {})[binding.attribute] = result.value
             # Surface reliability status on the prim (never mask STALE as normal).
@@ -306,6 +311,12 @@ class ObservationIngest:
                 meta["message_id"] = str(data["messageId"])
             elif "id" in data and data.get("schema") == "twinops.mqtt.payload.v1":
                 meta["message_id"] = str(data["id"])
+            if data.get("epoch") is not None:
+                meta["epoch"] = str(data["epoch"])
+            if data.get("sessionId") is not None:
+                meta["session_id"] = str(data["sessionId"])
+            elif data.get("session_id") is not None:
+                meta["session_id"] = str(data["session_id"])
             if "value" in data:
                 return data["value"], str(source) if source is not None else None, meta
             return data, str(source) if source is not None else None, meta

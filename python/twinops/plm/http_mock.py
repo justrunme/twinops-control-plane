@@ -105,7 +105,7 @@ class MockPlmHTTPServer:
                             self._send(404, b'{"error":"not found"}')
                             return
                         body = json.dumps(item).encode("utf-8")
-                        self._send(200, body, etag=etag)
+                        self._send(200, body, etag=outer._item_etag(item))
                         return
                     self._send(404, b'{"error":"not found"}')
 
