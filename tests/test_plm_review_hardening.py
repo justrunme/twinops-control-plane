@@ -68,3 +68,80 @@ def test_bump_revision_refuses_without_etag(monkeypatch: pytest.MonkeyPatch) -> 
         monkeypatch.setattr(adapter, "get", _get)
         with pytest.raises(ValueError, match="item ETag required"):
             adapter.bump_revision("1004711")
+
+
+def test_compare_track_latest_does_not_false_match_catalog_A() -> None:
+    """Omitted manifest pin (None) must not look like a pinned revision equal to catalog A."""
+    from twinops.plm.mock import MockPlmAdapter, PlmItem
+    from twinops.schema.manifest import DigitalTwinManifest, PlmMapping
+
+    adapter = MockPlmAdapter(
+        [PlmItem(item_id="1", revision="A", lifecycle="Released", prim="/P")]
+    )
+    manifest = DigitalTwinManifest(
+        name="t",
+        base_stage="x.usda",
+        plm_mappings=[
+            PlmMapping(item_id="1", prim="/P", revision=None, lifecycle=None)
+        ],
+    )
+    diffs = adapter.compare_manifest(manifest)
+    assert len(diffs) == 1
+    assert diffs[0]["status"] == "SYNCED"
+    assert diffs[0].get("trackingLatest") is True
+    # Still not a false pin equality: manifest revision remains unset.
+    assert manifest.plm_mappings[0].revision is None
+    assert manifest.plm_mappings[0].revision != "A"
+
+
+def test_compare_pinned_A_matches_catalog_A() -> None:
+    from twinops.plm.mock import MockPlmAdapter, PlmItem
+    from twinops.schema.manifest import DigitalTwinManifest, PlmMapping
+
+    adapter = MockPlmAdapter(
+        [PlmItem(item_id="1", revision="A", lifecycle="Released", prim="/P")]
+    )
+    manifest = DigitalTwinManifest(
+        name="t",
+        base_stage="x.usda",
+        plm_mappings=[
+            PlmMapping(item_id="1", prim="/P", revision="A", lifecycle="Released")
+        ],
+    )
+    diffs = adapter.compare_manifest(manifest)
+    assert diffs[0]["status"] == "SYNCED"
+    assert diffs[0].get("trackingLatest") is False
+
+
+def test_compare_pinned_drift_when_catalog_moves() -> None:
+    from twinops.plm.mock import MockPlmAdapter, PlmItem
+    from twinops.schema.manifest import DigitalTwinManifest, PlmMapping
+
+    adapter = MockPlmAdapter(
+        [PlmItem(item_id="1", revision="B", lifecycle="Released", prim="/P")]
+    )
+    manifest = DigitalTwinManifest(
+        name="t",
+        base_stage="x.usda",
+        plm_mappings=[
+            PlmMapping(item_id="1", prim="/P", revision="A", lifecycle="Released")
+        ],
+    )
+    diffs = adapter.compare_manifest(manifest)
+    assert diffs[0]["status"] == "DRIFT"
+
+
+def test_mock_http_server_is_not_operator_production_import() -> None:
+    """Guards against wiring the lab HTTP mock into the operator package path."""
+    import pathlib
+
+    root = pathlib.Path(__file__).resolve().parents[1]
+    go_files = list((root / "controllers").rglob("*.go")) + list(
+        (root / "internal" / "plmsync").rglob("*.go")
+    )
+    assert go_files, "expected Go operator sources"
+    for path in go_files:
+        text = path.read_text(encoding="utf-8")
+        assert "http_mock" not in text
+        assert "MockPlmHTTPServer" not in text
+        assert "twinops/plm/mock" not in text

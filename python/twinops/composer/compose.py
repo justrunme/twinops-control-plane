@@ -51,14 +51,13 @@ def compose_digital_twin(
 
     plm_items: list[tuple[str, str, Any]] = []
     for mapping in manifest.plm_mappings:
-        plm_items.extend(
-            [
-                (mapping.prim, "twinops:plmItemId", mapping.item_id),
-                (mapping.prim, "twinops:plmRevision", mapping.revision),
-                (mapping.prim, "twinops:lifecycle", mapping.lifecycle),
-                (mapping.prim, "twinops:plmProvider", manifest.plm_provider),
-            ]
-        )
+        plm_items.append((mapping.prim, "twinops:plmItemId", mapping.item_id))
+        plm_items.append((mapping.prim, "twinops:plmProvider", manifest.plm_provider))
+        # Track-latest (None) must not stamp a fake revision/lifecycle into the overlay.
+        if mapping.revision is not None:
+            plm_items.append((mapping.prim, "twinops:plmRevision", mapping.revision))
+        if mapping.lifecycle is not None:
+            plm_items.append((mapping.prim, "twinops:lifecycle", mapping.lifecycle))
     plm_layer = usda.build_overlay_layer(
         doc=f"TwinOps PLM overlay for {manifest.name}",
         prims=usda.group_attributes_by_prim(plm_items),

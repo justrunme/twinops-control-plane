@@ -28,8 +28,10 @@ class TelemetryMapping:
 class PlmMapping:
     item_id: str
     prim: str
-    revision: str = "A"
-    lifecycle: str = "Released"
+    # None means track latest from PLM (not pinned). Never default to "A"/"Released"
+    # so an omitted pin cannot compare equal to a real catalog revision by accident.
+    revision: str | None = None
+    lifecycle: str | None = None
 
 
 @dataclass(frozen=True)
@@ -100,6 +102,20 @@ def _validate_prim(prim: str, context: str) -> str:
         raise ManifestError(f"{context}: invalid prim path '{prim}'")
     return prim
 
+
+
+def _optional_pinned_str(item: dict[str, Any], key: str, context: str) -> str | None:
+    """Return a pinned revision/lifecycle, or None when omitted (track latest).
+
+    Explicit null/omission → None. Empty string is invalid. Values are never
+    defaulted to catalog-looking sentinels such as "A" or "Released".
+    """
+    if key not in item or item[key] is None:
+        return None
+    value = str(item[key]).strip()
+    if value == "":
+        raise ManifestError(f"{context}.{key} must be non-empty when set (omit to track latest)")
+    return value
 
 def load_manifest(path: str | Path) -> DigitalTwinManifest:
     """Load and validate a DigitalTwin YAML manifest."""
@@ -172,8 +188,8 @@ def load_manifest(path: str | Path) -> DigitalTwinManifest:
             PlmMapping(
                 item_id=_require_str(item, "itemId", context),
                 prim=_validate_prim(_require_str(item, "prim", context), context),
-                revision=str(item.get("revision", "A")),
-                lifecycle=str(item.get("lifecycle", "Released")),
+                revision=_optional_pinned_str(item, "revision", context),
+                lifecycle=_optional_pinned_str(item, "lifecycle", context),
             )
         )
 
