@@ -7,6 +7,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -404,5 +405,155 @@ func TestValidateMissingArtifactAndLiveAllowlist(t *testing.T) {
 	})
 	if err == nil {
 		t.Fatal("expected allowlist miss")
+	}
+}
+
+func TestResolvePlmToken(t *testing.T) {
+	ctx, ns, _, _ := setupNS(t)
+	twin := &twinopsv1alpha1.DigitalTwin{
+		ObjectMeta: metav1.ObjectMeta{Name: "plm-tok", Namespace: ns},
+		Spec: twinopsv1alpha1.DigitalTwinSpec{
+			PLM: &twinopsv1alpha1.PlmSourceSpec{
+				URL:            "http://127.0.0.1:9",
+				TokenSecretRef: &twinopsv1alpha1.SecretKeyRef{Name: "plm-token", Key: "token"},
+			},
+		},
+	}
+	if tok, err := resolvePlmToken(ctx, nil, twin); err == nil || tok != "" {
+		t.Fatalf("nil client: tok=%q err=%v", tok, err)
+	}
+	if tok, err := resolvePlmToken(ctx, testClient, twin); err == nil || tok != "" {
+		t.Fatalf("missing secret: tok=%q err=%v", tok, err)
+	}
+	sec := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{Name: "plm-token", Namespace: ns},
+		Data:       map[string][]byte{"token": []byte("s3cr3t")},
+	}
+	if err := testClient.Create(ctx, sec); err != nil {
+		t.Fatal(err)
+	}
+	tok, err := resolvePlmToken(ctx, testClient, twin)
+	if err != nil || tok != "s3cr3t" {
+		t.Fatalf("tok=%q err=%v", tok, err)
+	}
+	// no PLM / no ref → empty
+	if tok, err := resolvePlmToken(ctx, testClient, &twinopsv1alpha1.DigitalTwin{}); err != nil || tok != "" {
+		t.Fatalf("empty: tok=%q err=%v", tok, err)
+	}
+}
+
+func TestReconcilePlmAuthFailed(t *testing.T) {
+	ctx, ns, _, r := setupNS(t)
+	cm := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{Name: "plm-cm", Namespace: ns},
+		Data: map[string]string{
+			"twin.yaml": "name: assembly\nspec:\n  plm:\n    mappings: []\n",
+		},
+	}
+	if err := testClient.Create(ctx, cm); err != nil {
+		t.Fatal(err)
+	}
+	twin := &twinopsv1alpha1.DigitalTwin{
+		ObjectMeta: metav1.ObjectMeta{Name: "plm-auth", Namespace: ns},
+		Spec: twinopsv1alpha1.DigitalTwinSpec{
+			ArtifactSource:  &twinopsv1alpha1.ArtifactSource{ConfigMapName: "plm-cm"},
+			IntervalSeconds: 30,
+			OutputPublish:   &twinopsv1alpha1.OutputPublish{Enabled: boolPtr(false), Mode: "none"},
+			PLM: &twinopsv1alpha1.PlmSourceSpec{
+				URL:            "http://127.0.0.1:9",
+				TokenSecretRef: &twinopsv1alpha1.SecretKeyRef{Name: "missing-plm", Key: "token"},
+			},
+		},
+	}
+	if err := testClient.Create(ctx, twin); err != nil {
+		t.Fatal(err)
+	}
+	req := ctrl.Request{NamespacedName: types.NamespacedName{Namespace: ns, Name: "plm-auth"}}
+	_, err := r.Reconcile(ctx, req)
+	if err == nil {
+		t.Fatal("expected auth error")
+	}
+	var got twinopsv1alpha1.DigitalTwin
+	if err := testClient.Get(ctx, req.NamespacedName, &got); err != nil {
+		t.Fatal(err)
+	}
+	if conditionReason(got.Status.Conditions, "PlmSynced") != "AuthFailed" {
+		t.Fatalf("want AuthFailed, got %s msg=%s", conditionReason(got.Status.Conditions, "PlmSynced"), got.Status.PLM.Message)
+	}
+}
+
+func TestReconcilePlmSyncHappy(t *testing.T) {
+	ctx, ns, runner, r := setupNS(t)
+
+	// Minimal mock PLM HTTP server with ETag
+	store := map[string]any{
+		"items": []map[string]any{
+			{"id": "1004711", "revision": "B", "lifecycle": "Released", "metadata": map[string]string{"prim": "/World/Robot"}},
+		},
+	}
+	mux := http.NewServeMux()
+	mux.HandleFunc("/items", func(w http.ResponseWriter, req *http.Request) {
+		if req.Header.Get("Authorization") != "Bearer plm-tok" {
+			w.WriteHeader(401)
+			return
+		}
+		body, _ := json.Marshal(store)
+		w.Header().Set("ETag", `"etag-1"`)
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write(body)
+	})
+	srv := httptest.NewServer(mux)
+	defer srv.Close()
+
+	sec := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{Name: "plm-token", Namespace: ns},
+		Data:       map[string][]byte{"token": []byte("plm-tok")},
+	}
+	if err := testClient.Create(ctx, sec); err != nil {
+		t.Fatal(err)
+	}
+	cm := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{Name: "plm-inputs", Namespace: ns},
+		Data: map[string]string{
+			"twin.yaml": "apiVersion: twinops.io/v1alpha1\nkind: DigitalTwin\nmetadata:\n  name: t\nspec:\n  plm:\n    provider: rest\n    mappings: []\n",
+		},
+	}
+	if err := testClient.Create(ctx, cm); err != nil {
+		t.Fatal(err)
+	}
+	sync := true
+	twin := &twinopsv1alpha1.DigitalTwin{
+		ObjectMeta: metav1.ObjectMeta{Name: "plm-ok", Namespace: ns},
+		Spec: twinopsv1alpha1.DigitalTwinSpec{
+			ArtifactSource:  &twinopsv1alpha1.ArtifactSource{ConfigMapName: "plm-inputs"},
+			IntervalSeconds: 30,
+			OutputPublish:   &twinopsv1alpha1.OutputPublish{Enabled: boolPtr(false), Mode: "none"},
+			PLM: &twinopsv1alpha1.PlmSourceSpec{
+				URL:            srv.URL,
+				TokenSecretRef: &twinopsv1alpha1.SecretKeyRef{Name: "plm-token", Key: "token"},
+				SyncManifest:   &sync,
+				PollSeconds:    15,
+			},
+		},
+	}
+	if err := testClient.Create(ctx, twin); err != nil {
+		t.Fatal(err)
+	}
+	req := ctrl.Request{NamespacedName: types.NamespacedName{Namespace: ns, Name: "plm-ok"}}
+	if _, err := r.Reconcile(ctx, req); err != nil {
+		t.Fatalf("reconcile: %v", err)
+	}
+	var got twinopsv1alpha1.DigitalTwin
+	if err := testClient.Get(ctx, req.NamespacedName, &got); err != nil {
+		t.Fatal(err)
+	}
+	if conditionReason(got.Status.Conditions, "PlmSynced") != "Synced" {
+		t.Fatalf("PlmSynced=%s msg=%s", conditionReason(got.Status.Conditions, "PlmSynced"), got.Status.PLM.Message)
+	}
+	if got.Status.PLM.ETag == "" {
+		t.Fatal("expected PLM etag")
+	}
+	if runner.buildCalls < 1 {
+		t.Fatalf("expected build after PLM sync, got %d", runner.buildCalls)
 	}
 }
