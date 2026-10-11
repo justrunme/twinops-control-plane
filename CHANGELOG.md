@@ -4,33 +4,32 @@ All notable TwinOps changes are listed here. Dates are UTC.
 
 ## Unreleased
 
-### Security
-- PLM SSRF hardening: operator `--plm-host-allowlist` / `--plm-allow-private`, DNS+redirect private IP blocking, https required when token set (unless lab private), capped response bodies, status/events carry status+classified reason only (no response bodies)
-- PLM fail-closed: missing revision/lifecycle is an error (not default A/Released); fingerprint includes lifecycle+prim
-- MQTT: clock-skew messages quarantined without advancing sequence/timestamp; bounded epoch/session sequence resets
-- Secrets RBAC: namespaced RoleBindings in `secretNamespaces` (e2e twin outside twinops-system)
-- 401/403 → permanent AuthFailed (no infinite retry); bump_revision requires item ETag for If-Match
+## [1.5.0] - 2026-10-11
 
+PLM REST reliability, MQTT sensor reliability, and operator trust hardening since 1.4.4:
 
 ### Added
 - REST PLM reliability: mock HTTP server (ETag/304, 409, 5xx, timeout, auth), `PlmSyncSession` with exponential backoff + jitter and idempotent outage resync
 - DigitalTwin `spec.plm` / `status.plm` + `PlmSynced` / `PlmConflict` conditions; kind E2E `make operator-plm-e2e`
 - MQTT ingest reliability: per-sensor sequence/timestamp ordering, dedupe window, session resume, TTL STALE/UNKNOWN, bounded clock skew; drift treats STALE as not-synced
 - `make mqtt-reliability-e2e` (Mosquitto replay asserts)
+- EVIDENCE claims for mock PLM reliability, SSRF allowlist, and MQTT reliability
 
 ### Security
+- PLM SSRF hardening: operator `--plm-host-allowlist` / `--plm-allow-private`, DNS+redirect private IP blocking, https required when token set (unless lab private), capped response bodies
 - Remove `spec.twinopsctl` — binary path is operator-only (`--twinopsctl` / env)
-- Restrict `manifestPath` / `desiredPath` / `observedPath` to `--manifest-base-dir` allowlist (reject `..` and paths outside base)
-- Validate `liveAPIURL` (http/https, SSRF guard for link-local/metadata/loopback; optional host allowlist)
-- Secrets RBAC is namespaced Role(s) only (no cluster-wide secrets access)
+- Restrict `manifestPath` / `desiredPath` / `observedPath` to `--manifest-base-dir` allowlist
+- Validate `liveAPIURL` (http/https, SSRF guard; optional host allowlist)
+- Secrets RBAC is namespaced Role(s) / RoleBindings in `secretNamespaces` only
+- 401/403 → permanent AuthFailed (no infinite retry); bump_revision requires item ETag for If-Match
 
 ### Reliability
 - Per-generation build dirs under managed workspace (`…/<uid>/g<generation>`)
-- Transient errors return to the workqueue (exponential RateLimiter); steady-state uses `RequeueAfter`
-- `Stalled` condition for permanent InvalidSpec errors
+- Transient errors return to the workqueue (exponential RateLimiter); `Stalled` for permanent InvalidSpec
+- Omitted PLM revision/lifecycle treated as track-latest (explicit fail-closed only when required fields are present but invalid)
 
 ### Tests
-- envtest controller suite (happy path, invalid spec, drift, error backoff); CI coverage gate ≥ 60% for `./controllers`
+- envtest controller suite; CI coverage gate ≥ 60% for `./controllers`
 - PLM REST contract/reliability unit tests; MQTT reliability unit + broker E2E
 
 ## [1.4.4] - 2026-10-10
