@@ -73,7 +73,7 @@ def test_bump_revision_refuses_without_etag(monkeypatch: pytest.MonkeyPatch) -> 
 def test_compare_track_latest_does_not_false_match_catalog_A() -> None:
     """Omitted manifest pin (None) must not look like a pinned revision equal to catalog A."""
     from twinops.plm.mock import MockPlmAdapter, PlmItem
-    from twinops.schema.manifest import PlmMapping, DigitalTwinManifest
+    from twinops.schema.manifest import DigitalTwinManifest, PlmMapping
 
     adapter = MockPlmAdapter(
         [PlmItem(item_id="1", revision="A", lifecycle="Released", prim="/P")]
@@ -96,7 +96,7 @@ def test_compare_track_latest_does_not_false_match_catalog_A() -> None:
 
 def test_compare_pinned_A_matches_catalog_A() -> None:
     from twinops.plm.mock import MockPlmAdapter, PlmItem
-    from twinops.schema.manifest import PlmMapping, DigitalTwinManifest
+    from twinops.schema.manifest import DigitalTwinManifest, PlmMapping
 
     adapter = MockPlmAdapter(
         [PlmItem(item_id="1", revision="A", lifecycle="Released", prim="/P")]
@@ -115,7 +115,7 @@ def test_compare_pinned_A_matches_catalog_A() -> None:
 
 def test_compare_pinned_drift_when_catalog_moves() -> None:
     from twinops.plm.mock import MockPlmAdapter, PlmItem
-    from twinops.schema.manifest import PlmMapping, DigitalTwinManifest
+    from twinops.schema.manifest import DigitalTwinManifest, PlmMapping
 
     adapter = MockPlmAdapter(
         [PlmItem(item_id="1", revision="B", lifecycle="Released", prim="/P")]
