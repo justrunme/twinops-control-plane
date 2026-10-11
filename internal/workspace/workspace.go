@@ -2,6 +2,8 @@
 package workspace
 
 import (
+	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -10,8 +12,18 @@ import (
 	twinopsv1alpha1 "github.com/justrunme/twinops-control-plane/api/v1alpha1"
 )
 
+// DefaultRoot is the default operator workspace root (emptyDir or PVC mount).
+const DefaultRoot = "/tmp/twinops"
+
 // Root is the only directory tree the operator finalizer may delete.
-const Root = "/tmp/twinops"
+// Override with TWINOPS_WORKSPACE_ROOT for tests or a persistent volume mount.
+var Root = DefaultRoot
+
+func init() {
+	if v := strings.TrimSpace(os.Getenv("TWINOPS_WORKSPACE_ROOT")); v != "" {
+		Root = v
+	}
+}
 
 // Managed returns the controller-owned workspace for a twin.
 // Always under Root/<namespace>/<uid> so CR deletion cannot wipe sibling twins
@@ -23,6 +35,17 @@ func Managed(twin *twinopsv1alpha1.DigitalTwin) string {
 		return filepath.Join(Root, twin.Namespace, twin.Name)
 	}
 	return filepath.Join(Root, twin.Namespace, string(uid))
+}
+
+// ManagedGeneration returns a per-generation build directory under the twin workspace.
+// Keying by generation keeps prior stages available across reconciles and reduces
+// full recomposes after leader failover when the volume (emptyDir/PVC) is retained.
+func ManagedGeneration(twin *twinopsv1alpha1.DigitalTwin) string {
+	gen := twin.Generation
+	if gen <= 0 {
+		gen = 1
+	}
+	return filepath.Join(Managed(twin), fmt.Sprintf("g%d", gen))
 }
 
 // IsManaged reports whether path is strictly under the managed root for this twin.

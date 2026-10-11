@@ -90,7 +90,6 @@ spec:
   artifactSource:
     configMapName: ${CM_NAME}
   intervalSeconds: 10
-  twinopsctl: ${ROOT}/.venv/bin/twinopsctl
 EOF
 
 echo "==> Start out-of-cluster manager"

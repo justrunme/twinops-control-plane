@@ -206,7 +206,7 @@ func fromURL(ctx context.Context, rawURL string, allowPrivate bool) (map[string]
 		return nil, fmt.Errorf("artifact url must use https (or enable AllowPrivateURL for lab/http)")
 	}
 	host := parsed.Hostname()
-	if err := checkHostSSRF(host, allowPrivate); err != nil {
+	if err := CheckHostSSRF(host, allowPrivate); err != nil {
 		return nil, err
 	}
 
@@ -216,7 +216,7 @@ func fromURL(ctx context.Context, rawURL string, allowPrivate bool) (map[string]
 			if len(via) >= 5 {
 				return fmt.Errorf("too many redirects")
 			}
-			return checkHostSSRF(req.URL.Hostname(), allowPrivate)
+			return CheckHostSSRF(req.URL.Hostname(), allowPrivate)
 		},
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, nil)
@@ -251,10 +251,11 @@ func fromURL(ctx context.Context, rawURL string, allowPrivate bool) (map[string]
 	}
 }
 
-func checkHostSSRF(host string, allowPrivate bool) error {
+// CheckHostSSRF rejects loopback, link-local, metadata, and private hosts unless allowPrivate.
+func CheckHostSSRF(host string, allowPrivate bool) error {
 	host = strings.TrimSpace(strings.ToLower(host))
 	if host == "" {
-		return fmt.Errorf("artifact url missing host")
+		return fmt.Errorf("url missing host")
 	}
 	if allowPrivate {
 		return nil
@@ -269,26 +270,26 @@ func checkHostSSRF(host string, allowPrivate bool) error {
 	}
 	for _, name := range blockedNames {
 		if host == name {
-			return fmt.Errorf("artifact url host %q blocked (SSRF policy)", host)
+			return fmt.Errorf("host %q blocked (SSRF policy)", host)
 		}
 	}
 	if ip := net.ParseIP(host); ip != nil {
 		if isPrivateIP(ip) {
-			return fmt.Errorf("artifact url resolves to private IP (SSRF policy)")
+			return fmt.Errorf("url resolves to private/link-local IP (SSRF policy)")
 		}
 		return nil
 	}
 	// Fail closed when DNS fails — avoids treating lookup errors as "allow".
 	ips, err := net.LookupIP(host)
 	if err != nil {
-		return fmt.Errorf("artifact url DNS lookup failed for %q: %w", host, err)
+		return fmt.Errorf("DNS lookup failed for %q: %w", host, err)
 	}
 	if len(ips) == 0 {
-		return fmt.Errorf("artifact url host %q resolved to no addresses", host)
+		return fmt.Errorf("host %q resolved to no addresses", host)
 	}
 	for _, ip := range ips {
 		if isPrivateIP(ip) {
-			return fmt.Errorf("artifact url host %q resolves to private IP %s (SSRF policy)", host, ip)
+			return fmt.Errorf("host %q resolves to private/link-local IP %s (SSRF policy)", host, ip)
 		}
 	}
 	return nil

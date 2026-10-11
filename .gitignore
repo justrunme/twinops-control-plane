@@ -24,6 +24,8 @@ vendor/
 *.exe
 *.test
 coverage.out
+controllers.out
+controllers-coverage.txt
 go.work
 go.work.sum
 

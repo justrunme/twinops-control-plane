@@ -23,10 +23,20 @@ type Result struct {
 	RawDrift   map[string]any
 }
 
+// Interface is the twinopsctl build/drift surface used by the controller.
+// Tests inject a fake implementation.
+type Interface interface {
+	Build(ctx context.Context, manifestPath, outputDir string) (string, error)
+	Drift(ctx context.Context, desired, stage, observed, manifest, outDir string) (*Result, error)
+}
+
 // Runner executes twinopsctl commands.
 type Runner struct {
 	Binary string
 }
+
+// Compile-time check.
+var _ Interface = Runner{}
 
 func (r Runner) binary() string {
 	if r.Binary != "" {

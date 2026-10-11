@@ -4,6 +4,20 @@ All notable TwinOps changes are listed here. Dates are UTC.
 
 ## Unreleased
 
+### Security
+- Remove `spec.twinopsctl` — binary path is operator-only (`--twinopsctl` / env)
+- Restrict `manifestPath` / `desiredPath` / `observedPath` to `--manifest-base-dir` allowlist (reject `..` and paths outside base)
+- Validate `liveAPIURL` (http/https, SSRF guard for link-local/metadata/loopback; optional host allowlist)
+- Secrets RBAC is namespaced Role(s) only (no cluster-wide secrets access)
+
+### Reliability
+- Per-generation build dirs under managed workspace (`…/<uid>/g<generation>`)
+- Transient errors return to the workqueue (exponential RateLimiter); steady-state uses `RequeueAfter`
+- `Stalled` condition for permanent InvalidSpec errors
+
+### Tests
+- envtest controller suite (happy path, invalid spec, drift, error backoff); CI coverage gate ≥ 60% for `./controllers`
+
 ## [1.4.4] - 2026-10-10
 
 Maintenance and hardening since 1.4.3:

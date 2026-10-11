@@ -1,6 +1,7 @@
 package workspace
 
 import (
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -39,5 +40,10 @@ func TestManagedUsesUID(t *testing.T) {
 	}
 	if CleanupPath(twin) != path {
 		t.Fatal("cleanup path mismatch")
+	}
+	twin.Generation = 3
+	gen := ManagedGeneration(twin)
+	if filepath.Base(gen) != "g3" {
+		t.Fatalf("generation path: %s", gen)
 	}
 }

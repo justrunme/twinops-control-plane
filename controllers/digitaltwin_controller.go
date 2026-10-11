@@ -16,6 +16,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
+	"k8s.io/client-go/util/workqueue"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -44,21 +45,30 @@ const finalizerName = "twinops.io/finalizer"
 type DigitalTwinReconciler struct {
 	client.Client
 	Scheme   *runtime.Scheme
-	Runner   twinbuild.Runner
+	Runner   twinbuild.Interface
 	Recorder record.EventRecorder
 	// BuildTimeout bounds twinopsctl build/drift subprocesses (default 120s).
 	BuildTimeout time.Duration
 	// MaxConcurrent is passed to controller options (default 2).
 	MaxConcurrent int
+	// ManifestBaseDir is the allowlisted root for spec.manifestPath/desiredPath/observedPath.
+	// Empty rejects host filesystem paths (prefer artifactSource).
+	ManifestBaseDir string
+	// LiveAPIAllowPrivate permits loopback/link-local/private liveAPIURL hosts (lab only).
+	LiveAPIAllowPrivate bool
+	// LiveAPIHostAllowlist optionally restricts liveAPIURL hostnames.
+	LiveAPIHostAllowlist []string
 }
 
+// Secrets are bound via namespaced Roles in watched namespaces (not ClusterRole).
 // +kubebuilder:rbac:groups=twinops.io,resources=digitaltwins,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=twinops.io,resources=digitaltwins/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=twinops.io,resources=digitaltwins/finalizers,verbs=update
-// +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch
 // +kubebuilder:rbac:groups="",resources=configmaps,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups="",resources=events,verbs=create;patch
 // +kubebuilder:rbac:groups=batch,resources=jobs,verbs=get;list;watch;create;update;patch;delete
+// Namespaced Role (deployed per watch namespace): secrets get/list/watch only.
+// +kubebuilder:rbac:groups="",namespace=twinops-system,resources=secrets,verbs=get;list;watch
 
 func (r *DigitalTwinReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := log.FromContext(ctx)
@@ -102,9 +112,9 @@ func (r *DigitalTwinReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		return ctrl.Result{Requeue: true}, nil
 	}
 
-	// Always use managed workspace under /tmp/twinops/<ns>/<uid>.
+	// Per-generation build dir under Root/<ns>/<uid>/g<generation> (emptyDir or PVC).
 	// Spec.OutputDir is legacy and ignored for write/cleanup safety.
-	outputDir := workspace.Managed(&twin)
+	outputDir := workspace.ManagedGeneration(&twin)
 	prevPhase := twin.Status.Phase
 
 	interval := twin.Spec.IntervalSeconds
@@ -119,9 +129,26 @@ func (r *DigitalTwinReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	buildCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
-	manifestPath := twin.Spec.ManifestPath
-	desiredPath := twin.Spec.DesiredPath
-	observedPath := twin.Spec.ObservedPath
+	manifestPath, desiredPath, observedPath, valErr := r.validateAndResolvePaths(&twin)
+	if valErr != nil {
+		reason := "InvalidSpec"
+		if pe, ok := asPermanent(valErr); ok {
+			reason = pe.reason
+		}
+		logger.Info("invalid DigitalTwin spec", "error", valErr.Error())
+		r.event(&twin, corev1.EventTypeWarning, reason, valErr.Error())
+		twinmetrics.ReconcileTotal.WithLabelValues("Error").Inc()
+		_, _ = r.patchStatus(ctx, &twin, func(status *twinopsv1alpha1.DigitalTwinStatus) {
+			status.Phase = "Error"
+			status.Message = valErr.Error()
+			status.ObservedGeneration = twin.Generation
+			setCondition(status, "Ready", metav1.ConditionFalse, reason, valErr.Error())
+			setCondition(status, "Stalled", metav1.ConditionTrue, reason, valErr.Error())
+		})
+		// Permanent: no requeue — wait for Spec/generation change.
+		return ctrl.Result{}, nil
+	}
+
 	inputDigest := ""
 	workspacePath := ""
 
@@ -142,38 +169,55 @@ func (r *DigitalTwinReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 			logger.Error(matErr, "artifact materialize failed")
 			r.event(&twin, corev1.EventTypeWarning, "ArtifactFailed", matErr.Error())
 			twinmetrics.ReconcileTotal.WithLabelValues("Error").Inc()
-			return r.patchStatus(ctx, &twin, func(status *twinopsv1alpha1.DigitalTwinStatus) {
+			_, _ = r.patchStatus(ctx, &twin, func(status *twinopsv1alpha1.DigitalTwinStatus) {
 				status.Phase = "Error"
 				status.Message = matErr.Error()
 				status.ObservedGeneration = twin.Generation
 				setCondition(status, "Ready", metav1.ConditionFalse, "ArtifactFailed", matErr.Error())
+				setCondition(status, "Stalled", metav1.ConditionFalse, "Reconciling", "transient error")
 			})
+			// Transient: workqueue exponential backoff.
+			return ctrl.Result{}, matErr
 		}
 		manifestPath = res.ManifestPath
 		if res.DesiredPath != "" {
 			desiredPath = res.DesiredPath
-		} else {
+		} else if desiredPath == "" {
 			desiredPath = twin.Spec.DesiredPath
+			if desiredPath != "" && r.ManifestBaseDir != "" {
+				if p, err := workspace.ValidateAllowlistedPath(r.ManifestBaseDir, desiredPath); err == nil {
+					desiredPath = p
+				}
+			}
 		}
 		if res.ObservedPath != "" {
 			observedPath = res.ObservedPath
-		} else {
+		} else if observedPath == "" {
 			observedPath = twin.Spec.ObservedPath
+			if observedPath != "" && r.ManifestBaseDir != "" {
+				if p, err := workspace.ValidateAllowlistedPath(r.ManifestBaseDir, observedPath); err == nil {
+					observedPath = p
+				}
+			}
 		}
 		inputDigest = res.Digest
 	}
 
 	if manifestPath == "" {
-		return r.patchStatus(ctx, &twin, func(status *twinopsv1alpha1.DigitalTwinStatus) {
+		msg := "spec.artifactSource or spec.manifestPath is required"
+		_, _ = r.patchStatus(ctx, &twin, func(status *twinopsv1alpha1.DigitalTwinStatus) {
 			status.Phase = "Error"
-			status.Message = "spec.artifactSource or spec.manifestPath is required"
+			status.Message = msg
 			status.ObservedGeneration = twin.Generation
+			setCondition(status, "Ready", metav1.ConditionFalse, "InvalidSpec", msg)
+			setCondition(status, "Stalled", metav1.ConditionTrue, "InvalidSpec", msg)
 		})
+		return ctrl.Result{}, nil
 	}
 
 	runner := r.Runner
-	if twin.Spec.TwinOpsCtl != "" {
-		runner.Binary = twin.Spec.TwinOpsCtl
+	if runner == nil {
+		runner = twinbuild.Runner{}
 	}
 
 	buildMode := "inline"
@@ -233,8 +277,9 @@ func (r *DigitalTwinReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 					status.Build.Message = err.Error()
 					status.ObservedGeneration = twin.Generation
 					setCondition(status, "Ready", metav1.ConditionFalse, "ComposeFailed", err.Error())
+					setCondition(status, "Stalled", metav1.ConditionFalse, "Reconciling", "transient error")
 				})
-				return ctrl.Result{RequeueAfter: time.Duration(interval) * time.Second}, nil
+				return ctrl.Result{}, err
 			}
 			if requeue > 0 {
 				return ctrl.Result{RequeueAfter: requeue}, nil
@@ -258,8 +303,9 @@ func (r *DigitalTwinReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 					status.Message = err.Error()
 					status.ObservedGeneration = twin.Generation
 					setCondition(status, "Ready", metav1.ConditionFalse, "ComposeFailed", err.Error())
+					setCondition(status, "Stalled", metav1.ConditionFalse, "Reconciling", "transient error")
 				})
-				return ctrl.Result{RequeueAfter: time.Duration(interval) * time.Second}, nil
+				return ctrl.Result{}, err
 			}
 
 			if buildjob.PublishEnabled(twin.Spec.OutputPublish) {
@@ -274,8 +320,9 @@ func (r *DigitalTwinReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 						status.StagePath = stagePath
 						status.ObservedGeneration = twin.Generation
 						setCondition(status, "Ready", metav1.ConditionFalse, "PublishFailed", pubErr.Error())
+						setCondition(status, "Stalled", metav1.ConditionFalse, "Reconciling", "transient error")
 					})
-					return ctrl.Result{RequeueAfter: time.Duration(interval) * time.Second}, nil
+					return ctrl.Result{}, pubErr
 				}
 				now := metav1.Now()
 				outArtifact = twinopsv1alpha1.OutputArtifact{
@@ -369,8 +416,9 @@ func (r *DigitalTwinReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 				status.Output = outArtifact
 				status.ObservedGeneration = twin.Generation
 				setCondition(status, "Ready", metav1.ConditionFalse, "DriftFailed", driftErr.Error())
+				setCondition(status, "Stalled", metav1.ConditionFalse, "Reconciling", "transient error")
 			})
-			return ctrl.Result{RequeueAfter: time.Duration(interval) * time.Second}, nil
+			return ctrl.Result{}, driftErr
 		}
 
 		now := metav1.Now()
@@ -469,6 +517,7 @@ func (r *DigitalTwinReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 			reason = "Error"
 		}
 		setCondition(status, "Ready", ready, reason, message)
+		setCondition(status, "Stalled", metav1.ConditionFalse, "Reconciled", "spec accepted")
 	})
 	if err != nil {
 		return ctrl.Result{}, err
@@ -486,6 +535,7 @@ func (r *DigitalTwinReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		}
 	}
 	twinmetrics.ReconcileTotal.WithLabelValues(phase).Inc()
+	// Steady-state polling only — errors use workqueue backoff above.
 	return ctrl.Result{RequeueAfter: time.Duration(interval) * time.Second}, nil
 }
 
@@ -679,8 +729,8 @@ func (r *DigitalTwinReconciler) composeViaJob(
 	stagePath := ""
 	raw := cm.BinaryData[output.BundleKey]
 	if len(raw) > 0 {
-		// Materialize stage into managed workspace for subsequent drift.
-		stageDir := filepath.Join(workspace.Managed(twin), "out")
+		// Materialize stage into per-generation managed workspace for subsequent drift.
+		stageDir := filepath.Join(workspace.ManagedGeneration(twin), "out")
 		_ = os.RemoveAll(stageDir)
 		if err := os.MkdirAll(stageDir, 0o755); err != nil {
 			return zero, 0, err
@@ -875,7 +925,13 @@ func (r *DigitalTwinReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			handler.EnqueueRequestsFromMapFunc(r.mapJobToTwin),
 			builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
 		).
-		WithOptions(controller.Options{MaxConcurrentReconciles: maxConc}).
+		WithOptions(controller.Options{
+			MaxConcurrentReconciles: maxConc,
+			// Exponential backoff for returned errors (compose/materialize/publish).
+			RateLimiter: workqueue.NewTypedItemExponentialFailureRateLimiter[ctrl.Request](
+				5*time.Second, 5*time.Minute,
+			),
+		}).
 		Complete(r)
 }
 

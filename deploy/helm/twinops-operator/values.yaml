@@ -7,6 +7,9 @@ rbac:
   mode: cluster
   # When mode=namespaced and empty, only the chart namespace is watched.
   watchNamespaces: []
+  # Namespaces where the operator may read Secrets (live API / OCI / S3 refs).
+  # Secrets are never granted cluster-wide. Empty defaults to [namespace].
+  secretNamespaces: []
 
 image:
   repository: ghcr.io/justrunme/twinops-operator
@@ -29,6 +32,14 @@ twinopsctlPath: /usr/local/bin/twinopsctl
 # Subprocess + concurrency guards (single-twin pilot defaults).
 buildTimeout: 120s
 maxConcurrentReconciles: 2
+
+# Allowlisted base for legacy spec.manifestPath/desiredPath/observedPath.
+# Empty rejects host filesystem paths (prefer artifactSource).
+manifestBaseDir: ""
+# Lab only: allow loopback/link-local/private liveAPIURL hosts.
+liveAPIAllowPrivate: false
+# Optional comma-separated liveAPIURL hostname allowlist.
+liveAPIHostAllowlist: ""
 
 # Optional hostPath mount for kind/k3d demos. Prefer artifactSource (ConfigMap/URL).
 examples:
