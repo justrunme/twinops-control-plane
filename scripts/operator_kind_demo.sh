@@ -137,7 +137,6 @@ spec:
   observedPath: ${ROOT}/examples/assembly-line/telemetry.json
   outputDir: ${ROOT}/usd/generated/operator-demo/stage
   intervalSeconds: 15
-  twinopsctl: ${ROOT}/.venv/bin/twinopsctl
 EOF
 
 kubectl apply -f "$SAMPLE_OUT"
@@ -151,6 +150,7 @@ fi
   --metrics-bind-address=:18080 \
   --health-probe-bind-address=:18081 \
   --twinopsctl="${ROOT}/.venv/bin/twinopsctl" \
+  --manifest-base-dir="${ROOT}/examples" \
   >"$MANAGER_LOG" 2>&1 &
 MANAGER_PID=$!
 

@@ -104,11 +104,11 @@ func TestXORSource(t *testing.T) {
 }
 
 func TestSSRFBlocksLocalhost(t *testing.T) {
-	err := checkHostSSRF("127.0.0.1", false)
+	err := CheckHostSSRF("127.0.0.1", false)
 	if err == nil {
 		t.Fatal("expected SSRF block")
 	}
-	if err := checkHostSSRF("127.0.0.1", true); err != nil {
+	if err := CheckHostSSRF("127.0.0.1", true); err != nil {
 		t.Fatal(err)
 	}
 }

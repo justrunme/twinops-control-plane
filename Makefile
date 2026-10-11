@@ -329,6 +329,12 @@ operator-demo-cleanup:
 
 go-test:
 	go test ./...
+	@echo "==> controllers coverage (envtest; requires KUBEBUILDER_ASSETS)"
+	go test ./controllers -coverprofile=controllers.out -covermode=atomic
+	go tool cover -func=controllers.out | tee controllers-coverage.txt
+	@pct=$$(go tool cover -func=controllers.out | awk '/total:/ {gsub(/%/,"",$$3); print $$3}'); \
+	 echo "controllers coverage=$${pct}%"; \
+	 awk -v p="$${pct}" 'BEGIN { if ((p+0) < 60) { print "coverage below 60%: " p; exit 1 } }'
 
 clean:
 	rm -rf dist build bin *.egg-info python/*.egg-info .pytest_cache .ruff_cache .coverage

@@ -4,15 +4,16 @@ metadata:
   name: assembly-line-a
   namespace: twinops-system
 spec:
-  # Dev/demo layout: mount the repo examples directory into the operator pod/host.
+  # Prefer artifactSource. Legacy host paths require operator --manifest-base-dir=/examples.
   manifestPath: /examples/assembly-line/twin.yaml
   desiredPath: /examples/assembly-line/desired.yaml
   observedPath: /examples/assembly-line/telemetry.json
   outputDir: /tmp/twinops/assembly-line-a
   intervalSeconds: 30
-  # Optional: probe a running twinopsctl serve for status.live
+  # Optional: probe a running twinopsctl serve for status.live (SSRF-guarded).
   # liveAPIURL: http://twinops-live.twinops-system.svc:8080
   # liveAPIToken: ""
   # liveAPITokenSecretRef:
   #   name: twinops-live-api
   #   key: api-token
+  # Binary path is operator-only (--twinopsctl / TWINOPSCTL); not a CR field.
