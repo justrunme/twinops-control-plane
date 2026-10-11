@@ -1,4 +1,10 @@
-"""Mock PLM adapter for TwinOps demos.
+"""In-process / file catalog adapter for demos and tests.
+
+Not used by the Go operator production path (controllers use internal/plmsync).
+Catalog item defaults (revision A / lifecycle Released) apply only when reading
+incomplete *catalog* JSON — never when loading DigitalTwin manifest pins.
+
+Mock PLM adapter for TwinOps demos.
 
 Reads a JSON catalog (itemId → revision/lifecycle/prim) and can:
 - sync catalog values into a DigitalTwin manifest
@@ -121,9 +127,11 @@ class MockPlmAdapter:
             raise ValueError("manifest.spec.plm must be a mapping")
         plm["provider"] = plm.get("provider") or "mock"
         before = {
-            str(item.get("itemId")): str(item.get("revision"))
+            str(item.get("itemId")): (
+                None if item.get("revision") is None else str(item.get("revision"))
+            )
             for item in (plm.get("mappings") or [])
-            if isinstance(item, dict)
+            if isinstance(item, dict) and item.get("itemId") is not None
         }
         mappings = [
             {
@@ -188,7 +196,15 @@ class MockPlmAdapter:
                     }
                 )
                 continue
-            if current.revision != item.revision or current.lifecycle != item.lifecycle:
+            # None pin = track latest: never equal-compare against a concrete catalog
+            # revision/lifecycle (avoids omitted defaults matching "A"/"Released").
+            rev_drift = (
+                current.revision is not None and current.revision != item.revision
+            )
+            life_drift = (
+                current.lifecycle is not None and current.lifecycle != item.lifecycle
+            )
+            if rev_drift or life_drift:
                 diffs.append(
                     {
                         "itemId": item.item_id,
@@ -206,7 +222,10 @@ class MockPlmAdapter:
                         "itemId": item.item_id,
                         "status": "SYNCED",
                         "revision": item.revision,
+                        "lifecycle": item.lifecycle,
                         "prim": item.prim,
+                        "trackingLatest": current.revision is None
+                        and current.lifecycle is None,
                     }
                 )
         return diffs
@@ -223,15 +242,20 @@ def load_adapter_for_example(example_dir: str | Path) -> tuple[MockPlmAdapter, P
 def ensure_catalog_from_manifest(manifest_path: str | Path, catalog_path: str | Path) -> Path:
     """Bootstrap a catalog file from an existing DigitalTwin manifest."""
     manifest = load_manifest(manifest_path)
-    adapter = MockPlmAdapter(
-        [
+    items: list[PlmItem] = []
+    for mapping in manifest.plm_mappings:
+        if mapping.revision is None or mapping.lifecycle is None:
+            raise ValueError(
+                f"cannot bootstrap PLM catalog from mapping {mapping.item_id!r}: "
+                "revision and lifecycle must be pinned (not track-latest)"
+            )
+        items.append(
             PlmItem(
                 item_id=mapping.item_id,
                 revision=mapping.revision,
                 lifecycle=mapping.lifecycle,
                 prim=mapping.prim,
             )
-            for mapping in manifest.plm_mappings
-        ]
-    )
+        )
+    adapter = MockPlmAdapter(items)
     return adapter.write_catalog(catalog_path, provider=manifest.plm_provider)

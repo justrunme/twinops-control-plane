@@ -1,4 +1,9 @@
-"""In-process mock PLM HTTP server for contract and E2E tests.
+"""Lab/e2e HTTP PLM façade only.
+
+Not used by the Go operator production path (controllers use internal/plmsync REST).
+Defaults here apply to mock catalog fixtures, not DigitalTwin manifest pins.
+
+In-process mock PLM HTTP server for contract and E2E tests.
 
 Supports:
 - GET /items, GET /items/{id} with ETag / If-None-Match → 304

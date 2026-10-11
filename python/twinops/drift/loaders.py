@@ -68,8 +68,10 @@ def load_desired_state(path: str | Path) -> DesiredState:
         for mapping in manifest.plm_mappings:
             by_prim.setdefault(mapping.prim, {})
             by_prim[mapping.prim]["twinops:plmItemId"] = mapping.item_id
-            by_prim[mapping.prim]["twinops:plmRevision"] = mapping.revision
-            by_prim[mapping.prim]["twinops:lifecycle"] = mapping.lifecycle
+            if mapping.revision is not None:
+                by_prim[mapping.prim]["twinops:plmRevision"] = mapping.revision
+            if mapping.lifecycle is not None:
+                by_prim[mapping.prim]["twinops:lifecycle"] = mapping.lifecycle
         for mapping in manifest.telemetry_mappings:
             attr = mapping.attribute
             if not attr.startswith("twinops:"):
