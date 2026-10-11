@@ -1,5 +1,5 @@
 # TwinOps operator image: manager + twinops-job + oras + aws CLI for OCI/S3 publish.
-FROM golang:1.27.0-bookworm AS builder
+FROM golang:1.27.2-bookworm AS builder
 WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
@@ -12,7 +12,7 @@ RUN CGO_ENABLED=0 GOOS=linux go build -o /out/manager ./cmd/manager \
 
 # Build oras from source with the same Go toolchain so image stdlib CVEs stay current.
 # Fail hard on dependency issues (no || true). Bump x/crypto + x/net for known HIGH fixes.
-FROM golang:1.27.0-bookworm AS oras
+FROM golang:1.27.2-bookworm AS oras
 ARG ORAS_VERSION=v1.3.4
 RUN git clone --depth 1 --branch "${ORAS_VERSION}" https://github.com/oras-project/oras.git /src \
   && cd /src \
