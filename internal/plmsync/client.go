@@ -28,20 +28,22 @@ type Item struct {
 
 // Result is the outcome of one poll/sync attempt.
 type Result struct {
-	Changed               bool
-	NotModified           bool
-	ETag                  string
-	Fingerprint           string
-	Items                 int
-	Conflict              bool
-	ConflictMessage       string
-	Transient             bool
-	AuthFailed            bool
-	Error                 string
-	Resynced              bool
-	ConsecutiveFailures   int64
-	InOutage              bool
-	ResyncCount           int64
+	Changed             bool
+	NotModified         bool
+	ETag                string
+	Fingerprint         string
+	Items               int
+	Conflict            bool
+	ConflictMessage     string
+	Transient           bool
+	AuthFailed          bool
+	InvalidCatalog      bool
+	SSRFBlocked         bool
+	Error               string
+	Resynced            bool
+	ConsecutiveFailures int64
+	InOutage            bool
+	ResyncCount         int64
 }
 
 // Session tracks ETag / outage / resync across reconciles.
@@ -58,21 +60,27 @@ type Session struct {
 
 // Client talks to GET /items with optional bearer token and ETag.
 type Client struct {
-	BaseURL    string
-	Token      string
-	HTTPClient *http.Client
-	Timeout    time.Duration
+	BaseURL       string
+	Token         string
+	HTTPClient    *http.Client
+	Timeout       time.Duration
+	AllowPrivate  bool
+	HostAllowlist []string
+	MaxBodyBytes  int64
 }
 
 func (c *Client) http() *http.Client {
 	if c.HTTPClient != nil {
 		return c.HTTPClient
 	}
-	timeout := c.Timeout
-	if timeout <= 0 {
-		timeout = 5 * time.Second
+	return safeHTTPClient(c.Timeout, c.AllowPrivate)
+}
+
+func (c *Client) maxBody() int64 {
+	if c.MaxBodyBytes > 0 {
+		return c.MaxBodyBytes
 	}
-	return &http.Client{Timeout: timeout}
+	return MaxResponseBytes
 }
 
 type rawItem struct {
@@ -86,7 +94,11 @@ type rawItem struct {
 }
 
 // FetchCatalog GETs /items with If-None-Match when session has an ETag.
+// Response bodies are never returned in errors (status + classified reason only).
 func (c *Client) FetchCatalog(ctx context.Context, etag string) ([]Item, string, bool, error) {
+	if err := ValidateURL(c.BaseURL, c.Token, c.AllowPrivate, c.HostAllowlist); err != nil {
+		return nil, "", false, &SSRFError{Reason: err.Error()}
+	}
 	url := strings.TrimRight(c.BaseURL, "/") + "/items"
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
@@ -104,8 +116,16 @@ func (c *Client) FetchCatalog(ctx context.Context, etag string) ([]Item, string,
 		return nil, "", false, fmt.Errorf("plm fetch: %w", err)
 	}
 	defer resp.Body.Close()
-	body, _ := io.ReadAll(io.LimitReader(resp.Body, 4<<20))
+	limited := io.LimitReader(resp.Body, c.maxBody()+1)
+	body, err := io.ReadAll(limited)
+	if err != nil {
+		return nil, "", false, fmt.Errorf("plm read: %w", err)
+	}
+	if int64(len(body)) > c.maxBody() {
+		return nil, "", false, &TransientError{Code: http.StatusRequestEntityTooLarge, Reason: "response_too_large"}
+	}
 	newETag := resp.Header.Get("ETag")
+	reason := ClassifyReason(resp.StatusCode)
 	switch resp.StatusCode {
 	case http.StatusNotModified:
 		if newETag == "" {
@@ -113,15 +133,15 @@ func (c *Client) FetchCatalog(ctx context.Context, etag string) ([]Item, string,
 		}
 		return nil, newETag, true, nil
 	case http.StatusUnauthorized, http.StatusForbidden:
-		return nil, newETag, false, &AuthError{Code: resp.StatusCode, Body: string(body)}
+		return nil, newETag, false, &AuthError{Code: resp.StatusCode, Reason: reason}
 	case http.StatusConflict:
-		return nil, newETag, false, &ConflictError{Body: string(body), ETag: newETag}
+		return nil, newETag, false, &ConflictError{Reason: reason, ETag: newETag}
 	default:
 		if resp.StatusCode >= 500 {
-			return nil, newETag, false, &TransientError{Code: resp.StatusCode, Body: string(body)}
+			return nil, newETag, false, &TransientError{Code: resp.StatusCode, Reason: reason}
 		}
 		if resp.StatusCode != http.StatusOK {
-			return nil, newETag, false, fmt.Errorf("plm HTTP %d: %s", resp.StatusCode, string(body))
+			return nil, newETag, false, fmt.Errorf("plm HTTP %d: %s", resp.StatusCode, reason)
 		}
 	}
 	items, err := decodeItems(body)
@@ -134,7 +154,7 @@ func (c *Client) FetchCatalog(ctx context.Context, etag string) ([]Item, string,
 func decodeItems(body []byte) ([]Item, error) {
 	var asList []rawItem
 	if err := json.Unmarshal(body, &asList); err == nil {
-		return normalize(asList), nil
+		return normalize(asList)
 	}
 	var wrapped struct {
 		Items []rawItem `json:"items"`
@@ -142,10 +162,10 @@ func decodeItems(body []byte) ([]Item, error) {
 	if err := json.Unmarshal(body, &wrapped); err != nil {
 		return nil, fmt.Errorf("plm decode: %w", err)
 	}
-	return normalize(wrapped.Items), nil
+	return normalize(wrapped.Items)
 }
 
-func normalize(raw []rawItem) []Item {
+func normalize(raw []rawItem) ([]Item, error) {
 	out := make([]Item, 0, len(raw))
 	for _, r := range raw {
 		id := r.ID
@@ -169,25 +189,26 @@ func normalize(raw []rawItem) []Item {
 				}
 			}
 		}
-		rev := r.Revision
-		if rev == "" {
-			rev = "A"
-		}
-		life := r.Lifecycle
-		if life == "" {
-			life = "Released"
+		rev := strings.TrimSpace(r.Revision)
+		life := strings.TrimSpace(r.Lifecycle)
+		if rev == "" || life == "" {
+			return nil, &InvalidCatalogError{
+				ItemID: id,
+				Reason: "missing_revision_or_lifecycle",
+			}
 		}
 		out = append(out, Item{ID: id, Revision: rev, Lifecycle: life, Prim: prim, Name: name})
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].ID < out[j].ID })
-	return out
+	return out, nil
 }
 
-// Fingerprint returns sha256 of sorted itemId:revision pairs.
+// Fingerprint returns sha256 of sorted itemId:revision:lifecycle:prim tuples.
+// Lifecycle/prim are included so Released→Obsolete (or prim remap) triggers recompose.
 func Fingerprint(items []Item) string {
 	parts := make([]string, 0, len(items))
 	for _, it := range items {
-		parts = append(parts, it.ID+":"+it.Revision)
+		parts = append(parts, it.ID+":"+it.Revision+":"+it.Lifecycle+":"+it.Prim)
 	}
 	sum := sha256.Sum256([]byte(strings.Join(parts, ",")))
 	return hex.EncodeToString(sum[:])
@@ -263,19 +284,22 @@ func Poll(ctx context.Context, client *Client, session *Session, manifestPath st
 		res.Error = err.Error()
 		res.ConsecutiveFailures = session.ConsecutiveFailures
 		res.InOutage = true
-		switch err.(type) {
+		switch e := err.(type) {
 		case *ConflictError:
-			ce := err.(*ConflictError)
 			session.Conflict = true
-			session.ConflictMessage = ce.Error()
+			session.ConflictMessage = e.Error()
 			res.Conflict = true
-			res.ConflictMessage = ce.Error()
-			if ce.ETag != "" {
-				res.ETag = ce.ETag
+			res.ConflictMessage = e.Error()
+			if e.ETag != "" {
+				res.ETag = e.ETag
 			}
 		case *AuthError:
 			res.AuthFailed = true
-			res.Transient = true
+			// Permanent — do not mark transient (no infinite retry).
+		case *SSRFError:
+			res.SSRFBlocked = true
+		case *InvalidCatalogError:
+			res.InvalidCatalog = true
 		case *TransientError:
 			res.Transient = true
 		default:
@@ -341,32 +365,60 @@ func Poll(ctx context.Context, client *Client, session *Session, manifestPath st
 	return res
 }
 
-// AuthError is HTTP 401/403.
+// AuthError is HTTP 401/403 (permanent).
 type AuthError struct {
-	Code int
-	Body string
+	Code   int
+	Reason string
 }
 
 func (e *AuthError) Error() string {
-	return fmt.Sprintf("plm auth HTTP %d: %s", e.Code, e.Body)
+	if e.Reason == "" {
+		e.Reason = ClassifyReason(e.Code)
+	}
+	return fmt.Sprintf("plm auth HTTP %d: %s", e.Code, e.Reason)
 }
 
 // ConflictError is HTTP 409.
 type ConflictError struct {
-	Body string
-	ETag string
+	Reason string
+	ETag   string
 }
 
 func (e *ConflictError) Error() string {
-	return fmt.Sprintf("plm conflict: %s", e.Body)
+	if e.Reason == "" {
+		e.Reason = "conflict"
+	}
+	return fmt.Sprintf("plm conflict: %s", e.Reason)
 }
 
 // TransientError is HTTP 5xx / retryable.
 type TransientError struct {
-	Code int
-	Body string
+	Code   int
+	Reason string
 }
 
 func (e *TransientError) Error() string {
-	return fmt.Sprintf("plm transient HTTP %d: %s", e.Code, e.Body)
+	if e.Reason == "" {
+		e.Reason = ClassifyReason(e.Code)
+	}
+	return fmt.Sprintf("plm transient HTTP %d: %s", e.Code, e.Reason)
+}
+
+// SSRFError is a blocked / disallowed PLM URL (permanent until spec/config changes).
+type SSRFError struct {
+	Reason string
+}
+
+func (e *SSRFError) Error() string {
+	return fmt.Sprintf("plm ssrf blocked: %s", e.Reason)
+}
+
+// InvalidCatalogError is a fail-closed catalog (missing revision/lifecycle).
+type InvalidCatalogError struct {
+	ItemID string
+	Reason string
+}
+
+func (e *InvalidCatalogError) Error() string {
+	return fmt.Sprintf("plm invalid catalog item %q: %s", e.ItemID, e.Reason)
 }

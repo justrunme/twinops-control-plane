@@ -49,6 +49,9 @@ class SensorState:
     received_at: datetime | None = None
     status: str = "UNKNOWN"
     last_message_id: str | None = None
+    epoch: str | None = None
+    session_id: str | None = None
+    sequence_resets: int = 0
 
 
 @dataclass
@@ -60,6 +63,7 @@ class ReliabilityMetrics:
     clock_skew_violations: int = 0
     stale_transitions: int = 0
     session_resumes: int = 0
+    sequence_resets: int = 0
 
     def to_dict(self) -> dict[str, int]:
         return {
@@ -70,6 +74,7 @@ class ReliabilityMetrics:
             "clockSkewViolations": self.clock_skew_violations,
             "staleTransitions": self.stale_transitions,
             "sessionResumes": self.session_resumes,
+            "sequenceResets": self.sequence_resets,
         }
 
 
@@ -80,6 +85,9 @@ class SensorTracker:
     ttl_seconds: float = 30.0
     dedupe_window_seconds: float = 60.0
     max_skew_seconds: float = 30.0
+    # Minimum backwards jump (exclusive) that may be treated as an epoch reset.
+    sequence_reset_min_jump: int = 1
+    max_sequence_resets: int = 8
     _sensors: dict[str, SensorState] = field(default_factory=dict)
     _recent_ids: dict[str, datetime] = field(default_factory=dict)
     metrics: ReliabilityMetrics = field(default_factory=ReliabilityMetrics)
@@ -93,6 +101,8 @@ class SensorTracker:
         sequence: int | None = None,
         timestamp: Any = None,
         message_id: str | None = None,
+        epoch: str | None = None,
+        session_id: str | None = None,
         now: datetime | None = None,
     ) -> AcceptResult:
         now = now or datetime.now(UTC)
@@ -100,6 +110,23 @@ class SensorTracker:
         with self._lock:
             self.metrics.received += 1
             self._prune_dedupe(now)
+
+            # Clock skew: quarantine/reject WITHOUT advancing sequence/timestamp state.
+            if ts is not None:
+                skew = abs((now - ts).total_seconds())
+                if skew > self.max_skew_seconds:
+                    self.metrics.clock_skew_violations += 1
+                    state = self._sensors.get(sensor_id)
+                    return AcceptResult(
+                        accepted=False,
+                        reason="clock_skew",
+                        clock_skew=True,
+                        value=value,
+                        status="CLOCK_SKEW",
+                        sequence=sequence,
+                        timestamp=ts,
+                        out_of_order=False,
+                    )
 
             if message_id:
                 key = f"{sensor_id}:{message_id}"
@@ -115,24 +142,38 @@ class SensorTracker:
                 self._recent_ids[key] = now
 
             state = self._sensors.get(sensor_id)
+            reset_epoch = False
             if state is not None:
                 if (
                     sequence is not None
                     and state.sequence is not None
                     and sequence < state.sequence
                 ):
-                    self.metrics.out_of_order_dropped += 1
-                    return AcceptResult(
-                        accepted=False,
-                        reason="out_of_order_sequence",
-                        out_of_order=True,
-                        sequence=sequence,
-                        timestamp=ts,
-                        value=value,
-                        status=state.status,
+                    jump = state.sequence - sequence
+                    marker = epoch or session_id
+                    prev_marker = state.epoch or state.session_id
+                    allow_reset = (
+                        marker is not None
+                        and marker != prev_marker
+                        and jump >= self.sequence_reset_min_jump
+                        and state.sequence_resets < self.max_sequence_resets
                     )
+                    if allow_reset:
+                        reset_epoch = True
+                    else:
+                        self.metrics.out_of_order_dropped += 1
+                        return AcceptResult(
+                            accepted=False,
+                            reason="out_of_order_sequence",
+                            out_of_order=True,
+                            sequence=sequence,
+                            timestamp=ts,
+                            value=value,
+                            status=state.status,
+                        )
                 if (
-                    sequence is None
+                    not reset_epoch
+                    and sequence is None
                     and ts is not None
                     and state.timestamp is not None
                     and ts < state.timestamp
@@ -149,7 +190,8 @@ class SensorTracker:
                     )
                 # Equal sequence with same message window → duplicate.
                 if (
-                    sequence is not None
+                    not reset_epoch
+                    and sequence is not None
                     and state.sequence is not None
                     and sequence == state.sequence
                     and message_id is None
@@ -165,14 +207,10 @@ class SensorTracker:
                         status=state.status,
                     )
 
-            clock_skew = False
-            status = "OK"
-            if ts is not None:
-                skew = abs((now - ts).total_seconds())
-                if skew > self.max_skew_seconds:
-                    clock_skew = True
-                    status = "CLOCK_SKEW"
-                    self.metrics.clock_skew_violations += 1
+            resets = state.sequence_resets if state else 0
+            if reset_epoch:
+                resets += 1
+                self.metrics.sequence_resets += 1
 
             self._sensors[sensor_id] = SensorState(
                 sensor_id=sensor_id,
@@ -184,18 +222,25 @@ class SensorTracker:
                 ),
                 timestamp=ts or now,
                 received_at=now,
-                status=status,
+                status="OK",
                 last_message_id=message_id,
+                epoch=epoch if epoch is not None else (state.epoch if state else None),
+                session_id=(
+                    session_id
+                    if session_id is not None
+                    else (state.session_id if state else None)
+                ),
+                sequence_resets=resets,
             )
             self.metrics.accepted += 1
             return AcceptResult(
                 accepted=True,
-                reason="ok",
+                reason="epoch_reset" if reset_epoch else "ok",
                 value=value,
-                status=status,
+                status="OK",
                 sequence=sequence,
                 timestamp=ts or now,
-                clock_skew=clock_skew,
+                clock_skew=False,
             )
 
     def refresh_stale(self, *, now: datetime | None = None) -> list[str]:
@@ -238,6 +283,9 @@ class SensorTracker:
                     received_at=s.received_at,
                     status=s.status,
                     last_message_id=s.last_message_id,
+                    epoch=s.epoch,
+                    session_id=s.session_id,
+                    sequence_resets=s.sequence_resets,
                 )
                 for sid, s in self._sensors.items()
             }

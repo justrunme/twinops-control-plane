@@ -64,6 +64,8 @@ def test_plain_scalar_mqtt_payload() -> None:
 
 
 def test_strict_schema_rejects_bad_schema_objects() -> None:
+    from datetime import UTC, datetime
+
     ingest = ObservationIngest(
         [
             TopicBinding(
@@ -73,6 +75,7 @@ def test_strict_schema_rejects_bad_schema_objects() -> None:
             )
         ],
         strict_schema=True,
+        max_skew_seconds=3600,
     )
     assert (
         ingest.handle_message(
@@ -82,9 +85,12 @@ def test_strict_schema_rejects_bad_schema_objects() -> None:
         is False
     )
     assert ingest.rejected == 1
+    ts = datetime.now(UTC).isoformat().replace("+00:00", "Z")
     assert ingest.handle_message(
         "factory/robot-01/temperature",
-        b'{"schema":"twinops.mqtt.payload.v1","topic":"factory/robot-01/temperature",'
-        b'"value":88.0,"timestamp":"2026-07-31T10:00:00Z","source":"plc"}',
+        (
+            '{"schema":"twinops.mqtt.payload.v1","topic":"factory/robot-01/temperature",'
+            f'"value":88.0,"timestamp":"{ts}","source":"plc"}}'
+        ).encode(),
     )
     assert ingest.received == 1

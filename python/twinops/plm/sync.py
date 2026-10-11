@@ -48,10 +48,13 @@ class PlmSyncResult:
 
 
 def revision_fingerprint(items: list[Any]) -> str:
+    """Fingerprint includes lifecycle + prim so Released→Obsolete triggers recompose."""
     pairs = sorted(
         (
             getattr(item, "item_id", None) or item.get("itemId"),
             getattr(item, "revision", None) or item.get("revision"),
+            getattr(item, "lifecycle", None) or item.get("lifecycle") or "",
+            getattr(item, "prim", None) or item.get("prim") or "",
         )
         for item in items
     )

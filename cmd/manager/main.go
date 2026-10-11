@@ -41,6 +41,8 @@ func main() {
 	var manifestBaseDir string
 	var liveAPIAllowPrivate bool
 	var liveAPIHostAllowlist string
+	var plmAllowPrivate bool
+	var plmHostAllowlist string
 
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "metrics endpoint")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "health probe endpoint")
@@ -53,6 +55,8 @@ func main() {
 	flag.StringVar(&manifestBaseDir, "manifest-base-dir", "", "allowlisted base directory for spec.manifestPath/desiredPath/observedPath (empty rejects host paths)")
 	flag.BoolVar(&liveAPIAllowPrivate, "live-api-allow-private", false, "allow loopback/link-local/private liveAPIURL hosts (lab only)")
 	flag.StringVar(&liveAPIHostAllowlist, "live-api-host-allowlist", "", "comma-separated allowed liveAPIURL hostnames (empty = any non-blocked host)")
+	flag.BoolVar(&plmAllowPrivate, "plm-allow-private", false, "allow loopback/link-local/private plm.url hosts (lab only)")
+	flag.StringVar(&plmHostAllowlist, "plm-host-allowlist", "", "comma-separated allowed plm.url hostnames (empty = any non-blocked host)")
 	opts := zap.Options{Development: true}
 	opts.BindFlags(flag.CommandLine)
 	flag.Parse()
@@ -65,6 +69,12 @@ func main() {
 	}
 	if env := strings.TrimSpace(os.Getenv("TWINOPS_LIVE_API_HOST_ALLOWLIST")); env != "" && liveAPIHostAllowlist == "" {
 		liveAPIHostAllowlist = env
+	}
+	if os.Getenv("TWINOPS_PLM_ALLOW_PRIVATE") == "1" {
+		plmAllowPrivate = true
+	}
+	if env := strings.TrimSpace(os.Getenv("TWINOPS_PLM_HOST_ALLOWLIST")); env != "" && plmHostAllowlist == "" {
+		plmHostAllowlist = env
 	}
 	if env := strings.TrimSpace(os.Getenv("TWINOPS_SECRET_NAMESPACES")); env != "" && secretNamespaces == "" {
 		secretNamespaces = env
@@ -132,6 +142,8 @@ func main() {
 		ManifestBaseDir:      manifestBaseDir,
 		LiveAPIAllowPrivate:  liveAPIAllowPrivate,
 		LiveAPIHostAllowlist: parseCSV(liveAPIHostAllowlist),
+		PLMAllowPrivate:      plmAllowPrivate,
+		PLMHostAllowlist:     parseCSV(plmHostAllowlist),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "DigitalTwin")
 		os.Exit(1)
@@ -149,6 +161,7 @@ func main() {
 	setupLog.Info("starting TwinOps manager",
 		"manifestBaseDir", manifestBaseDir,
 		"liveAPIAllowPrivate", liveAPIAllowPrivate,
+		"plmAllowPrivate", plmAllowPrivate,
 		"secretNamespaces", secretNS,
 	)
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {

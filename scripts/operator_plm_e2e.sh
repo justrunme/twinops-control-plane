@@ -140,12 +140,15 @@ spec:
     keepRevisions: 5
 EOF
 
-echo "==> Start out-of-cluster manager"
+echo "==> Start out-of-cluster manager (PLM private allow for mock server)"
 : >"${MANAGER_LOG}"
+PLM_HOST="$(python3 -c "from urllib.parse import urlparse; print(urlparse('$PLM_URL').hostname or '127.0.0.1')")"
 ./bin/manager \
   --metrics-bind-address=:18092 \
   --health-probe-bind-address=:18093 \
   --twinopsctl="${ROOT}/.venv/bin/twinopsctl" \
+  --plm-allow-private=true \
+  --plm-host-allowlist="${PLM_HOST}" \
   >"${MANAGER_LOG}" 2>&1 &
 MANAGER_PID=$!
 
