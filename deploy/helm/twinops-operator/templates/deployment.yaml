@@ -50,6 +50,11 @@ spec:
             {{- if .Values.liveAPIHostAllowlist }}
             - --live-api-host-allowlist={{ .Values.liveAPIHostAllowlist }}
             {{- end }}
+            {{- $secretNs := .Values.rbac.secretNamespaces | default (list) }}
+            {{- if eq (len $secretNs) 0 }}
+            {{- $secretNs = list .Values.namespace }}
+            {{- end }}
+            - --secret-namespaces={{ join "," $secretNs }}
             {{- if and (eq (.Values.rbac.mode | default "cluster") "namespaced") }}
             {{- $wn := .Values.rbac.watchNamespaces | default (list) }}
             {{- if eq (len $wn) 0 }}
@@ -74,6 +79,10 @@ spec:
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
           env:
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
             - name: TWINOPS_ARTIFACT_ALLOW_PRIVATE
               value: {{ .Values.artifactAllowPrivate | default "0" | quote }}
             - name: TWINOPS_ARTIFACT_REQUIRE_URL_DIGEST
