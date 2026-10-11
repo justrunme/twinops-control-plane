@@ -469,6 +469,9 @@ func TestReconcilePlmAuthFailed(t *testing.T) {
 		t.Fatal(err)
 	}
 	req := ctrl.Request{NamespacedName: types.NamespacedName{Namespace: ns, Name: "plm-auth"}}
+	if _, err := r.Reconcile(ctx, req); err != nil {
+		t.Fatalf("finalizer reconcile: %v", err)
+	}
 	_, err := r.Reconcile(ctx, req)
 	if err == nil {
 		t.Fatal("expected auth error")
@@ -540,6 +543,9 @@ func TestReconcilePlmSyncHappy(t *testing.T) {
 		t.Fatal(err)
 	}
 	req := ctrl.Request{NamespacedName: types.NamespacedName{Namespace: ns, Name: "plm-ok"}}
+	if _, err := r.Reconcile(ctx, req); err != nil {
+		t.Fatalf("finalizer reconcile: %v", err)
+	}
 	if _, err := r.Reconcile(ctx, req); err != nil {
 		t.Fatalf("reconcile: %v", err)
 	}
