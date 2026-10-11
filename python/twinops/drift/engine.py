@@ -37,13 +37,15 @@ class DriftReport:
 
     @property
     def has_drift(self) -> bool:
-        return any(item.status in {"DRIFT", "CRITICAL", "MISSING"} for item in self.findings)
+        return any(
+            item.status in {"DRIFT", "CRITICAL", "MISSING", "STALE"} for item in self.findings
+        )
 
     @property
     def exit_code(self) -> int:
         if any(item.status == "CRITICAL" for item in self.findings):
             return 3
-        if any(item.status in {"DRIFT", "MISSING"} for item in self.findings):
+        if any(item.status in {"DRIFT", "MISSING", "STALE"} for item in self.findings):
             return 1
         if any(item.status == "WARNING" for item in self.findings):
             return 0
@@ -275,6 +277,31 @@ def _compare_values(
         if isinstance(left, (int, float)) and isinstance(right, (int, float)):
             return abs(float(left) - float(right)) < 1e-6
         return str(left) == str(right)
+
+    # Stale / unknown telemetry is never treated as synced.
+    if observed is not None and str(observed).upper() in {"STALE", "UNKNOWN"}:
+        return DriftFinding(
+            prim=prim,
+            attribute=attribute,
+            desired=desired,
+            rendered=rendered,
+            observed=observed,
+            status="STALE",
+            severity="medium",
+            message=f"telemetry {str(observed).upper()} — not synced",
+        )
+    if attribute in {"twinops:telemetryStatus", "twinops:status"} and observed is not None:
+        if str(observed).upper() in {"STALE", "UNKNOWN", "CLOCK_SKEW"}:
+            return DriftFinding(
+                prim=prim,
+                attribute=attribute,
+                desired=desired,
+                rendered=rendered,
+                observed=observed,
+                status="STALE",
+                severity="medium",
+                message=f"sensor {str(observed).upper()} — not synced",
+            )
 
     if desired is not None and observed is None and rendered is None:
         return DriftFinding(

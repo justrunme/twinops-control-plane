@@ -3,6 +3,7 @@
 from twinops.telemetry.bus import TelemetryBus, TelemetryEvent
 from twinops.telemetry.ingest import ObservationIngest, TopicBinding
 from twinops.telemetry.payload import assert_valid_mqtt_payload, validate_mqtt_payload
+from twinops.telemetry.reliability import AcceptResult, ReliabilityMetrics, SensorTracker
 from twinops.telemetry.simulator import AssemblyLineSimulator
 from twinops.telemetry.topics import (
     ASSEMBLY_LINE_TOPIC_BINDINGS,
@@ -12,8 +13,11 @@ from twinops.telemetry.topics import (
 
 __all__ = [
     "ASSEMBLY_LINE_TOPIC_BINDINGS",
+    "AcceptResult",
     "AssemblyLineSimulator",
     "ObservationIngest",
+    "ReliabilityMetrics",
+    "SensorTracker",
     "TelemetryBus",
     "TelemetryEvent",
     "TopicBinding",

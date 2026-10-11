@@ -165,6 +165,33 @@ spec:
                     key:
                       type: string
                       description: Secret data key (default api-token)
+                plm:
+                  type: object
+                  description: Optional REST PLM poll/sync (ETag, conflict, resync)
+                  required: ["url"]
+                  properties:
+                    url:
+                      type: string
+                      description: PLM base URL exposing GET /items
+                      x-kubernetes-validations:
+                        - rule: "self.startsWith('https://') || self.startsWith('http://')"
+                          message: "plm.url must use http or https scheme"
+                    tokenSecretRef:
+                      type: object
+                      description: Bearer token Secret (default key token)
+                      required: ["name"]
+                      properties:
+                        name:
+                          type: string
+                        key:
+                          type: string
+                    pollSeconds:
+                      type: integer
+                      format: int64
+                      description: PLM poll interval (defaults to intervalSeconds)
+                    syncManifest:
+                      type: boolean
+                      description: Rewrite twin.yaml PLM mappings from catalog (default true)
             status:
               type: object
               properties:
@@ -274,6 +301,31 @@ spec:
                     lastSynced:
                       type: string
                       format: date-time
+                    message:
+                      type: string
+                plm:
+                  type: object
+                  description: REST PLM poll/sync status
+                  properties:
+                    etag:
+                      type: string
+                    fingerprint:
+                      type: string
+                    lastSync:
+                      type: string
+                      format: date-time
+                    conflict:
+                      type: boolean
+                    conflictMessage:
+                      type: string
+                    resyncCount:
+                      type: integer
+                      format: int64
+                    consecutiveFailures:
+                      type: integer
+                      format: int64
+                    inOutage:
+                      type: boolean
                     message:
                       type: string
                 conditions:

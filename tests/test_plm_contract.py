@@ -105,9 +105,11 @@ def test_not_found(file_adapter, rest_adapter) -> None:
 
 
 def test_rest_timeout(rest_adapter) -> None:
+    from twinops.plm.errors import PlmTransientError
+
     rest, errors = rest_adapter
     errors["mode"] = "timeout"
-    with pytest.raises(RuntimeError):
+    with pytest.raises(PlmTransientError):
         rest.get("1004711")
 
 
@@ -119,9 +121,11 @@ def test_rest_malformed(rest_adapter) -> None:
 
 
 def test_rest_auth_failure(rest_adapter) -> None:
+    from twinops.plm.errors import PlmAuthError
+
     rest, errors = rest_adapter
     errors["mode"] = "auth"
-    with pytest.raises(RuntimeError) as exc:
+    with pytest.raises(PlmAuthError) as exc:
         rest.get("1004711")
     assert "401" in str(exc.value)
 

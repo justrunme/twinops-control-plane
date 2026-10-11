@@ -67,6 +67,9 @@ class TelemetryBus:
         self._mqtt_port: int | None = None
         self._mqtt_tls: bool = False
         self._mqtt_ingest_topics: list[str] = []
+        self._mqtt_session_resumes = 0
+        self._mqtt_reconnects = 0
+        self._on_session_resume: Callable[[], None] | None = None
 
     @property
     def mqtt_enabled(self) -> bool:
@@ -90,7 +93,13 @@ class TelemetryBus:
                 "publish": self._mqtt is not None,
                 "ingest": self._mqtt_ingest is not None,
                 "ingestTopics": list(self._mqtt_ingest_topics),
+                "sessionResumes": self._mqtt_session_resumes,
+                "reconnects": self._mqtt_reconnects,
             }
+
+    def on_session_resume(self, callback: Callable[[], None]) -> None:
+        with self._lock:
+            self._on_session_resume = callback
 
     def subscribe(self, callback: Subscriber) -> None:
         with self._lock:
@@ -167,8 +176,14 @@ class TelemetryBus:
         tls: bool = False,
         ca_certs: str | None = None,
         tls_insecure: bool = False,
+        client_id: str = "twinops-ingest",
+        session_resume: bool = True,
     ) -> bool:
-        """Subscribe to broker topics and forward payloads to handler."""
+        """Subscribe to broker topics and forward payloads to handler.
+
+        When ``session_resume`` is true the client uses a persistent MQTT session
+        (clean_session=False) and reconnects automatically so subscriptions resume.
+        """
         if not topics:
             return False
         try:
@@ -177,9 +192,13 @@ class TelemetryBus:
             logger.warning("paho-mqtt not installed; mqtt ingest disabled")
             return False
 
+        # Persistent session for resume after reconnect (MQTT 3.1.1 clean_session=False).
         client = mqtt.Client(
-            mqtt.CallbackAPIVersion.VERSION2, client_id="twinops-ingest"
+            mqtt.CallbackAPIVersion.VERSION2,
+            client_id=client_id,
+            clean_session=not session_resume,
         )
+        connected_once = {"value": False}
 
         def _on_message(_client: Any, _userdata: Any, msg: Any) -> None:
             try:
@@ -187,7 +206,47 @@ class TelemetryBus:
             except Exception:  # noqa: BLE001
                 logger.exception("mqtt ingest handler failed for %s", msg.topic)
 
+        def _on_connect(
+            _client: Any,
+            _userdata: Any,
+            _flags: Any,
+            reason_code: Any,
+            _properties: Any = None,
+        ) -> None:
+            rc = int(getattr(reason_code, "value", reason_code) or 0)
+            if rc != 0:
+                logger.warning("mqtt ingest connect failed rc=%s", reason_code)
+                return
+            for topic in topics:
+                _client.subscribe(topic, qos=1)
+            with self._lock:
+                if connected_once["value"]:
+                    self._mqtt_session_resumes += 1
+                    self._mqtt_reconnects += 1
+                    cb = self._on_session_resume
+                else:
+                    connected_once["value"] = True
+                    cb = None
+            if cb is not None:
+                try:
+                    cb()
+                except Exception:  # noqa: BLE001
+                    logger.exception("mqtt session resume callback failed")
+            logger.info("mqtt ingest connected/resumed topics=%s", topics)
+
+        def _on_disconnect(
+            _client: Any,
+            _userdata: Any,
+            _disconnect_flags: Any,
+            reason_code: Any,
+            _properties: Any = None,
+        ) -> None:
+            logger.warning("mqtt ingest disconnected rc=%s; auto-reconnect enabled", reason_code)
+
         client.on_message = _on_message
+        client.on_connect = _on_connect
+        client.on_disconnect = _on_disconnect
+        client.reconnect_delay_set(min_delay=1, max_delay=30)
         use_tls = bool(tls or ca_certs or tls_insecure)
         try:
             configure_mqtt_tls(
@@ -198,8 +257,6 @@ class TelemetryBus:
             logger.warning("mqtt ingest broker unavailable at %s:%s (%s)", host, port, exc)
             return False
 
-        for topic in topics:
-            client.subscribe(topic)
         client.loop_start()
         with self._lock:
             self._mqtt_ingest = client
@@ -208,7 +265,12 @@ class TelemetryBus:
             self._mqtt_tls = use_tls
             self._mqtt_ingest_topics = list(topics)
         logger.info(
-            "mqtt ingest enabled %s:%s tls=%s topics=%s", host, port, use_tls, topics
+            "mqtt ingest enabled %s:%s tls=%s session_resume=%s topics=%s",
+            host,
+            port,
+            use_tls,
+            session_resume,
+            topics,
         )
         return True
 

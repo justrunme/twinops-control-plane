@@ -4,6 +4,12 @@ All notable TwinOps changes are listed here. Dates are UTC.
 
 ## Unreleased
 
+### Added
+- REST PLM reliability: mock HTTP server (ETag/304, 409, 5xx, timeout, auth), `PlmSyncSession` with exponential backoff + jitter and idempotent outage resync
+- DigitalTwin `spec.plm` / `status.plm` + `PlmSynced` / `PlmConflict` conditions; kind E2E `make operator-plm-e2e`
+- MQTT ingest reliability: per-sensor sequence/timestamp ordering, dedupe window, session resume, TTL STALE/UNKNOWN, bounded clock skew; drift treats STALE as not-synced
+- `make mqtt-reliability-e2e` (Mosquitto replay asserts)
+
 ### Security
 - Remove `spec.twinopsctl` — binary path is operator-only (`--twinopsctl` / env)
 - Restrict `manifestPath` / `desiredPath` / `observedPath` to `--manifest-base-dir` allowlist (reject `..` and paths outside base)
@@ -17,6 +23,7 @@ All notable TwinOps changes are listed here. Dates are UTC.
 
 ### Tests
 - envtest controller suite (happy path, invalid spec, drift, error backoff); CI coverage gate ≥ 60% for `./controllers`
+- PLM REST contract/reliability unit tests; MQTT reliability unit + broker E2E
 
 ## [1.4.4] - 2026-10-10
 

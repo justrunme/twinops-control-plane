@@ -117,6 +117,7 @@ class LiveDriftRuntime:
             }
             self.bus.enable_mqtt(self._mqtt_host, self._mqtt_port, **tls_kwargs)
             if self._mqtt_ingest and self.ingest.topics:
+                self.bus.on_session_resume(self.ingest.tracker.note_session_resume)
                 self.bus.enable_mqtt_ingest(
                     self._mqtt_host,
                     self._mqtt_port,
@@ -195,6 +196,9 @@ class LiveDriftRuntime:
         )
         mqtt = self.mqtt_status()
         ingest = mqtt.get("ingest") or {}
+        reliability = ingest.get("reliability") or {}
+        rel_metrics = reliability.get("metrics") or {}
+        endpoint = mqtt.get("endpoint") or {}
         return {
             "twin": self.store.twin_meta.get("name"),
             "hasDrift": bool(status.get("hasDrift")),
@@ -204,6 +208,20 @@ class LiveDriftRuntime:
             "reconciled": bool(self.store.twin_meta.get("reconciled")),
             "mqttPublishEnabled": bool(mqtt.get("enabled")),
             "mqttIngestReceived": int(ingest.get("received") or 0),
+            "mqttDuplicatesDropped": int(
+                ingest.get("duplicatesDropped") or rel_metrics.get("duplicatesDropped") or 0
+            ),
+            "mqttOutOfOrderDropped": int(
+                ingest.get("outOfOrderDropped") or rel_metrics.get("outOfOrderDropped") or 0
+            ),
+            "mqttClockSkewViolations": int(
+                ingest.get("clockSkewViolations") or rel_metrics.get("clockSkewViolations") or 0
+            ),
+            "mqttStaleSensors": int(
+                ingest.get("staleSensors") or reliability.get("staleSensors") or 0
+            ),
+            "mqttSessionResumes": int(endpoint.get("sessionResumes") or 0),
+            "mqttConditions": list(ingest.get("conditions") or []),
             "robotTemp": self.simulator.state.get("robot_temp"),
         }
 
@@ -217,7 +235,7 @@ class LiveDriftRuntime:
             "# HELP twinops_drift_findings Drift findings by status.",
             "# TYPE twinops_drift_findings gauge",
         ]
-        for key in ("SYNCED", "WARNING", "MISSING", "DRIFT", "CRITICAL"):
+        for key in ("SYNCED", "WARNING", "MISSING", "STALE", "DRIFT", "CRITICAL"):
             lines.append(
                 f'twinops_drift_findings{{status="{key}"}} {int(summary.get(key) or 0)}'
             )
@@ -229,6 +247,29 @@ class LiveDriftRuntime:
                 "# HELP twinops_mqtt_ingest_received_total External MQTT messages applied.",
                 "# TYPE twinops_mqtt_ingest_received_total counter",
                 f"twinops_mqtt_ingest_received_total {int(m.get('mqttIngestReceived') or 0)}",
+                "# HELP twinops_mqtt_duplicates_dropped_total Duplicate MQTT payloads dropped.",
+                "# TYPE twinops_mqtt_duplicates_dropped_total counter",
+                "twinops_mqtt_duplicates_dropped_total "
+                f"{int(m.get('mqttDuplicatesDropped') or 0)}",
+                "# HELP twinops_mqtt_out_of_order_dropped_total "
+                "Out-of-order MQTT payloads dropped.",
+                "# TYPE twinops_mqtt_out_of_order_dropped_total counter",
+                "twinops_mqtt_out_of_order_dropped_total "
+                f"{int(m.get('mqttOutOfOrderDropped') or 0)}",
+                "# HELP twinops_mqtt_clock_skew_violations_total "
+                "MQTT clock-skew violations.",
+                "# TYPE twinops_mqtt_clock_skew_violations_total counter",
+                "twinops_mqtt_clock_skew_violations_total "
+                f"{int(m.get('mqttClockSkewViolations') or 0)}",
+                "# HELP twinops_mqtt_stale_sensors "
+                "Sensors without a fresh reading within TTL.",
+                "# TYPE twinops_mqtt_stale_sensors gauge",
+                f"twinops_mqtt_stale_sensors {int(m.get('mqttStaleSensors') or 0)}",
+                "# HELP twinops_mqtt_session_resumes_total "
+                "MQTT ingest session resumes after reconnect.",
+                "# TYPE twinops_mqtt_session_resumes_total counter",
+                "twinops_mqtt_session_resumes_total "
+                f"{int(m.get('mqttSessionResumes') or 0)}",
                 "# HELP twinops_robot_temperature_celsius Latest Robot01 temperature.",
                 "# TYPE twinops_robot_temperature_celsius gauge",
                 f"twinops_robot_temperature_celsius {float(m.get('robotTemp') or 0)}",
