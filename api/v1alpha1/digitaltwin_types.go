@@ -171,6 +171,31 @@ type DigitalTwinSpec struct {
 	// namespace. When set, it takes precedence over liveAPIToken.
 	// +optional
 	LiveAPITokenSecretRef *SecretKeyRef `json:"liveAPITokenSecretRef,omitempty"`
+
+	// PLM configures optional REST PLM poll/sync (ETag, conflict, resync).
+	// When set, the operator polls the PLM catalog and syncs revision mappings
+	// into the materialized twin.yaml before compose.
+	// +optional
+	PLM *PlmSourceSpec `json:"plm,omitempty"`
+}
+
+// PlmSourceSpec points at a vendor-neutral REST PLM façade.
+type PlmSourceSpec struct {
+	// URL is the PLM base URL (http/https) exposing GET /items.
+	// +kubebuilder:validation:XValidation:rule="self.startsWith('https://') || self.startsWith('http://')",message="plm.url must use http or https scheme"
+	URL string `json:"url"`
+
+	// TokenSecretRef loads a bearer token from a Secret (key default: token).
+	// +optional
+	TokenSecretRef *SecretKeyRef `json:"tokenSecretRef,omitempty"`
+
+	// PollSeconds overrides how often PLM is polled (defaults to intervalSeconds).
+	// +optional
+	PollSeconds int64 `json:"pollSeconds,omitempty"`
+
+	// SyncManifest rewrites twin.yaml PLM mappings from the catalog (default true).
+	// +optional
+	SyncManifest *bool `json:"syncManifest,omitempty"`
 }
 
 // OutputRevision is one immutable published composition.
@@ -267,6 +292,37 @@ type DriftStatus struct {
 	LastChecked *metav1.Time `json:"lastChecked,omitempty"`
 }
 
+// PlmStatus reports REST PLM poll/sync health on the DigitalTwin.
+type PlmStatus struct {
+	// ETag is the last observed catalog ETag.
+	// +optional
+	ETag string `json:"etag,omitempty"`
+	// Fingerprint is sha256 of itemId:revision pairs.
+	// +optional
+	Fingerprint string `json:"fingerprint,omitempty"`
+	// LastSync is the last successful poll time.
+	// +optional
+	LastSync *metav1.Time `json:"lastSync,omitempty"`
+	// Conflict is true when the PLM returned HTTP 409.
+	// +optional
+	Conflict bool `json:"conflict,omitempty"`
+	// ConflictMessage details the version conflict.
+	// +optional
+	ConflictMessage string `json:"conflictMessage,omitempty"`
+	// ResyncCount increments once per outage→recovery successful poll.
+	// +optional
+	ResyncCount int64 `json:"resyncCount,omitempty"`
+	// ConsecutiveFailures counts successive poll failures.
+	// +optional
+	ConsecutiveFailures int64 `json:"consecutiveFailures,omitempty"`
+	// InOutage is true while PLM is unreachable or failing.
+	// +optional
+	InOutage bool `json:"inOutage,omitempty"`
+	// Message is a human-readable PLM sync detail.
+	// +optional
+	Message string `json:"message,omitempty"`
+}
+
 // LiveStatus summarizes the optional TwinOps live API probe.
 type LiveStatus struct {
 	// Ready is true when /api/ready reports ready.
@@ -316,6 +372,9 @@ type DigitalTwinStatus struct {
 	// Live summarizes an optional live API probe when spec.liveAPIURL is set.
 	// +optional
 	Live LiveStatus `json:"live,omitempty"`
+	// PLM summarizes optional REST PLM poll/sync when spec.plm is set.
+	// +optional
+	PLM PlmStatus `json:"plm,omitempty"`
 	// ObservedGeneration is the last reconciled generation.
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 	// LastComposeGeneration is the generation for which compose+publish last succeeded.

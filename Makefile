@@ -3,7 +3,7 @@ PIP ?= $(PYTHON) -m pip
 VENV ?= .venv
 BIN := $(VENV)/bin
 
-.PHONY: help venv install test lint build demo live-demo live-demo-smoke demo-gitops mqtt-up mqtt-down mqtt-smoke mqtt-topics mqtt-topics-sync mqtt-topics-check mqtt-acl-up mqtt-acl-down mqtt-tls-certs mqtt-tls-up mqtt-tls-down mqtt-tls-smoke drift serve live-tls-certs serve-webrtc web web-dev operator-build operator-run operator-demo operator-demo-watch operator-demo-cleanup scene scene-live scene-highlight plm-demo verify-all doctor health ready wait-ready timeline proposal metrics live-status live-spike live-reconcile openapi version docker-live docker-operator docker-live-up docker-live-down go-test clean apply apply-live apply-verify helm-deps helm-template deploy-smoke usd-validate
+.PHONY: help venv install test lint build demo live-demo live-demo-smoke demo-gitops mqtt-up mqtt-down mqtt-smoke mqtt-reliability-e2e mqtt-topics mqtt-topics-sync mqtt-topics-check mqtt-acl-up mqtt-acl-down mqtt-tls-certs mqtt-tls-up mqtt-tls-down mqtt-tls-smoke drift serve live-tls-certs serve-webrtc web web-dev operator-build operator-run operator-demo operator-demo-watch operator-demo-cleanup scene scene-live scene-highlight plm-demo operator-plm-e2e verify-all doctor health ready wait-ready timeline proposal metrics live-status live-spike live-reconcile openapi version docker-live docker-operator docker-live-up docker-live-down go-test clean apply apply-live apply-verify helm-deps helm-template deploy-smoke usd-validate
 
 help:
 	@echo "TwinOps targets:"
@@ -16,6 +16,7 @@ help:
 	@echo "  make mqtt-up         - start local Mosquitto (compose)"
 	@echo "  make mqtt-down       - stop local Mosquitto"
 	@echo "  make mqtt-smoke      - Mosquitto bridge smoke (compose + subscribe)"
+	@echo "  make mqtt-reliability-e2e - Mosquitto OOO/dupe/stale reliability E2E"
 	@echo "  make mqtt-topics     - print assembly-line MQTT topic catalog"
 	@echo "  make mqtt-topics-sync - rewrite examples/.../mqtt-topics.json from code"
 	@echo "  make mqtt-topics-check - fail if mqtt-topics.json is out of sync"
@@ -33,6 +34,7 @@ help:
 	@echo "  make scene-highlight - poll /api/scene and print Kit highlight plan"
 	@echo "  make scene           - offline highlight snapshot from sample drift"
 	@echo "  make plm-demo        - mock PLM bump → compare → show drift"
+	@echo "  make operator-plm-e2e - kind PLM poll → immutable USD revision E2E"
 	@echo "  make verify-all      - local gate: test/lint/go/plm/live-smoke"
 	@echo "  make doctor          - check local demo prerequisites"
 	@echo "  make version         - print twinopsctl version"
@@ -121,6 +123,9 @@ mqtt-down:
 mqtt-smoke:
 	bash scripts/mqtt_smoke.sh
 
+mqtt-reliability-e2e:
+	bash scripts/mqtt_reliability_e2e.sh
+
 mqtt-topics:
 	$(BIN)/twinopsctl mqtt topics
 
@@ -184,6 +189,9 @@ scene: drift
 
 plm-demo:
 	bash scripts/plm_change_demo.sh
+
+operator-plm-e2e:
+	bash scripts/operator_plm_e2e.sh
 
 verify-all:
 	bash scripts/verify_all.sh
