@@ -39,8 +39,10 @@ def test_rest_adapter_get_and_list() -> None:
             return
 
         def do_GET(self) -> None:  # noqa: N802
+            etag = None
             if self.path.rstrip("/") == "/items":
                 body = json.dumps(list(store.values())).encode("utf-8")
+                etag = 'W/"catalog-1"'
             elif self.path.startswith("/items/"):
                 item_id = self.path.rsplit("/", 1)[-1]
                 if item_id not in store:
@@ -48,6 +50,7 @@ def test_rest_adapter_get_and_list() -> None:
                     self.end_headers()
                     return
                 body = json.dumps(store[item_id]).encode("utf-8")
+                etag = f'W/"item-{item_id}-v1"'
             else:
                 self.send_response(404)
                 self.end_headers()
@@ -55,6 +58,8 @@ def test_rest_adapter_get_and_list() -> None:
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
             self.send_header("Content-Length", str(len(body)))
+            if etag:
+                self.send_header("ETag", etag)
             self.end_headers()
             self.wfile.write(body)
 
