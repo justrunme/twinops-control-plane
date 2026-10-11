@@ -35,6 +35,7 @@ import (
 	"github.com/justrunme/twinops-control-plane/internal/livesync"
 	twinmetrics "github.com/justrunme/twinops-control-plane/internal/metrics"
 	"github.com/justrunme/twinops-control-plane/internal/output"
+	"github.com/justrunme/twinops-control-plane/internal/plmsync"
 	"github.com/justrunme/twinops-control-plane/internal/twinbuild"
 	"github.com/justrunme/twinops-control-plane/internal/workspace"
 )
@@ -215,6 +216,93 @@ func (r *DigitalTwinReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		return ctrl.Result{}, nil
 	}
 
+	artifactDigest := inputDigest
+	plmStatus := twin.Status.PLM
+	if twin.Spec.PLM != nil && twin.Spec.PLM.URL != "" {
+		token, tokErr := resolvePlmToken(ctx, r.Client, &twin)
+		if tokErr != nil {
+			logger.Error(tokErr, "plm token resolve failed")
+			r.event(&twin, corev1.EventTypeWarning, "PlmAuthFailed", tokErr.Error())
+			_, _ = r.patchStatus(ctx, &twin, func(status *twinopsv1alpha1.DigitalTwinStatus) {
+				status.PLM.Message = tokErr.Error()
+				status.PLM.InOutage = true
+				status.PLM.ConsecutiveFailures = twin.Status.PLM.ConsecutiveFailures + 1
+				setCondition(status, "PlmSynced", metav1.ConditionFalse, "AuthFailed", tokErr.Error())
+			})
+			return ctrl.Result{}, tokErr
+		}
+		syncManifest := true
+		if twin.Spec.PLM.SyncManifest != nil {
+			syncManifest = *twin.Spec.PLM.SyncManifest
+		}
+		session := &plmsync.Session{
+			ETag:                twin.Status.PLM.ETag,
+			Fingerprint:         twin.Status.PLM.Fingerprint,
+			ResyncCount:         twin.Status.PLM.ResyncCount,
+			ConsecutiveFailures: twin.Status.PLM.ConsecutiveFailures,
+			InOutage:            twin.Status.PLM.InOutage,
+			Conflict:            twin.Status.PLM.Conflict,
+			ConflictMessage:     twin.Status.PLM.ConflictMessage,
+			LastError:           twin.Status.PLM.Message,
+		}
+		client := &plmsync.Client{BaseURL: twin.Spec.PLM.URL, Token: token, Timeout: 5 * time.Second}
+		poll := plmsync.Poll(buildCtx, client, session, manifestPath, syncManifest)
+		now := metav1.Now()
+		plmStatus = twinopsv1alpha1.PlmStatus{
+			ETag:                session.ETag,
+			Fingerprint:         session.Fingerprint,
+			ResyncCount:         session.ResyncCount,
+			ConsecutiveFailures: session.ConsecutiveFailures,
+			InOutage:            session.InOutage,
+			Conflict:            session.Conflict,
+			ConflictMessage:     session.ConflictMessage,
+			Message:             session.LastError,
+		}
+		if poll.Error == "" {
+			plmStatus.LastSync = &now
+			if poll.Resynced {
+				plmStatus.Message = "resync after outage"
+			} else if poll.NotModified {
+				plmStatus.Message = "not modified"
+			} else if poll.Changed {
+				plmStatus.Message = "catalog changed"
+			} else {
+				plmStatus.Message = "synced"
+			}
+		} else {
+			plmStatus.Message = poll.Error
+		}
+		if poll.Conflict {
+			_, _ = r.patchStatus(ctx, &twin, func(status *twinopsv1alpha1.DigitalTwinStatus) {
+				status.PLM = plmStatus
+				setCondition(status, "PlmConflict", metav1.ConditionTrue, "VersionConflict", poll.ConflictMessage)
+				setCondition(status, "PlmSynced", metav1.ConditionFalse, "VersionConflict", poll.ConflictMessage)
+			})
+			r.event(&twin, corev1.EventTypeWarning, "PlmConflict", poll.ConflictMessage)
+			// Surface conflict; do not compose from a contested catalog write.
+			return ctrl.Result{RequeueAfter: time.Duration(interval) * time.Second}, nil
+		}
+		if poll.Error != "" && poll.Transient {
+			_, _ = r.patchStatus(ctx, &twin, func(status *twinopsv1alpha1.DigitalTwinStatus) {
+				status.PLM = plmStatus
+				setCondition(status, "PlmSynced", metav1.ConditionFalse, "PlmUnavailable", poll.Error)
+			})
+			r.event(&twin, corev1.EventTypeWarning, "PlmUnavailable", poll.Error)
+			return ctrl.Result{}, fmt.Errorf("plm poll: %s", poll.Error)
+		}
+		if session.Fingerprint != "" {
+			inputDigest = plmsync.EffectiveDigest(artifactDigest, session.Fingerprint)
+		}
+		_, _ = r.patchStatus(ctx, &twin, func(status *twinopsv1alpha1.DigitalTwinStatus) {
+			status.PLM = plmStatus
+			setCondition(status, "PlmConflict", metav1.ConditionFalse, "NoConflict", "no version conflict")
+			setCondition(status, "PlmSynced", metav1.ConditionTrue, "Synced", plmStatus.Message)
+		})
+		if twin.Spec.PLM.PollSeconds > 0 && twin.Spec.PLM.PollSeconds < interval {
+			interval = twin.Spec.PLM.PollSeconds
+		}
+	}
+
 	runner := r.Runner
 	if runner == nil {
 		runner = twinbuild.Runner{}
@@ -257,7 +345,7 @@ func (r *DigitalTwinReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		_, _ = r.patchStatus(ctx, &twin, func(status *twinopsv1alpha1.DigitalTwinStatus) {
 			status.Phase = "Composing"
 			status.Message = "composing OpenUSD stage"
-			status.ArtifactDigest = inputDigest
+			status.ArtifactDigest = artifactDigest
 			status.InputDigest = inputDigest
 			status.WorkspacePath = workspacePath
 			status.ObservedGeneration = twin.Generation
@@ -487,12 +575,15 @@ func (r *DigitalTwinReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		status.Phase = phase
 		status.Message = message
 		status.StagePath = stagePath
-		status.ArtifactDigest = inputDigest
+		status.ArtifactDigest = artifactDigest
 		status.InputDigest = inputDigest
 		status.WorkspacePath = workspacePath
 		status.Output = outArtifact
 		status.Drift = driftStatus
 		status.Live = liveStatus
+		if twin.Spec.PLM != nil {
+			status.PLM = plmStatus
+		}
 		status.ObservedGeneration = twin.Generation
 		status.Build.Mode = buildMode
 		if jobName != "" {
@@ -518,6 +609,17 @@ func (r *DigitalTwinReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		}
 		setCondition(status, "Ready", ready, reason, message)
 		setCondition(status, "Stalled", metav1.ConditionFalse, "Reconciled", "spec accepted")
+		if twin.Spec.PLM != nil {
+			if plmStatus.Conflict {
+				setCondition(status, "PlmConflict", metav1.ConditionTrue, "VersionConflict", plmStatus.ConflictMessage)
+				setCondition(status, "PlmSynced", metav1.ConditionFalse, "VersionConflict", plmStatus.ConflictMessage)
+			} else if plmStatus.InOutage {
+				setCondition(status, "PlmSynced", metav1.ConditionFalse, "PlmUnavailable", plmStatus.Message)
+			} else {
+				setCondition(status, "PlmConflict", metav1.ConditionFalse, "NoConflict", "no version conflict")
+				setCondition(status, "PlmSynced", metav1.ConditionTrue, "Synced", plmStatus.Message)
+			}
+		}
 	})
 	if err != nil {
 		return ctrl.Result{}, err
@@ -860,6 +962,33 @@ func (r *DigitalTwinReconciler) event(twin *twinopsv1alpha1.DigitalTwin, typ, re
 		return
 	}
 	r.Recorder.Event(twin, typ, reason, msg)
+}
+
+func resolvePlmToken(ctx context.Context, c client.Client, twin *twinopsv1alpha1.DigitalTwin) (string, error) {
+	if twin == nil || twin.Spec.PLM == nil {
+		return "", nil
+	}
+	ref := twin.Spec.PLM.TokenSecretRef
+	if ref == nil || ref.Name == "" {
+		return "", nil
+	}
+	if c == nil {
+		return "", fmt.Errorf("client required to resolve plm.tokenSecretRef")
+	}
+	var secret corev1.Secret
+	key := client.ObjectKey{Namespace: twin.Namespace, Name: ref.Name}
+	if err := c.Get(ctx, key, &secret); err != nil {
+		return "", fmt.Errorf("read PLM token secret %s/%s: %w", twin.Namespace, ref.Name, err)
+	}
+	secretKey := ref.Key
+	if secretKey == "" {
+		secretKey = "token"
+	}
+	raw, ok := secret.Data[secretKey]
+	if !ok {
+		return "", fmt.Errorf("secret %s/%s missing key %q", twin.Namespace, ref.Name, secretKey)
+	}
+	return string(raw), nil
 }
 
 func (r *DigitalTwinReconciler) patchStatus(

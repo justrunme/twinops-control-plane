@@ -129,3 +129,27 @@ make mqtt-smoke
 
 Starts Mosquitto, runs `twinopsctl serve --mqtt-host`, verifies outbound
 `factory/#` messages, publishes an external heat spike, and asserts critical drift.
+
+## Reliability (production-credible ingest)
+
+`ObservationIngest` + `SensorTracker` enforce:
+
+| Concern | Behavior |
+| --- | --- |
+| Out-of-order | Per-sensor `sequence` / `timestamp`; older messages dropped |
+| Duplicates | `messageId` (or equal sequence) within dedupe window dropped |
+| Reconnect | Ingest client uses persistent MQTT session; `sessionResumes` metric |
+| Stale sensors | No fresh reading within TTL → `STALE` / `UNKNOWN` (never left as `running`/`normal`) |
+| Clock skew | Message timestamps outside bound → `CLOCK_SKEW` + metric |
+| Drift | `STALE` findings are **not** synced (`hasDrift=true`) |
+
+Metrics (JSON `/api/metrics` and Prometheus `/metrics`):
+`mqttDuplicatesDropped`, `mqttOutOfOrderDropped`, `mqttClockSkewViolations`,
+`mqttStaleSensors`, `mqttSessionResumes`. Status conditions under
+`mqtt.ingest.conditions` (`TelemetryFresh`, `TelemetryClockSkew`).
+
+```bash
+make mqtt-reliability-e2e
+```
+
+Replays out-of-order / duplicate / stale streams against Mosquitto and asserts drops + STALE.

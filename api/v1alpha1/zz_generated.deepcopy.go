@@ -35,6 +35,51 @@ func (in *DigitalTwinSpec) DeepCopyInto(out *DigitalTwinSpec) {
 		*out = new(SecretKeyRef)
 		**out = **in
 	}
+	if in.PLM != nil {
+		in, out := &in.PLM, &out.PLM
+		*out = new(PlmSourceSpec)
+		(*in).DeepCopyInto(*out)
+	}
+}
+
+func (in *PlmSourceSpec) DeepCopyInto(out *PlmSourceSpec) {
+	*out = *in
+	if in.TokenSecretRef != nil {
+		in, out := &in.TokenSecretRef, &out.TokenSecretRef
+		*out = new(SecretKeyRef)
+		**out = **in
+	}
+	if in.SyncManifest != nil {
+		in, out := &in.SyncManifest, &out.SyncManifest
+		*out = new(bool)
+		**out = **in
+	}
+}
+
+func (in *PlmSourceSpec) DeepCopy() *PlmSourceSpec {
+	if in == nil {
+		return nil
+	}
+	out := new(PlmSourceSpec)
+	in.DeepCopyInto(out)
+	return out
+}
+
+func (in *PlmStatus) DeepCopyInto(out *PlmStatus) {
+	*out = *in
+	if in.LastSync != nil {
+		in, out := &in.LastSync, &out.LastSync
+		*out = (*in).DeepCopy()
+	}
+}
+
+func (in *PlmStatus) DeepCopy() *PlmStatus {
+	if in == nil {
+		return nil
+	}
+	out := new(PlmStatus)
+	in.DeepCopyInto(out)
+	return out
 }
 
 func (in *OutputPublish) DeepCopyInto(out *OutputPublish) {
@@ -217,6 +262,7 @@ func (in *DigitalTwinStatus) DeepCopyInto(out *DigitalTwinStatus) {
 	out.Build = in.Build
 	in.Drift.DeepCopyInto(&out.Drift)
 	in.Live.DeepCopyInto(&out.Live)
+	in.PLM.DeepCopyInto(&out.PLM)
 	if in.Conditions != nil {
 		in, out := &in.Conditions, &out.Conditions
 		*out = make([]metav1.Condition, len(*in))

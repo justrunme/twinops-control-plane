@@ -9,8 +9,9 @@ STATUS_ORDER = {
     "SYNCED": 0,
     "WARNING": 1,
     "MISSING": 2,
-    "DRIFT": 3,
-    "CRITICAL": 4,
+    "STALE": 3,
+    "DRIFT": 4,
+    "CRITICAL": 5,
 }
 
 
