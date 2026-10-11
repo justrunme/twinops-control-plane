@@ -70,13 +70,25 @@ spec:
                       description: Optional sha256 digest of materialized inputs (fail closed on mismatch)
                 manifestPath:
                   type: string
-                  description: Legacy filesystem path to twin.yaml (hostPath demos)
+                  description: Legacy filesystem path to twin.yaml (must be under operator --manifest-base-dir)
+                  x-kubernetes-validations:
+                    - rule: "!self.contains('..')"
+                      message: "manifestPath must not contain '..'"
                 desiredPath:
                   type: string
+                  description: Legacy desired YAML path (must be under operator --manifest-base-dir)
+                  x-kubernetes-validations:
+                    - rule: "!self.contains('..')"
+                      message: "desiredPath must not contain '..'"
                 observedPath:
                   type: string
+                  description: Legacy observed telemetry path (must be under operator --manifest-base-dir)
+                  x-kubernetes-validations:
+                    - rule: "!self.contains('..')"
+                      message: "observedPath must not contain '..'"
                 outputDir:
                   type: string
+                  description: Legacy field — ignored; operator uses managed workspace
                 outputPublish:
                   type: object
                   description: Publish composed artifacts to a durable cluster reference (configmap|oci|s3)
@@ -134,11 +146,12 @@ spec:
                   type: integer
                   format: int64
                   default: 30
-                twinopsctl:
-                  type: string
                 liveAPIURL:
                   type: string
-                  description: Optional TwinOps live API base URL for status sync
+                  description: Optional TwinOps live API base URL (http/https; SSRF-guarded by operator)
+                  x-kubernetes-validations:
+                    - rule: "self == '' || self.startsWith('https://') || self.startsWith('http://')"
+                      message: "liveAPIURL must use http or https scheme"
                 liveAPIToken:
                   type: string
                   description: Optional bearer token for the live API (demo auth)

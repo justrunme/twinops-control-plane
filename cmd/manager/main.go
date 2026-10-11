@@ -35,17 +35,33 @@ func main() {
 	var buildTimeout time.Duration
 	var maxConcurrent int
 	var watchNamespaces string
+	var manifestBaseDir string
+	var liveAPIAllowPrivate bool
+	var liveAPIHostAllowlist string
 
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "metrics endpoint")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "health probe endpoint")
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false, "enable leader election")
-	flag.StringVar(&twinopsctl, "twinopsctl", "", "path to twinopsctl binary")
+	flag.StringVar(&twinopsctl, "twinopsctl", "", "path to twinopsctl binary (operator-controlled; not a CR field)")
 	flag.DurationVar(&buildTimeout, "build-timeout", 120*time.Second, "timeout for twinopsctl build/drift")
 	flag.IntVar(&maxConcurrent, "max-concurrent-reconciles", 2, "max concurrent DigitalTwin reconciles")
 	flag.StringVar(&watchNamespaces, "watch-namespaces", "", "comma-separated namespaces to watch (empty = all / cluster-scoped)")
+	flag.StringVar(&manifestBaseDir, "manifest-base-dir", "", "allowlisted base directory for spec.manifestPath/desiredPath/observedPath (empty rejects host paths)")
+	flag.BoolVar(&liveAPIAllowPrivate, "live-api-allow-private", false, "allow loopback/link-local/private liveAPIURL hosts (lab only)")
+	flag.StringVar(&liveAPIHostAllowlist, "live-api-host-allowlist", "", "comma-separated allowed liveAPIURL hostnames (empty = any non-blocked host)")
 	opts := zap.Options{Development: true}
 	opts.BindFlags(flag.CommandLine)
 	flag.Parse()
+
+	if env := strings.TrimSpace(os.Getenv("TWINOPS_MANIFEST_BASE_DIR")); env != "" && manifestBaseDir == "" {
+		manifestBaseDir = env
+	}
+	if os.Getenv("TWINOPS_LIVE_API_ALLOW_PRIVATE") == "1" {
+		liveAPIAllowPrivate = true
+	}
+	if env := strings.TrimSpace(os.Getenv("TWINOPS_LIVE_API_HOST_ALLOWLIST")); env != "" && liveAPIHostAllowlist == "" {
+		liveAPIHostAllowlist = env
+	}
 
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 	setupLog := ctrl.Log.WithName("setup")
@@ -59,7 +75,7 @@ func main() {
 		LeaderElection:         enableLeaderElection,
 		LeaderElectionID:       "twinops-control-plane.twinops.io",
 	}
-	if nsList := parseNamespaces(watchNamespaces); len(nsList) > 0 {
+	if nsList := parseCSV(watchNamespaces); len(nsList) > 0 {
 		setupLog.Info("namespace-scoped cache", "namespaces", nsList)
 		nsMap := map[string]cache.Config{}
 		for _, ns := range nsList {
@@ -75,12 +91,15 @@ func main() {
 	}
 
 	if err = (&controllers.DigitalTwinReconciler{
-		Client:        mgr.GetClient(),
-		Scheme:        mgr.GetScheme(),
-		Runner:        twinbuild.Runner{Binary: twinopsctl},
-		Recorder:      mgr.GetEventRecorderFor("twinops-controller"),
-		BuildTimeout:  buildTimeout,
-		MaxConcurrent: maxConcurrent,
+		Client:               mgr.GetClient(),
+		Scheme:               mgr.GetScheme(),
+		Runner:               twinbuild.Runner{Binary: twinopsctl},
+		Recorder:             mgr.GetEventRecorderFor("twinops-controller"),
+		BuildTimeout:         buildTimeout,
+		MaxConcurrent:        maxConcurrent,
+		ManifestBaseDir:      manifestBaseDir,
+		LiveAPIAllowPrivate:  liveAPIAllowPrivate,
+		LiveAPIHostAllowlist: parseCSV(liveAPIHostAllowlist),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "DigitalTwin")
 		os.Exit(1)
@@ -95,14 +114,17 @@ func main() {
 		os.Exit(1)
 	}
 
-	setupLog.Info("starting TwinOps manager")
+	setupLog.Info("starting TwinOps manager",
+		"manifestBaseDir", manifestBaseDir,
+		"liveAPIAllowPrivate", liveAPIAllowPrivate,
+	)
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
 		setupLog.Error(err, "problem running manager")
 		os.Exit(1)
 	}
 }
 
-func parseNamespaces(raw string) []string {
+func parseCSV(raw string) []string {
 	raw = strings.TrimSpace(raw)
 	if raw == "" {
 		return nil

@@ -41,6 +41,15 @@ spec:
             - --twinopsctl={{ .Values.twinopsctlPath }}
             - --build-timeout={{ .Values.buildTimeout | default "120s" }}
             - --max-concurrent-reconciles={{ .Values.maxConcurrentReconciles | default 2 }}
+            {{- if .Values.manifestBaseDir }}
+            - --manifest-base-dir={{ .Values.manifestBaseDir }}
+            {{- else if .Values.examples.enabled }}
+            - --manifest-base-dir={{ .Values.examples.mountPath }}
+            {{- end }}
+            - --live-api-allow-private={{ .Values.liveAPIAllowPrivate | default false }}
+            {{- if .Values.liveAPIHostAllowlist }}
+            - --live-api-host-allowlist={{ .Values.liveAPIHostAllowlist }}
+            {{- end }}
             {{- if and (eq (.Values.rbac.mode | default "cluster") "namespaced") }}
             {{- $wn := .Values.rbac.watchNamespaces | default (list) }}
             {{- if eq (len $wn) 0 }}
@@ -78,7 +87,7 @@ spec:
             - name: TWINOPS_ALLOW_LAB_FALLBACK
               value: {{ .Values.allowLabFallback | default "0" | quote }}
           volumeMounts:
-            # Single emptyDir covers managed workspace /tmp/twinops/<ns>/<uid>.
+            # emptyDir (or PVC) covers managed workspace /tmp/twinops/<ns>/<uid>/g<generation>.
             - name: tmp
               mountPath: /tmp
             {{- if .Values.examples.enabled }}

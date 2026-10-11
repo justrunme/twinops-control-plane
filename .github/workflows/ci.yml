@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, "fix/**", "feat/**"]
   pull_request:
     branches: [main]
 
@@ -177,10 +177,33 @@ jobs:
           python -m pip install -U pip
           python -m pip install -e .
 
+      - name: Setup envtest
+        run: |
+          go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
+          echo "KUBEBUILDER_ASSETS=$(setup-envtest use 1.33.0 -p path)" >> "$GITHUB_ENV"
+
       - name: Go test / build
         run: |
           go test ./...
           go build -o bin/manager ./cmd/manager
+
+      - name: Controller coverage
+        run: |
+          go test ./controllers -coverprofile=controllers.out -covermode=atomic
+          go tool cover -func=controllers.out | tee controllers-coverage.txt
+          pct=$(go tool cover -func=controllers.out | awk '/total:/ {gsub(/%/,"",$3); print $3}')
+          echo "controllers coverage=${pct}%"
+          awk -v p="$pct" 'BEGIN { if ((p+0) < 60) { print "coverage below 60%: " p; exit 1 } }'
+
+      - name: Upload controller coverage
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: controllers-coverage
+          path: |
+            controllers.out
+            controllers-coverage.txt
+          if-no-files-found: ignore
 
   operator-e2e:
     name: Operator artifact E2E (kind)

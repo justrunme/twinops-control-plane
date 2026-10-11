@@ -119,18 +119,25 @@ type DigitalTwinSpec struct {
 	ArtifactSource *ArtifactSource `json:"artifactSource,omitempty"`
 
 	// ManifestPath is a filesystem path to twin.yaml (legacy / hostPath demos).
+	// Must resolve under the operator --manifest-base-dir allowlist (no ".." traversal).
+	// Prefer artifactSource for production.
 	// +optional
+	// +kubebuilder:validation:XValidation:rule="!self.contains('..')",message="manifestPath must not contain '..'"
 	ManifestPath string `json:"manifestPath,omitempty"`
 
 	// DesiredPath is a filesystem path to desired state YAML.
+	// Must resolve under the operator --manifest-base-dir allowlist.
 	// +optional
+	// +kubebuilder:validation:XValidation:rule="!self.contains('..')",message="desiredPath must not contain '..'"
 	DesiredPath string `json:"desiredPath,omitempty"`
 
 	// ObservedPath is a filesystem path to observed telemetry JSON.
+	// Must resolve under the operator --manifest-base-dir allowlist.
 	// +optional
+	// +kubebuilder:validation:XValidation:rule="!self.contains('..')",message="observedPath must not contain '..'"
 	ObservedPath string `json:"observedPath,omitempty"`
 
-	// OutputDir is where composed USDA artifacts are written.
+	// OutputDir is legacy and ignored; the operator uses a managed workspace.
 	// +optional
 	OutputDir string `json:"outputDir,omitempty"`
 
@@ -148,12 +155,11 @@ type DigitalTwinSpec struct {
 	// +kubebuilder:default=30
 	IntervalSeconds int64 `json:"intervalSeconds,omitempty"`
 
-	// TwinOpsCtl is an optional override for the twinopsctl binary path.
-	// +optional
-	TwinOpsCtl string `json:"twinopsctl,omitempty"`
-
 	// LiveAPIURL is an optional TwinOps live API base URL for status sync.
+	// Scheme must be http or https. Link-local, metadata, and loopback hosts are
+	// blocked unless the operator enables --live-api-allow-private.
 	// +optional
+	// +kubebuilder:validation:XValidation:rule="self == '' || self.startsWith('https://') || self.startsWith('http://')",message="liveAPIURL must use http or https scheme"
 	LiveAPIURL string `json:"liveAPIURL,omitempty"`
 
 	// LiveAPIToken is an optional bearer token for the live API (demo auth).
