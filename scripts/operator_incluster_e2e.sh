@@ -7,6 +7,7 @@ cd "$ROOT"
 
 CLUSTER_NAME="${TWINOPS_KIND_CLUSTER:-twinops-incluster}"
 NAMESPACE="${TWINOPS_NAMESPACE:-twinops-system}"
+TWIN_NS="${TWINOPS_TWIN_NAMESPACE:-factory-a}"
 IMAGE="${TWINOPS_OPERATOR_IMAGE:-twinops-operator:incluster-e2e}"
 CM_NAME="assembly-line-inputs"
 RELEASE="twinops-op-e2e"
@@ -41,8 +42,9 @@ if [[ "${IMG_REPO}" == "${IMAGE}" ]]; then
   IMG_TAG="latest"
 fi
 
-echo "==> Helm install operator (in-cluster)"
+echo "==> Helm install operator (in-cluster) with secrets RBAC for twin namespace"
 kubectl create namespace "${NAMESPACE}" --dry-run=client -o yaml | kubectl apply -f -
+kubectl create namespace "${TWIN_NS}" --dry-run=client -o yaml | kubectl apply -f -
 helm upgrade --install "${RELEASE}" deploy/helm/twinops-operator \
   --namespace "${NAMESPACE}" \
   --set createNamespace=false \
@@ -50,9 +52,12 @@ helm upgrade --install "${RELEASE}" deploy/helm/twinops-operator \
   --set image.tag="${IMG_TAG}" \
   --set image.pullPolicy=Never \
   --set artifactAllowPrivate=0 \
+  --set rbac.secretNamespaces="{${NAMESPACE},${TWIN_NS}}" \
   --wait --timeout 180s
 
 kubectl -n "${NAMESPACE}" rollout status deploy/twinops-controller-manager --timeout=120s
+# Assert secrets RoleBinding exists in the twin namespace (real RBAC, not twinops-system-only).
+kubectl -n "${TWIN_NS}" get rolebinding twinops-manager-secrets >/dev/null
 
 echo "==> Prepare ConfigMap artifact bundle"
 BUNDLE="${ROOT}/usd/generated/operator-incluster-e2e-bundle"
@@ -64,10 +69,10 @@ cp "${ROOT}/examples/assembly-line/assets/root.usda" "${BUNDLE}/root.usda"
 cp "${ROOT}/examples/assembly-line/desired.yaml" "${BUNDLE}/desired.yaml"
 cp "${ROOT}/examples/assembly-line/telemetry.json" "${BUNDLE}/telemetry.json"
 
-kubectl -n "$NAMESPACE" delete digitaltwin assembly-line-a --ignore-not-found
-kubectl -n "$NAMESPACE" delete configmap "$CM_NAME" --ignore-not-found
-kubectl -n "$NAMESPACE" delete configmap -l twinops.io/twin=assembly-line-a --ignore-not-found
-kubectl -n "$NAMESPACE" create configmap "$CM_NAME" \
+kubectl -n "$TWIN_NS" delete digitaltwin assembly-line-a --ignore-not-found
+kubectl -n "$TWIN_NS" delete configmap "$CM_NAME" --ignore-not-found
+kubectl -n "$TWIN_NS" delete configmap -l twinops.io/twin=assembly-line-a --ignore-not-found
+kubectl -n "$TWIN_NS" create configmap "$CM_NAME" \
   --from-file=twin.yaml="${BUNDLE}/twin.yaml" \
   --from-file=root.usda="${BUNDLE}/root.usda" \
   --from-file=desired.yaml="${BUNDLE}/desired.yaml" \
@@ -78,7 +83,7 @@ apiVersion: twinops.io/v1alpha1
 kind: DigitalTwin
 metadata:
   name: assembly-line-a
-  namespace: ${NAMESPACE}
+  namespace: ${TWIN_NS}
 spec:
   artifactSource:
     configMapName: ${CM_NAME}
@@ -87,13 +92,13 @@ EOF
 
 wait_phase() {
   for _ in $(seq 1 120); do
-    phase="$(kubectl -n "$NAMESPACE" get digitaltwin assembly-line-a -o jsonpath='{.status.phase}' 2>/dev/null || true)"
+    phase="$(kubectl -n "$TWIN_NS" get digitaltwin assembly-line-a -o jsonpath='{.status.phase}' 2>/dev/null || true)"
     if [[ "$phase" == "Ready" || "$phase" == "DriftDetected" ]]; then
       echo "$phase"
       return 0
     fi
     if [[ "$phase" == "Error" ]]; then
-      kubectl -n "$NAMESPACE" get digitaltwin assembly-line-a -o yaml | tail -50 >&2
+      kubectl -n "$TWIN_NS" get digitaltwin assembly-line-a -o yaml | tail -50 >&2
       kubectl -n "$NAMESPACE" logs deploy/twinops-controller-manager --tail=80 >&2 || true
       return 1
     fi
@@ -108,13 +113,13 @@ echo -n "==> Wait first reconcile "
 PHASE="$(wait_phase)"
 echo "${PHASE}"
 
-DIGEST1="$(kubectl -n "$NAMESPACE" get digitaltwin assembly-line-a -o jsonpath='{.status.inputDigest}')"
+DIGEST1="$(kubectl -n "$TWIN_NS" get digitaltwin assembly-line-a -o jsonpath='{.status.inputDigest}')"
 if [[ -z "${DIGEST1}" ]]; then
-  DIGEST1="$(kubectl -n "$NAMESPACE" get digitaltwin assembly-line-a -o jsonpath='{.status.artifactDigest}')"
+  DIGEST1="$(kubectl -n "$TWIN_NS" get digitaltwin assembly-line-a -o jsonpath='{.status.artifactDigest}')"
 fi
-OUT1="$(kubectl -n "$NAMESPACE" get digitaltwin assembly-line-a -o jsonpath='{.status.output.uri}')"
-OUT_DIGEST1="$(kubectl -n "$NAMESPACE" get digitaltwin assembly-line-a -o jsonpath='{.status.output.digest}')"
-OUT_REV1="$(kubectl -n "$NAMESPACE" get digitaltwin assembly-line-a -o jsonpath='{.status.output.revision}')"
+OUT1="$(kubectl -n "$TWIN_NS" get digitaltwin assembly-line-a -o jsonpath='{.status.output.uri}')"
+OUT_DIGEST1="$(kubectl -n "$TWIN_NS" get digitaltwin assembly-line-a -o jsonpath='{.status.output.digest}')"
+OUT_REV1="$(kubectl -n "$TWIN_NS" get digitaltwin assembly-line-a -o jsonpath='{.status.output.revision}')"
 test -n "${DIGEST1}"
 test -n "${OUT1}"
 test -n "${OUT_DIGEST1}"
@@ -122,14 +127,14 @@ echo "    inputDigest=${DIGEST1}"
 echo "    output.uri=${OUT1}"
 echo "    output.digest=${OUT_DIGEST1}"
 echo "    output.revision=${OUT_REV1}"
-kubectl -n "$NAMESPACE" get configmap "assembly-line-a-output-r${OUT_REV1}" >/dev/null
+kubectl -n "$TWIN_NS" get configmap "assembly-line-a-output-r${OUT_REV1}" >/dev/null
 
 extract_and_validate_bundle() {
   local extract rev cm
   extract="$(mktemp -d)"
-  rev="$(kubectl -n "$NAMESPACE" get digitaltwin assembly-line-a -o jsonpath='{.status.output.revision}')"
+  rev="$(kubectl -n "$TWIN_NS" get digitaltwin assembly-line-a -o jsonpath='{.status.output.revision}')"
   cm="assembly-line-a-output-r${rev}"
-  kubectl -n "$NAMESPACE" get configmap "${cm}" -o jsonpath='{.binaryData.bundle\.tar\.gz}' \
+  kubectl -n "$TWIN_NS" get configmap "${cm}" -o jsonpath='{.binaryData.bundle\.tar\.gz}' \
     | base64 -d >"${extract}/bundle.tar.gz"
   mkdir -p "${extract}/out"
   tar -xzf "${extract}/bundle.tar.gz" -C "${extract}/out"
@@ -154,7 +159,7 @@ echo "==> Validate published bundle (assets + root)"
 extract_and_validate_bundle
 
 echo "==> Update ConfigMap (drop desired.yaml)"
-kubectl -n "$NAMESPACE" create configmap "$CM_NAME" \
+kubectl -n "$TWIN_NS" create configmap "$CM_NAME" \
   --from-file=twin.yaml="${BUNDLE}/twin.yaml" \
   --from-file=root.usda="${BUNDLE}/root.usda" \
   --from-file=telemetry.json="${BUNDLE}/telemetry.json" \
@@ -163,9 +168,9 @@ kubectl -n "$NAMESPACE" create configmap "$CM_NAME" \
 echo -n "==> Wait input digest change "
 DIGEST2=""
 for _ in $(seq 1 90); do
-  DIGEST2="$(kubectl -n "$NAMESPACE" get digitaltwin assembly-line-a -o jsonpath='{.status.inputDigest}' 2>/dev/null || true)"
+  DIGEST2="$(kubectl -n "$TWIN_NS" get digitaltwin assembly-line-a -o jsonpath='{.status.inputDigest}' 2>/dev/null || true)"
   if [[ -z "${DIGEST2}" ]]; then
-    DIGEST2="$(kubectl -n "$NAMESPACE" get digitaltwin assembly-line-a -o jsonpath='{.status.artifactDigest}' 2>/dev/null || true)"
+    DIGEST2="$(kubectl -n "$TWIN_NS" get digitaltwin assembly-line-a -o jsonpath='{.status.artifactDigest}' 2>/dev/null || true)"
   fi
   if [[ -n "${DIGEST2}" && "${DIGEST2}" != "${DIGEST1}" ]]; then
     echo "${DIGEST2}"
@@ -176,8 +181,8 @@ done
 test -n "${DIGEST2}"
 test "${DIGEST2}" != "${DIGEST1}"
 
-OUT_DIGEST2="$(kubectl -n "$NAMESPACE" get digitaltwin assembly-line-a -o jsonpath='{.status.output.digest}')"
-OUT_REV2="$(kubectl -n "$NAMESPACE" get digitaltwin assembly-line-a -o jsonpath='{.status.output.revision}')"
+OUT_DIGEST2="$(kubectl -n "$TWIN_NS" get digitaltwin assembly-line-a -o jsonpath='{.status.output.digest}')"
+OUT_REV2="$(kubectl -n "$TWIN_NS" get digitaltwin assembly-line-a -o jsonpath='{.status.output.revision}')"
 test -n "${OUT_DIGEST2}"
 echo "    output.digest=${OUT_DIGEST2} rev=${OUT_REV2}"
 
@@ -188,19 +193,19 @@ kubectl -n "$NAMESPACE" rollout status deploy/twinops-controller-manager --timeo
 echo -n "==> Wait post-restart healthy phase "
 PHASE2="$(wait_phase)"
 echo "${PHASE2}"
-DIGEST3="$(kubectl -n "$NAMESPACE" get digitaltwin assembly-line-a -o jsonpath='{.status.inputDigest}')"
+DIGEST3="$(kubectl -n "$TWIN_NS" get digitaltwin assembly-line-a -o jsonpath='{.status.inputDigest}')"
 if [[ -z "${DIGEST3}" ]]; then
-  DIGEST3="$(kubectl -n "$NAMESPACE" get digitaltwin assembly-line-a -o jsonpath='{.status.artifactDigest}')"
+  DIGEST3="$(kubectl -n "$TWIN_NS" get digitaltwin assembly-line-a -o jsonpath='{.status.artifactDigest}')"
 fi
-OUT_DIGEST3="$(kubectl -n "$NAMESPACE" get digitaltwin assembly-line-a -o jsonpath='{.status.output.digest}')"
-OUT_REV3="$(kubectl -n "$NAMESPACE" get digitaltwin assembly-line-a -o jsonpath='{.status.output.revision}')"
+OUT_DIGEST3="$(kubectl -n "$TWIN_NS" get digitaltwin assembly-line-a -o jsonpath='{.status.output.digest}')"
+OUT_REV3="$(kubectl -n "$TWIN_NS" get digitaltwin assembly-line-a -o jsonpath='{.status.output.revision}')"
 test "${DIGEST3}" = "${DIGEST2}"
 test "${OUT_DIGEST3}" = "${OUT_DIGEST2}"
 test "${OUT_REV3}" = "${OUT_REV2}"
-OUT3="$(kubectl -n "$NAMESPACE" get digitaltwin assembly-line-a -o jsonpath='{.status.output.uri}')"
+OUT3="$(kubectl -n "$TWIN_NS" get digitaltwin assembly-line-a -o jsonpath='{.status.output.uri}')"
 test -n "${OUT3}"
 echo "    inputDigest stable=${DIGEST3}"
 echo "    output.digest stable=${OUT_DIGEST3} rev=${OUT_REV3}"
 extract_and_validate_bundle
 
-echo "operator-incluster-e2e OK (phase=${PHASE2}, digests stable after restart, bundle valid)"
+echo "operator-incluster-e2e OK (twin_ns=${TWIN_NS}, phase=${PHASE2}, digests stable after restart, bundle valid)"

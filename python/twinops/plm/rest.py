@@ -46,10 +46,16 @@ def _normalize_item(data: dict[str, Any]) -> PlmItem:
         raise ValueError("PLM item requires id or itemId")
     prim = str(data.get("prim") or meta.get("prim") or "")
     name = str(data.get("name") or meta.get("name") or "")
+    revision = data.get("revision")
+    lifecycle = data.get("lifecycle")
+    if revision is None or str(revision).strip() == "":
+        raise ValueError(f"PLM item {item_id!r} missing revision (fail-closed)")
+    if lifecycle is None or str(lifecycle).strip() == "":
+        raise ValueError(f"PLM item {item_id!r} missing lifecycle (fail-closed)")
     return PlmItem(
         item_id=item_id,
-        revision=str(data.get("revision") or "A"),
-        lifecycle=str(data.get("lifecycle") or "Released"),
+        revision=str(revision),
+        lifecycle=str(lifecycle),
         prim=prim,
         name=name,
     )
@@ -98,6 +104,7 @@ class RestPlmAdapter:
         self.backoff_cap = backoff_cap
         self.jitter = jitter
         self.last_etag: str | None = None
+        self.last_item_etag: str | None = None
         self.request_count = 0
         self.retry_count = 0
 
@@ -136,22 +143,37 @@ class RestPlmAdapter:
             )
             try:
                 with urllib.request.urlopen(req, timeout=self.timeout) as resp:
-                    raw = resp.read()
+                    # Cap response size (1 MiB) — never buffer unbounded PLM bodies.
+                    raw = resp.read((1 << 20) + 1)
+                    if len(raw) > (1 << 20):
+                        raise PlmTransientError(
+                            f"PLM REST {method} {url} → response_too_large"
+                        )
                     headers = {k: v for k, v in resp.headers.items()}
                     code = getattr(resp, "status", 200) or 200
                     if not raw:
                         return None, headers, code
                     return json.loads(raw.decode("utf-8")), headers, code
             except urllib.error.HTTPError as exc:
-                detail = exc.read().decode("utf-8", errors="replace")
+                # Drain body but never put it into error messages (status + reason only).
+                try:
+                    _ = exc.read(4096)
+                except Exception:  # noqa: BLE001
+                    pass
+                reason = {
+                    401: "auth_failed",
+                    403: "auth_failed",
+                    409: "conflict",
+                    304: "not_modified",
+                }.get(exc.code, "upstream_5xx" if exc.code >= 500 else "client_error")
                 if exc.code in {401, 403}:
                     raise PlmAuthError(
-                        f"PLM REST {method} {url} → HTTP {exc.code}: {detail}"
+                        f"PLM REST {method} {url} → HTTP {exc.code}: {reason}"
                     ) from exc
                 if exc.code == 409:
                     etag = exc.headers.get("ETag") if exc.headers else None
                     raise PlmConflictError(
-                        f"PLM REST {method} {url} → HTTP 409: {detail}",
+                        f"PLM REST {method} {url} → HTTP 409: {reason}",
                         etag=etag,
                     ) from exc
                 if exc.code == 304:
@@ -159,7 +181,7 @@ class RestPlmAdapter:
                     raise PlmNotModified(etag or "") from exc
                 if exc.code >= 500:
                     last_exc = PlmTransientError(
-                        f"PLM REST {method} {url} → HTTP {exc.code}: {detail}"
+                        f"PLM REST {method} {url} → HTTP {exc.code}: {reason}"
                     )
                     if attempt + 1 < attempts:
                         self.retry_count += 1
@@ -167,7 +189,7 @@ class RestPlmAdapter:
                         continue
                     raise last_exc from exc
                 raise RuntimeError(
-                    f"PLM REST {method} {url} → HTTP {exc.code}: {detail}"
+                    f"PLM REST {method} {url} → HTTP {exc.code}: {reason}"
                 ) from exc
             except urllib.error.URLError as exc:
                 last_exc = PlmTransientError(
@@ -222,7 +244,7 @@ class RestPlmAdapter:
 
     def get(self, item_id: str) -> PlmItem | None:
         try:
-            data, _headers, _code = self._request(
+            data, headers, _code = self._request(
                 "GET", f"items/{quote(item_id, safe='')}"
             )
         except PlmAuthError:
@@ -237,6 +259,7 @@ class RestPlmAdapter:
             raise
         if not isinstance(data, dict):
             raise ValueError("GET /items/{id} must return an object")
+        self.last_item_etag = headers.get("ETag") or headers.get("Etag")
         return _normalize_item(data)
 
     @property
@@ -267,9 +290,13 @@ class RestPlmAdapter:
             name=current.name,
         )
         extra = {}
-        match = if_match if if_match is not None else self.last_etag
-        if match:
-            extra["If-Match"] = match
+        # Prefer the item ETag from GET /items/{id}; refuse without one (no silent catalog ETag).
+        match = if_match if if_match is not None else self.last_item_etag
+        if not match:
+            raise ValueError(
+                f"refusing bump_revision for {item_id!r}: item ETag required for If-Match"
+            )
+        extra["If-Match"] = match
         self._request(
             "PUT",
             f"items/{quote(item_id, safe='')}",

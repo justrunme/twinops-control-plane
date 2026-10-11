@@ -472,9 +472,8 @@ func TestReconcilePlmAuthFailed(t *testing.T) {
 	if _, err := r.Reconcile(ctx, req); err != nil {
 		t.Fatalf("finalizer reconcile: %v", err)
 	}
-	_, err := r.Reconcile(ctx, req)
-	if err == nil {
-		t.Fatal("expected auth error")
+	if _, err := r.Reconcile(ctx, req); err != nil {
+		t.Fatalf("auth failure must not requeue with error: %v", err)
 	}
 	var got twinopsv1alpha1.DigitalTwin
 	if err := testClient.Get(ctx, req.NamespacedName, &got); err != nil {
@@ -483,10 +482,14 @@ func TestReconcilePlmAuthFailed(t *testing.T) {
 	if conditionReason(got.Status.Conditions, "PlmSynced") != "AuthFailed" {
 		t.Fatalf("want AuthFailed, got %s msg=%s", conditionReason(got.Status.Conditions, "PlmSynced"), got.Status.PLM.Message)
 	}
+	if conditionReason(got.Status.Conditions, "AuthFailed") != "AuthFailed" {
+		t.Fatalf("want AuthFailed condition, got %s", conditionReason(got.Status.Conditions, "AuthFailed"))
+	}
 }
 
 func TestReconcilePlmSyncHappy(t *testing.T) {
 	ctx, ns, runner, r := setupNS(t)
+	r.PLMAllowPrivate = true
 
 	// Minimal mock PLM HTTP server with ETag
 	store := map[string]any{

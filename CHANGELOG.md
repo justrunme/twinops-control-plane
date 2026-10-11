@@ -4,6 +4,14 @@ All notable TwinOps changes are listed here. Dates are UTC.
 
 ## Unreleased
 
+### Security
+- PLM SSRF hardening: operator `--plm-host-allowlist` / `--plm-allow-private`, DNS+redirect private IP blocking, https required when token set (unless lab private), capped response bodies, status/events carry status+classified reason only (no response bodies)
+- PLM fail-closed: missing revision/lifecycle is an error (not default A/Released); fingerprint includes lifecycle+prim
+- MQTT: clock-skew messages quarantined without advancing sequence/timestamp; bounded epoch/session sequence resets
+- Secrets RBAC: namespaced RoleBindings in `secretNamespaces` (e2e twin outside twinops-system)
+- 401/403 → permanent AuthFailed (no infinite retry); bump_revision requires item ETag for If-Match
+
+
 ### Added
 - REST PLM reliability: mock HTTP server (ETag/304, 409, 5xx, timeout, auth), `PlmSyncSession` with exponential backoff + jitter and idempotent outage resync
 - DigitalTwin `spec.plm` / `status.plm` + `PlmSynced` / `PlmConflict` conditions; kind E2E `make operator-plm-e2e`

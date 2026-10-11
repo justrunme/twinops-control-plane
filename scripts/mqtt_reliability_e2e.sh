@@ -56,7 +56,7 @@ from twinops.telemetry.ingest import ObservationIngest, TopicBinding
 from twinops.telemetry.reliability import SensorTracker
 
 host, port, out_dir = sys.argv[1], int(sys.argv[2]), Path(sys.argv[3])
-tracker = SensorTracker(ttl_seconds=0.4, dedupe_window_seconds=30, max_skew_seconds=10)
+tracker = SensorTracker(ttl_seconds=0.4, dedupe_window_seconds=30, max_skew_seconds=3600)
 ingest = ObservationIngest(
     [
         TopicBinding(
@@ -69,15 +69,31 @@ ingest = ObservationIngest(
             prim="/World/Factory/LineA/Robot01",
             attribute="twinops:status",
         ),
+        TopicBinding(
+            topic="factory/robot-01/offline",
+            prim="/World/Factory/LineA/Robot01",
+            attribute="twinops:offlineMarker",
+        ),
     ],
     tracker=tracker,
 )
 
 received = {"n": 0}
+connected_once = {"v": False}
 
 def on_message(_c, _u, msg):
     ingest.handle_message(msg.topic, msg.payload)
     received["n"] += 1
+
+def on_connect(client, _u, _flags, reason_code, _props=None):
+    rc = int(getattr(reason_code, "value", reason_code) or 0)
+    if rc != 0:
+        return
+    client.subscribe("factory/#", qos=1)
+    if connected_once["v"]:
+        tracker.note_session_resume()
+    else:
+        connected_once["v"] = True
 
 client = mqtt.Client(
     mqtt.CallbackAPIVersion.VERSION2,
@@ -85,9 +101,14 @@ client = mqtt.Client(
     clean_session=False,
 )
 client.on_message = on_message
+client.on_connect = on_connect
 client.connect(host, port, keepalive=30)
-client.subscribe("factory/#", qos=1)
 client.loop_start()
+
+deadline = time.time() + 5
+while time.time() < deadline and not connected_once["v"]:
+    time.sleep(0.05)
+assert connected_once["v"], "ingest client failed to connect"
 
 pub = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id="twinops-reliability-pub")
 pub.connect(host, port, keepalive=30)
@@ -98,7 +119,6 @@ def publish(topic, payload):
     time.sleep(0.05)
 
 base = datetime.now(UTC)
-# In-order then out-of-order (should drop).
 publish("factory/robot-01/temperature", {
     "value": 50.0, "sequence": 2, "source": "plc",
     "timestamp": (base + timedelta(seconds=2)).isoformat().replace("+00:00", "Z"),
@@ -109,14 +129,12 @@ publish("factory/robot-01/temperature", {
     "timestamp": (base + timedelta(seconds=1)).isoformat().replace("+00:00", "Z"),
     "messageId": "t-1",
 })
-# Duplicate
 dup = {
     "value": 50.0, "sequence": 2, "source": "plc",
     "timestamp": (base + timedelta(seconds=2)).isoformat().replace("+00:00", "Z"),
     "messageId": "t-2",
 }
 publish("factory/robot-01/temperature", dup)
-# Status then let TTL expire
 publish("factory/robot-01/status", {
     "value": "running", "sequence": 1, "source": "plc",
     "timestamp": base.isoformat().replace("+00:00", "Z"),
@@ -127,10 +145,7 @@ deadline = time.time() + 5
 while time.time() < deadline and received["n"] < 4:
     time.sleep(0.05)
 
-# Force stale by backdating tracker state, then apply_stale.
-state = tracker._sensors.get("factory/robot-01/status")
-assert state is not None, "status sensor missing"
-state.received_at = datetime.now(UTC) - timedelta(seconds=5)
+time.sleep(0.55)
 stale = ingest.apply_stale()
 assert "factory/robot-01/status" in stale, stale
 snap = ingest.status()
@@ -144,28 +159,48 @@ status_attrs = next(
 assert status_attrs.get("twinops:status") == "STALE", status_attrs
 assert status_attrs.get("twinops:temperature") == 50.0, status_attrs
 
-# Session resume: disconnect ingest client and reconnect with same client_id.
+resumes_before = tracker.metrics.session_resumes
+offline_before = received["n"]
 client.loop_stop()
 client.disconnect()
-time.sleep(0.3)
-resumes_before = tracker.metrics.session_resumes
+time.sleep(0.4)
+
+publish("factory/robot-01/offline", {
+    "value": "queued-while-down", "sequence": 1, "source": "plc",
+    "timestamp": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
+    "messageId": "off-1",
+})
+time.sleep(0.2)
+
 client2 = mqtt.Client(
     mqtt.CallbackAPIVersion.VERSION2,
     client_id="twinops-reliability-e2e",
     clean_session=False,
 )
 client2.on_message = on_message
+client2.on_connect = on_connect
 client2.connect(host, port, keepalive=30)
-client2.subscribe("factory/#", qos=1)
 client2.loop_start()
-tracker.note_session_resume()
-assert tracker.metrics.session_resumes == resumes_before + 1
+
+deadline = time.time() + 8
+delivered = False
+while time.time() < deadline:
+    if received["n"] > offline_before:
+        delivered = True
+        break
+    time.sleep(0.05)
+assert delivered, f"QoS1 message not delivered after reconnect (n={received['n']})"
+assert tracker.metrics.session_resumes == resumes_before + 1, tracker.metrics.session_resumes
+snap2 = tracker.snapshot()
+assert "factory/robot-01/offline" in snap2, list(snap2)
+assert snap2["factory/robot-01/offline"].value == "queued-while-down"
 
 report = {
     "outOfOrderDropped": snap["outOfOrderDropped"],
     "duplicatesDropped": snap["duplicatesDropped"],
     "staleSensors": snap["staleSensors"],
     "sessionResumes": tracker.metrics.session_resumes,
+    "offlineDelivered": True,
     "lastTemperature": status_attrs.get("twinops:temperature"),
     "status": status_attrs.get("twinops:status"),
     "conditions": snap["conditions"],
