@@ -168,7 +168,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v7
         with:
-          go-version: "1.26.9"
+          go-version: "1.27.2"
 
       - name: Set up Python (for twinopsctl integration test)
         uses: actions/setup-python@v7
@@ -218,7 +218,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v7
         with:
-          go-version: "1.26.9"
+          go-version: "1.27.2"
 
       - name: Set up Python
         uses: actions/setup-python@v7
@@ -251,7 +251,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v7
         with:
-          go-version: "1.26.9"
+          go-version: "1.27.2"
 
       - name: Set up Python
         uses: actions/setup-python@v7
@@ -284,7 +284,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v7
         with:
-          go-version: "1.26.9"
+          go-version: "1.27.2"
 
       - name: Set up Python
         uses: actions/setup-python@v7
@@ -322,7 +322,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v7
         with:
-          go-version: "1.26.9"
+          go-version: "1.27.2"
 
       - name: Set up Python
         uses: actions/setup-python@v7
@@ -360,7 +360,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v7
         with:
-          go-version: "1.26.9"
+          go-version: "1.27.2"
 
       - name: Set up Python
         uses: actions/setup-python@v7
