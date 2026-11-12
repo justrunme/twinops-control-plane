@@ -68,6 +68,7 @@ jobs:
       - name: Upload drift SARIF artifact
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
+          retention-days: 5
           name: drift-sarif-py${{ matrix.python-version }}
           path: /tmp/twinops-drift/drift-report.sarif
 
@@ -91,6 +92,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
+          retention-days: 5
           name: e2e-demo-py${{ matrix.python-version }}
           path: /tmp/twinops-e2e-demo/out
           if-no-files-found: ignore
@@ -205,6 +207,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
+          retention-days: 5
           name: controllers-coverage
           path: |
             controllers.out
