@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "twinops"
-version = "1.5.0"
+version = "1.5.1"
 description = "GitOps control plane toolkit for industrial digital twins (OpenUSD compiler)"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -17,17 +17,27 @@ keywords = [
   "omniverse",
   "platform-engineering",
   "kubernetes",
+  "control-plane",
+  "industrial",
+  "usd",
 ]
 classifiers = [
   "Development Status :: 4 - Beta",
+  "Environment :: Console",
+  "Framework :: FastAPI",
   "Intended Audience :: Developers",
+  "Intended Audience :: Manufacturing",
+  "Intended Audience :: Science/Research",
   "License :: OSI Approved :: Apache Software License",
+  "Operating System :: OS Independent",
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3 :: Only",
   "Topic :: Scientific/Engineering",
   "Topic :: Software Development :: Build Tools",
+  "Topic :: System :: Monitoring",
 ]
 dependencies = [
   "PyYAML>=6.0",
@@ -64,9 +74,13 @@ dev = [
 twinopsctl = "twinops.cli:main"
 
 [project.urls]
-Homepage = "https://github.com/justrunme/twinops-control-plane"
+Homepage = "https://justrunme.com/"
 Repository = "https://github.com/justrunme/twinops-control-plane"
 Issues = "https://github.com/justrunme/twinops-control-plane/issues"
+Changelog = "https://github.com/justrunme/twinops-control-plane/blob/main/CHANGELOG.md"
+Documentation = "https://github.com/justrunme/twinops-control-plane#readme"
+Author = "https://justrunme.com/"
+ORCID = "https://orcid.org/0009-0004-7583-4314"
 
 [tool.setuptools.packages.find]
 where = ["python"]

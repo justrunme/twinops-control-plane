@@ -4,22 +4,28 @@ GitOps control plane for industrial digital twins (OpenUSD + Omniverse).
 
 [![CI](https://github.com/justrunme/twinops-control-plane/actions/workflows/ci.yml/badge.svg)](https://github.com/justrunme/twinops-control-plane/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/justrunme/twinops-control-plane?display_name=tag)](https://github.com/justrunme/twinops-control-plane/releases/latest)
-[![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
+[![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](https://github.com/justrunme/twinops-control-plane/blob/main/LICENSE)
 [![OpenUSD](https://img.shields.io/badge/OpenUSD-compiler-brightgreen.svg)](#2-minute-live-demo)
-[![Go](https://img.shields.io/badge/Go-operator-brightgreen.svg)](docs/operator.md)
-[![Kubernetes](https://img.shields.io/badge/Kubernetes-CRD-brightgreen.svg)](docs/operator.md)
+[![Go](https://img.shields.io/badge/Go-operator-brightgreen.svg)](https://github.com/justrunme/twinops-control-plane/blob/main/docs/operator.md)
+[![Kubernetes](https://img.shields.io/badge/Kubernetes-CRD-brightgreen.svg)](https://github.com/justrunme/twinops-control-plane/blob/main/docs/operator.md)
 [![Omniverse](https://img.shields.io/badge/NVIDIA%20Omniverse-optional-orange.svg)](#roadmap-summary)
 [![Case study](https://img.shields.io/badge/case-justrunme.com-111111)](https://justrunme.com/cases/twinops-control-plane/)
 [![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/justrunme/twinops-control-plane/badge)](https://securityscorecards.dev/viewer/?uri=github.com/justrunme/twinops-control-plane)
 
-Evidence: [docs/EVIDENCE.md](docs/EVIDENCE.md)
+Evidence: [docs/EVIDENCE.md](https://github.com/justrunme/twinops-control-plane/blob/main/docs/EVIDENCE.md)
+
+## Install
+
+```bash
+pip install twinops
+```
 
 <p align="center">
-  <img src="docs/assets/twinops-lifecycle.gif" alt="TwinOps lifecycle: PLM → GitOps manifest → control plane → OpenUSD → telemetry/drift → reconcile → SYNCED" width="800" />
+  <img src="https://raw.githubusercontent.com/justrunme/twinops-control-plane/main/docs/assets/twinops-lifecycle.gif" alt="TwinOps lifecycle: PLM → GitOps manifest → control plane → OpenUSD → telemetry/drift → reconcile → SYNCED" width="800" />
 </p>
 
 <p align="center"><em>TwinOps lifecycle — Desired PLM/Git → Rendered OpenUSD → Observed telemetry → Drift → Reconcile → SYNCED<br/>
-(<a href="docs/assets/twinops-lifecycle.mp4">MP4</a> for smoother local playback)</em></p>
+(<a href="https://github.com/justrunme/twinops-control-plane/raw/main/docs/assets/twinops-lifecycle.mp4">MP4</a> for smoother local playback)</em></p>
 
 Case study: [TwinOps Control Plane](https://justrunme.com/cases/twinops-control-plane/) · [Andrey Lesnikov](https://justrunme.com/)
 
@@ -45,7 +51,7 @@ make live-demo-smoke
 ## Architecture
 
 <p align="center">
-  <img src="docs/assets/twinops-architecture.svg" alt="TwinOps architecture: sources, control plane, three-way drift, immutable outputs, optional runtimes" width="100%" />
+  <img src="https://raw.githubusercontent.com/justrunme/twinops-control-plane/main/docs/assets/twinops-architecture.svg" alt="TwinOps architecture: sources, control plane, three-way drift, immutable outputs, optional runtimes" width="100%" />
 </p>
 
 <p align="center"><em>Control plane first: materialize → compose (inline or Job) → three-way drift → immutable output revisions. Kit / WebRTC are optional runtimes.</em></p>
@@ -91,7 +97,7 @@ flowchart LR
   Out --> RTC
 ```
 
-Full one-pager: [docs/architecture-one-pager.md](docs/architecture-one-pager.md) · operator: [docs/operator.md](docs/operator.md) · release: [docs/release-1.4.md](docs/release-1.4.md)
+Full one-pager: [docs/architecture-one-pager.md](https://github.com/justrunme/twinops-control-plane/blob/main/docs/architecture-one-pager.md) · operator: [docs/operator.md](https://github.com/justrunme/twinops-control-plane/blob/main/docs/operator.md) · release: [docs/release-1.4.md](https://github.com/justrunme/twinops-control-plane/blob/main/docs/release-1.4.md)
 
 ---
 
@@ -127,7 +133,7 @@ The distinctive feature is **three-way drift detection** (see diagram above):
 | **Rendered** | Composed OpenUSD | What the twin scene encodes |
 | **Observed** | MQTT / IoT | Live factory signal |
 
-Frozen contracts: [docs/stability.md](docs/stability.md).
+Frozen contracts: [docs/stability.md](https://github.com/justrunme/twinops-control-plane/blob/main/docs/stability.md).
 
 ---
 
@@ -163,7 +169,7 @@ make e2e-demo
 make streaming-sidecar-smoke
 ```
 
-Full walkthrough: [docs/demo.md](docs/demo.md) · [docs/e2e-demo.md](docs/e2e-demo.md) · [docs/streaming-sidecar.md](docs/streaming-sidecar.md)
+Full walkthrough: [docs/demo.md](https://github.com/justrunme/twinops-control-plane/blob/main/docs/demo.md) · [docs/e2e-demo.md](https://github.com/justrunme/twinops-control-plane/blob/main/docs/e2e-demo.md) · [docs/streaming-sidecar.md](https://github.com/justrunme/twinops-control-plane/blob/main/docs/streaming-sidecar.md)
 
 ---
 
@@ -172,7 +178,7 @@ Full walkthrough: [docs/demo.md](docs/demo.md) · [docs/e2e-demo.md](docs/e2e-de
 Terminal capture of the CI end-to-end flow (`scripts/e2e_demo.sh`): heat spike → CRITICAL → reconcile → SYNCED → incident replay.
 
 <p align="center">
-  <img src="docs/assets/e2e-demo.svg" alt="TwinOps e2e demo terminal: spike to SYNCED with incident replay" width="100%" />
+  <img src="https://raw.githubusercontent.com/justrunme/twinops-control-plane/main/docs/assets/e2e-demo.svg" alt="TwinOps e2e demo terminal: spike to SYNCED with incident replay" width="100%" />
 </p>
 
 Offline self-healing compose demo:
@@ -182,14 +188,14 @@ make demo
 ```
 
 <p align="center">
-  <img src="docs/assets/demo-self-healing.svg" alt="TwinOps offline self-healing demo terminal" width="100%" />
+  <img src="https://raw.githubusercontent.com/justrunme/twinops-control-plane/main/docs/assets/demo-self-healing.svg" alt="TwinOps offline self-healing demo terminal" width="100%" />
 </p>
 
-Live UI demo: [docs/demo.md](docs/demo.md) · E2E walkthrough: [docs/e2e-demo.md](docs/e2e-demo.md)
+Live UI demo: [docs/demo.md](https://github.com/justrunme/twinops-control-plane/blob/main/docs/demo.md) · E2E walkthrough: [docs/e2e-demo.md](https://github.com/justrunme/twinops-control-plane/blob/main/docs/e2e-demo.md)
 
 ## Results
 
-Measured numbers from CI (not estimates). Full table: [docs/results.md](docs/results.md) · machine-readable: [docs/results.json](docs/results.json).
+Measured numbers from CI (not estimates). Full table: [docs/results.md](https://github.com/justrunme/twinops-control-plane/blob/main/docs/results.md) · machine-readable: [docs/results.json](https://github.com/justrunme/twinops-control-plane/blob/main/docs/results.json).
 
 | Metric | Value | Source run |
 | --- | ---: | --- |
@@ -228,7 +234,7 @@ twinopsctl plm get 1004711 --catalog examples/assembly-line/plm-catalog.json
 twinopsctl plm compare
 ```
 
-See [docs/plm-adapter.md](docs/plm-adapter.md).
+See [docs/plm-adapter.md](https://github.com/justrunme/twinops-control-plane/blob/main/docs/plm-adapter.md).
 
 ### Omniverse highlight contract (no GPU)
 
@@ -240,7 +246,7 @@ make scene-highlight # Kit stub client
 make scene           # offline JSON + HTML highlight report
 ```
 
-See [docs/omniverse.md](docs/omniverse.md).
+See [docs/omniverse.md](https://github.com/justrunme/twinops-control-plane/blob/main/docs/omniverse.md).
 
 ### Local DX probes
 
@@ -261,7 +267,7 @@ twinopsctl openapi --out /tmp/twinops-openapi.json
 make verify-all
 ```
 
-Docs index: [docs/README.md](docs/README.md). Security: [SECURITY.md](SECURITY.md).
+Docs index: [docs/README.md](https://github.com/justrunme/twinops-control-plane/blob/main/docs/README.md). Security: [SECURITY.md](https://github.com/justrunme/twinops-control-plane/blob/main/SECURITY.md).
 
 ### Dev UI (Vite hot reload)
 
@@ -279,7 +285,7 @@ make operator-demo-cleanup
 ```
 
 In-cluster path publishes a durable `bundle.tar.gz` on the twin (`status.output.uri`).
-See [docs/operator.md](docs/operator.md), [docs/images.md](docs/images.md).
+See [docs/operator.md](https://github.com/justrunme/twinops-control-plane/blob/main/docs/operator.md), [docs/images.md](https://github.com/justrunme/twinops-control-plane/blob/main/docs/images.md).
 
 ### Tests
 
@@ -289,7 +295,7 @@ make go-test
 make verify-all
 ```
 
-See [CONTRIBUTING.md](CONTRIBUTING.md).
+See [CONTRIBUTING.md](https://github.com/justrunme/twinops-control-plane/blob/main/CONTRIBUTING.md).
 
 ---
 
@@ -396,7 +402,7 @@ Milestones 1–2 deliver composition, drift detection, HTML report, and a reconc
 | Kit / media | Highlight contract, lab WebRTC, single-session NVENC ingest | **lab / optional** |
 | Next | Multi-site fleet, large non-ConfigMap Job inputs | not claimed |
 
-See full [docs/roadmap.md](docs/roadmap.md) and [docs/architecture.md](docs/architecture.md).
+See full [docs/roadmap.md](https://github.com/justrunme/twinops-control-plane/blob/main/docs/roadmap.md) and [docs/architecture.md](https://github.com/justrunme/twinops-control-plane/blob/main/docs/architecture.md).
 
 ---
 
@@ -422,4 +428,4 @@ ORCID: [https://orcid.org/0009-0004-7583-4314](https://orcid.org/0009-0004-7583-
 
 ## License
 
-Apache License 2.0 — see [LICENSE](LICENSE).
+Apache License 2.0 — see [LICENSE](https://github.com/justrunme/twinops-control-plane/blob/main/LICENSE).
