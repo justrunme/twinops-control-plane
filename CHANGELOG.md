@@ -4,6 +4,14 @@ All notable TwinOps changes are listed here. Dates are UTC.
 
 ## Unreleased
 
+## [1.5.1] - 2026-11-22
+
+PyPI publication release:
+
+### Added
+- PyPI Trusted Publishing workflow for package distribution
+- Enhanced project metadata with comprehensive URLs and classifiers
+
 ## [1.5.0] - 2026-10-11
 
 PLM REST reliability, MQTT sensor reliability, and operator trust hardening since 1.4.4:
